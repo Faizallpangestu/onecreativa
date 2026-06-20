@@ -1,0 +1,16 @@
+# .htaccess untuk hris-creativa/backend
+# Matikan rewrite dari parent agar PHP dieksekusi langsung
+
+RewriteEngine Off
+
+# Pastikan PHP dieksekusi, bukan di-serve sebagai file statis
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# CORS headers untuk semua response dari folder ini
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+</IfModule>

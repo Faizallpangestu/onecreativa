@@ -1,0 +1,89 @@
+# ============================================================
+# ONE Creativa - Performance & Security .htaccess
+# ============================================================
+
+# ── SPA Routing ─────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Jangan redirect API/uploads
+  RewriteCond %{REQUEST_URI} ^/api/ [OR]
+  RewriteCond %{REQUEST_URI} ^/uploads/
+  RewriteRule ^ - [L]
+
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# ── GZIP Compression (Kecepatan Transfer) ────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE text/javascript
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/x-javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# ── Browser Caching (Kurangi Loading Berulang) ───────────────
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # HTML: jangan di-cache agar selalu fresh
+  ExpiresByType text/html                  "access plus 0 seconds"
+
+  # JS & CSS: cache 1 tahun (nama file sudah pakai hash dari Vite)
+  ExpiresByType text/css                   "access plus 1 year"
+  ExpiresByType application/javascript     "access plus 1 year"
+  ExpiresByType application/x-javascript  "access plus 1 year"
+
+  # Gambar & Font: cache 1 tahun
+  ExpiresByType image/png                  "access plus 1 year"
+  ExpiresByType image/jpg                  "access plus 1 year"
+  ExpiresByType image/jpeg                 "access plus 1 year"
+  ExpiresByType image/gif                  "access plus 1 year"
+  ExpiresByType image/svg+xml             "access plus 1 year"
+  ExpiresByType image/webp                 "access plus 1 year"
+  ExpiresByType image/x-icon              "access plus 1 year"
+  ExpiresByType font/woff                  "access plus 1 year"
+  ExpiresByType font/woff2                 "access plus 1 year"
+  ExpiresByType application/font-woff     "access plus 1 year"
+  ExpiresByType application/font-woff2    "access plus 1 year"
+
+  # Manifest & Service Worker
+  ExpiresByType application/manifest+json  "access plus 0 seconds"
+</IfModule>
+
+# ── Cache-Control Headers ────────────────────────────────────
+<IfModule mod_headers.c>
+  # Assets dengan hash (JS/CSS) boleh di-cache lama
+  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|webp|woff|woff2|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # HTML selalu fresh
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Security Headers (Best Practice)
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+# ── Sembunyikan file sensitif ────────────────────────────────
+<FilesMatch "\.(env|log|sql|sh|bak|git)$">
+  Order allow,deny
+  Deny from all
+</FilesMatch>

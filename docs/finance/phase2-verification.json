@@ -1,0 +1,110 @@
+{
+  "verified_at": "2026-10-12T05:45:46.566Z",
+  "scope": "Local implementation verification; not browser QA, production deployment, or complete HRD/Sensei/LMS certification",
+  "integration_tests": [
+    {
+      "command": "php backend/tests/accounting_test.php",
+      "passed": true,
+      "checks": 99,
+      "output": "PASS: 99 accounting integration checks.",
+      "database": "isolated temporary database, cleaned by test runner"
+    },
+    {
+      "command": "php backend/tests/budget_workflow_test.php",
+      "passed": true,
+      "checks": 75,
+      "output": "PASS: 75 budget workflow checks.",
+      "database": "isolated temporary database, cleaned by test runner"
+    },
+    {
+      "command": "php backend/tests/salary_workflow_test.php",
+      "passed": true,
+      "checks": 68,
+      "output": "PASS: 68 salary workflow checks.",
+      "database": "isolated temporary database, cleaned by test runner"
+    }
+  ],
+  "total_integration_checks": 242,
+  "php_syntax": {
+    "passed": true,
+    "changed_files_checked": 28
+  },
+  "eslint": {
+    "passed": true,
+    "changed_frontend_files_checked": 21,
+    "repository_wide_lint_asserted": false
+  },
+  "frontend_build": {
+    "passed": true,
+    "command": "node node_modules/vite/bin/vite.js build --outDir .phase2-build-check",
+    "vite_reported_build_seconds": 13.27,
+    "pwa_generated": true,
+    "temporary_output_removed_after_validation": true,
+    "deployed": false,
+    "warnings": [
+      "Browserslist caniuse-lite data is 6 months old",
+      "Some bundles exceed configured 1500 kB threshold"
+    ]
+  },
+  "generated_artifacts_and_packaging": {
+    "passed": true,
+    "command": "node tools/phase2-build-check.cjs",
+    "checks": [
+      "Generated service worker uses NetworkOnly for API GET requests",
+      "No PHP/SQL/private storage/uploads in precache",
+      "Real backend packaging function excludes local credentials, backups, proofs, tests and diagnostics on synthetic fixture",
+      "Business APIs, CLI migrations, services and directory protection preserved on synthetic fixture"
+    ]
+  },
+  "data_integrity": {
+    "passed": true,
+    "command": "node tools/phase2-data-integrity.cjs",
+    "artifact": "phase2-data-integrity.json",
+    "original_tables": 45,
+    "all_original_values_unchanged": true,
+    "financial_aggregates_unchanged": true
+  },
+  "real_database_read_only_check": {
+    "passed": true,
+    "command": "php tools/phase2-local-check.php",
+    "legacy_ledger_records": 3,
+    "posted_journals": 0,
+    "review_flags": 3,
+    "source_details_readable": true
+  },
+  "system_audit": {
+    "routes": 103,
+    "php_endpoints": 74,
+    "static_without_detected_session_authorization": 33,
+    "runtime_schema_flags": 17,
+    "flags_are_not_exploit_certification": true
+  },
+  "source_sha256": {
+    "backend/api/accounting.php": "257c4c3b9e8c1944564040f45f1a6364facc9790e883c1dc9537f391faeb2d03",
+    "backend/api/budgets.php": "0ec6c6c5e13d155c174d76f8eeba621cd583103a9896a5194455171afb4c3b7d",
+    "backend/services/budget_workflow.php": "a8d39d604d9b0463ef991b71c2f334f70e81502839449b6e7915a30ebbe933bd",
+    "backend/services/budget_realization.php": "2fe0c89221a1bf7e2811528030c27d90bd0f51f6e0e1d09109adf079a72afac2",
+    "backend/migrations/finance_traceability.php": "63ac2870aa302514812e0d761264110a79486971dcaebaa25a39ac7a21363ab8",
+    "src/pages/FinanceWorkspace.jsx": "99126eccd96f8894cb09239145d8d089684fb3a2036d462c6b1caa1fe7c0260b",
+    "src/components/AccountingTools.jsx": "c778c38a56249d91e626fa1e13526dd4e78545abaf61d3bc72df397de9e35eb7",
+    "src/components/AccountingTransactionForm.jsx": "d8d55fcecc729b36f7105607473e797b6bca64bbeb755809b55fde0ec89e3063",
+    "src/components/BudgetRealizationForm.jsx": "c5c2167cfd7ea0332c524bb817e588d8f413606ba1f2d8571d403af1cae7b3c8",
+    "vite.config.js": "96cadd0e54b9453cd783182a3c572637adb7b2fa5ce85cd3ba6fef22b9435f73",
+    "copy-backend.js": "cb858d2e87283ac11c4e9a779b983e3d4c178cf1e7c8ea4c966aa4af962ea5b1",
+    "tools/phase2-build-check.cjs": "b74b029b85265e55c59624dfc569728725bd59b13763bff8f28658028029f938",
+    "backend/services/accounting_cash.php": "8cecca6ddcd625b220ea2166f06d2410c4f066449fd8410a15edd1a37a7ddfd1",
+    "backend/services/accounting_core.php": "ea4730a069d92f36e5da419f415a077e21bcab2258baa3f210d640ce16a6c0ac",
+    "backend/services/accounting_documents.php": "3f1fd957d34135400916260951ad680d758768ef4c56128d7b5546adcf15228e",
+    "backend/services/accounting_journal.php": "ed9baf30090fcf08c407ac5bd334fababe1309d273d50d2d158327ee3771ec4a",
+    "backend/services/accounting_ledger.php": "cb2121d04e99e7b2df43fc0cbde04b35daa8f454310011075d3947e49713d6a5",
+    "backend/services/accounting_reports.php": "9afdc38fe648534dc28d88f6611445e0926df6ffdd017e8ed2480ede28e727e5",
+    "backend/services/accounting_schema.php": "97b85459f7e2cf322d8b32b6527c246127bb9040f9df71905681b26b3686f2e2",
+    "backend/services/accounting_vendor.php": "3022f8bfa24f1cf948cde79d440f82f85f9dbb303be845541505b1060f05994f"
+  },
+  "pending": [
+    "Browser/mobile and target hosting QA",
+    "Comprehensive remaining module authorization and LMS enrollment review",
+    "Legacy public upload privacy migration",
+    "Historical source review and opening balances external reconciliation"
+  ]
+}

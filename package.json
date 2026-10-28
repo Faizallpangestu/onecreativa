@@ -5,19 +5,30 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node copy-backend.js",
+    "build": "vite build && node tools/prerender-login.mjs && node copy-backend.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.15.0",
+    "clsx": "^2.1.1",
     "face-api.js": "^0.22.2",
-    "lucide-react": "^1.20.0",
+    "html2canvas": "^1.4.1",
+    "html5-qrcode": "^2.3.8",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.48.0",
+    "mysql2": "^3.22.5",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-qr-code": "^2.2.0",
     "react-router-dom": "^7.14.1",
     "recharts": "^3.8.1",
-    "xlsx": "^0.18.5"
+    "sweetalert2": "^11.26.25",
+    "tailwind-merge": "^3.7.0",
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -30,6 +41,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "postcss": "^8.5.9",
+    "sharp": "^0.35.2",
     "tailwindcss": "^3.4.19",
     "vite": "^8.0.4",
     "vite-plugin-pwa": "^1.3.0"

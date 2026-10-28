@@ -1,0 +1,777 @@
+{
+  "audited_at": "2026-10-12T06:26:45.971Z",
+  "method": "Static inventory. Flags indicate inspection candidates, not proven exploitability. Verify included helpers and role/ownership paths before deployment.",
+  "routes": [
+    "/dashboard-siswa-intensif",
+    "/account-settings",
+    "/",
+    "/login",
+    "/home",
+    "/menu-karyawan",
+    "/menu-hrd",
+    "/menu-admin",
+    "/menu-finance",
+    "/menu-ga",
+    "/assets",
+    "/assets/tambah",
+    "/assets/edit/:id",
+    "/assets/scan",
+    "/assets/detail/:id",
+    "/assets/laporan",
+    "/assets/audit",
+    "/assets/approval",
+    "/assets/maintenance",
+    "/dashboard",
+    "/employees",
+    "/access-rights",
+    "/assign-rfid",
+    "/attendance",
+    "/strava",
+    "/strava-admin",
+    "/payroll",
+    "/payroll-hrd",
+    "/overtime",
+    "/leaves",
+    "/daily-report-admin",
+    "/slip-gaji-karyawan",
+    "/daily-report-karyawan",
+    "/reimbursement",
+    "/profit",
+    "/buku-transaksi",
+    "/laporan-keuangan",
+    "/dashboard-finance",
+    "/transaksi-pemasukan",
+    "/transaksi-pengeluaran",
+    "/history-invoice",
+    "/invoice-penagihan",
+    "/anggaran",
+    "/salary",
+    "/settings",
+    "/positions",
+    "/face-enrollment",
+    "/face-clock",
+    "/location-settings",
+    "/matching-job",
+    "/nenkin",
+    "/lpk-nenkin",
+    "/lpk-alumni",
+    "/lpk-intensif",
+    "/lpk-magang",
+    "/dashboard-creativa",
+    "/dashboard-peserta-nenkin",
+    "/dashboard-peserta-intensif",
+    "/dashboard-peserta-matching",
+    "/dashboard-peserta-mendang",
+    "/dashboard-peserta-alumni",
+    "/access-rights-sensei",
+    "/access-rights-siswa",
+    "/lpk-absensi-sensei",
+    "/lpk-absensi-siswa",
+    "/lpk-nilai",
+    "/lpk-tugas",
+    "/lpk-quiz",
+    "/lpk-materi",
+    "/dashboard-sensei",
+    "/sensei/barcode",
+    "/sensei/agenda",
+    "/sensei/materi",
+    "/sensei/tugas",
+    "/sensei/quiz",
+    "/sensei/ukom",
+    "/sensei/konsultasi",
+    "/sensei/nilai-siswa",
+    "/sensei/kehadiran",
+    "/sensei/leaderboard",
+    "/lms/dashboard",
+    "/lms/profil",
+    "/lms/kartu-siswa",
+    "/lms/tagihan",
+    "/lms/ukom",
+    "/lms/konsultasi",
+    "/lms/kotoba",
+    "/lms/kalender",
+    "/lms/agenda",
+    "/lms/materi",
+    "/lms/tugas",
+    "/lms/quiz",
+    "/lms/nilai",
+    "/lms/nilai-siswa",
+    "/lms/belajar-mandiri",
+    "/lms/absensi",
+    "/lms/leaderboard",
+    "/lms/latihan-kaiwa",
+    "/lms/instructor",
+    "/lms/presence-code",
+    "/lms/pengumuman",
+    "/lms/kalender-n5",
+    "/lms/kalender-n4"
+  ],
+  "api_endpoints": [
+    {
+      "file": "backend/api/accounting.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/add_status_col.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/assets.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/assets_migrate.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/asset_histories.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/attendance.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/billing.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/budgets.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/check_employees.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/check_payslips.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/check_table.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/cors.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/daily_reports.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/dashboard_karyawan.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/dashboard_stats.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/db_migration_daily_reports.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/db_profile_fix2.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/debug.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/debug_collations.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/debug_foto.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/debug_foto2.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/debug_foto3.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/debug_foto4.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/departments.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/employees.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/employee_stats.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/face_clock.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/face_enroll.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/finance.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/fix_local_db.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/fix_orphaned.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/invoice.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/jwt.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/leaves.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/lms_announcements.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/lms_attendance.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_dashboard_stats.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_grades.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_kaiwa.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_leaderboard.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_meetings.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_submissions.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lms_tasks.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/login.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/logout.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lpk_alumni.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lpk_intensif.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lpk_matching.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lpk_mendang.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/lpk_nenkin.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/maintenance.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/migrate_tasks.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/overtime.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/payroll.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/positions.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": true,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/profile.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/publish_payroll.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/reimbursements.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/resolve_map.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/rfid.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/rfid_scan.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/salaries.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/salary_slips.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/save_payroll.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/schema_dump.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/schema_dump2.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/sensei_dashboard_stats.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/session.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/settings.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": true,
+      "hard_delete_sql": false,
+      "sql_error_returned": true
+    },
+    {
+      "file": "backend/api/show_tables.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/test_finance.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/test_save_payroll.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/test_user.php",
+      "diagnostic_or_migration": true,
+      "session_authorization_detected": false,
+      "client_user_or_student_id": false,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    },
+    {
+      "file": "backend/api/upload_photo.php",
+      "diagnostic_or_migration": false,
+      "session_authorization_detected": true,
+      "client_user_or_student_id": true,
+      "runtime_schema_changes": false,
+      "hard_delete_sql": false,
+      "sql_error_returned": false
+    }
+  ]
+}

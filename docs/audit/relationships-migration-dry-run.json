@@ -1,0 +1,27 @@
+{
+  "verified_at": "2026-10-12T08:26:06.913Z",
+  "database": "one-creativa",
+  "local_only": true,
+  "migration": "20261012_relationships",
+  "migration_sha256": "cc1b96bd8c9f855e41b8e311bc072de70b723a8828aa6fa17f36ac4397e173d5",
+  "mode": "dry-run",
+  "backup": "backend/storage/backups/release-1791793554663",
+  "backup_sha256": "3fdc3fa717e4d324694bf323c4369dcf2e61f265fd6c70cf6b093401b41678e6",
+  "restore_verified": true,
+  "triggers_restored": 9,
+  "original_tables": 61,
+  "original_rows_unchanged": true,
+  "tables": [
+    "employee_employment",
+    "lms_classes",
+    "lms_teaching_assignments",
+    "lms_class_enrollments",
+    "lms_meeting_assignments",
+    "lms_grade_publications",
+    "student_invoice_links",
+    "matching_student_links",
+    "matching_candidate_history"
+  ],
+  "created": [],
+  "historical_recovery_executed": false
+}

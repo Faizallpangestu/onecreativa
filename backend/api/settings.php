@@ -11,17 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require '../config/database.php';
 
-// Auto-create tabel settings jika belum ada
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS settings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    company_name VARCHAR(255) NOT NULL DEFAULT 'PT. Creativa',
-    check_in_time VARCHAR(20) NOT NULL DEFAULT '07:00:00',
-    tolerance_minutes INT NOT NULL DEFAULT 10,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-// ── GET: Ambil Settings ──────────────────────────────────────────────────
+// Schema is installed by the reviewed CLI migration.
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $q = mysqli_query($conn, "SELECT * FROM settings ORDER BY id ASC LIMIT 1");
     $settings = mysqli_fetch_assoc($q);
@@ -30,7 +20,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $settings = [
             "company_name"       => "PT. Creativa Bridging International",
             "check_in_time"      => "07:00:00",
-            "tolerance_minutes"  => 10
+            "tolerance_minutes"  => 10,
+            "office_latitude"    => "-6.2088",
+            "office_longitude"   => "106.8456",
+            "office_radius"      => 50
         ];
     }
 
@@ -45,12 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $company_name      = mysqli_real_escape_string($conn, $body['company_name'] ?? '');
     $check_in_time     = mysqli_real_escape_string($conn, $body['check_in_time'] ?? '');
     $tolerance_minutes = (int)($body['tolerance_minutes'] ?? 0);
-
-    if (!$company_name || !$check_in_time) {
-        http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "Data tidak lengkap"]);
-        exit;
-    }
+    $office_latitude   = mysqli_real_escape_string($conn, $body['office_latitude'] ?? '');
+    $office_longitude  = mysqli_real_escape_string($conn, $body['office_longitude'] ?? '');
+    $office_radius     = (int)($body['office_radius'] ?? 0);
 
     // Ambil baris pertama
     $q   = mysqli_query($conn, "SELECT id FROM settings ORDER BY id ASC LIMIT 1");
@@ -59,10 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     if ($row) {
         // UPDATE — query dalam satu baris agar tidak ada syntax error
         $id = (int)$row['id'];
-        $ok = mysqli_query($conn, "UPDATE settings SET company_name='$company_name', check_in_time='$check_in_time', tolerance_minutes='$tolerance_minutes', updated_at=NOW() WHERE id=$id");
+        $updateQuery = "UPDATE settings SET 
+            company_name='$company_name', 
+            check_in_time='$check_in_time', 
+            tolerance_minutes='$tolerance_minutes'";
+            
+        if ($office_latitude) $updateQuery .= ", office_latitude='$office_latitude'";
+        if ($office_longitude) $updateQuery .= ", office_longitude='$office_longitude'";
+        if ($office_radius) $updateQuery .= ", office_radius='$office_radius'";
+        
+        $updateQuery .= ", updated_at=NOW() WHERE id=$id";
+        $ok = mysqli_query($conn, $updateQuery);
     } else {
         // INSERT baris pertama
-        $ok = mysqli_query($conn, "INSERT INTO settings (company_name, check_in_time, tolerance_minutes) VALUES ('$company_name', '$check_in_time', '$tolerance_minutes')");
+        $ok = mysqli_query($conn, "INSERT INTO settings (company_name, check_in_time, tolerance_minutes, office_latitude, office_longitude, office_radius) VALUES ('$company_name', '$check_in_time', '$tolerance_minutes', '$office_latitude', '$office_longitude', '$office_radius')");
     }
 
     if (!$ok) {

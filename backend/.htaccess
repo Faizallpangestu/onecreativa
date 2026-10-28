@@ -1,16 +1,23 @@
 # .htaccess untuk hris-creativa/backend
+Options -Indexes
+ServerSignature Off
+
 # Matikan rewrite dari parent agar PHP dieksekusi langsung
 
 RewriteEngine Off
 
 # Pastikan PHP dieksekusi, bukan di-serve sebagai file statis
-<FilesMatch "\.php$">
-    SetHandler application/x-httpd-php
-</FilesMatch>
+# Dihapus: SetHandler application/x-httpd-php (menyebabkan Error 500 di Hostinger/LiteSpeed)
 
 # CORS headers untuk semua response dari folder ini
 <IfModule mod_headers.c>
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
     Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>

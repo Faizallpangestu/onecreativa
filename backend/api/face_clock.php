@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require '../config/database.php';
+require_once __DIR__.'/../config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -43,7 +43,7 @@ if (!$employee_id || !in_array($type, ["clock_in", "clock_out"])) {
 // Pengecekan confidence dinonaktifkan sesuai permintaan agar absensi tetap bisa masuk meskipun wajah sulit dideteksi.
 
 // ── Cek karyawan ada ─────────────────────────────────────────────────────────
-$empRes = mysqli_query($conn, "SELECT id, full_name AS name, photo_url AS photo FROM employees WHERE id = $employee_id LIMIT 1");
+$empRes = mysqli_query($conn, "SELECT id, full_name AS name, photo_url AS photo, work_type FROM employees WHERE id = $employee_id LIMIT 1");
 $emp = mysqli_fetch_assoc($empRes);
 if (!$emp) {
     http_response_code(404);
@@ -51,9 +51,12 @@ if (!$emp) {
     exit;
 }
 
-// ── Ambil work schedule (jam masuk standar) ───────────────────────────────────
-$shiftStart     = "08:00:00";
-$lateTolerance  = 15;
+// ── Ambil work schedule dari settings ──────────────────────────────────────
+$settingQuery = mysqli_query($conn, "SELECT check_in_time, tolerance_minutes FROM settings LIMIT 1");
+$settingData = mysqli_fetch_assoc($settingQuery);
+
+$shiftStart = $settingData['check_in_time'] ?? "08:00:00";
+$lateTolerance = isset($settingData['tolerance_minutes']) ? (int)$settingData['tolerance_minutes'] : 15;
 
 $today = date("Y-m-d");
 $now   = date("Y-m-d H:i:s");
@@ -62,7 +65,7 @@ $timeNow = date("H:i:s");
 // ── Simpan snapshot jika ada ──────────────────────────────────────────────────
 $snapshotPath = null;
 if ($snapshot_b64) {
-    $uploadDir = "../uploads/face_snapshots/";
+    $uploadDir = (defined('FACE_SNAPSHOT_DIR') ? FACE_SNAPSHOT_DIR : __DIR__.'/../uploads/face_snapshots') . '/';
     if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
     $filename = "face_{$employee_id}_{$type}_" . date("Ymd_His") . ".jpg";
     $imgData  = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $snapshot_b64));
@@ -97,6 +100,18 @@ if ($type === "clock_in") {
     $lateSeconds    = ($nowTime - $shiftStartTime) - ($lateTolerance * 60);
     $lateMinutes    = max(0, (int)ceil($lateSeconds / 60));
     $status         = $lateMinutes > 0 ? "late" : "present";
+
+    // Aturan Kedisiplinan: WFO yang terlambat tidak bisa absen masuk (Diubah agar tetap bisa absen)
+    /*
+    if ($status === "late" && strtoupper($emp['work_type']) === "WFO") {
+        http_response_code(403);
+        echo json_encode([
+            "status"   => "error",
+            "message"  => "Anda terlambat {$lateMinutes} menit! Karyawan WFO tidak diizinkan absen jika melewati batas waktu & toleransi."
+        ]);
+        exit;
+    }
+    */
 
     $notesEsc = $snapshotPath ? "'Face Snapshot: $snapshotPath'" : "NULL";
 

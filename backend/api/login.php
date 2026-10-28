@@ -1,52 +1,24 @@
 <?php
-header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
-require '../config/database.php';
-
-$data = json_decode(file_get_contents("php://input"), true);
-
-$email = mysqli_real_escape_string($conn, $data['email'] ?? '');
-$passwordRaw = $data['password'] ?? '';
-
-$query = mysqli_query($conn, "
-SELECT users.*, roles.name as role_name, employees.full_name, employees.gender, employees.photo_url as photo, employees.employee_code, employees.id as employee_id, employees.position
-FROM users 
-LEFT JOIN roles ON users.role_id = roles.id
-LEFT JOIN employees ON employees.user_id = users.id
-WHERE users.email='$email' OR employees.employee_code='$email'
-LIMIT 1
-");
-$user = mysqli_fetch_assoc($query);
-
-if ($user) {
-    if (password_verify($passwordRaw, $user['password_hash']) || md5($passwordRaw) === $user['password_hash']) {
-        unset($user['password_hash']); // Jangan kirim hash ke frontend
-        // Map full_name ke name agar konsisten dengan frontend
-        if (!isset($user['name']) && isset($user['full_name'])) {
-            $user['name'] = $user['full_name'];
-        }
-        echo json_encode([
-            "status" => "success",
-            "message" => "Login berhasil",
-            "user" => $user
-        ]);
-    } else {
-        echo json_encode([
-            "status" => "error",
-            "message" => "Password salah"
-        ]);
-    }
-} else {
-    echo json_encode([
-        "status" => "error",
-        "message" => "Email atau password tidak ditemukan"
-    ]);
-}
+require_once __DIR__.'/../config/database.php';
+require_once __DIR__.'/../config/session.php';
+require_once __DIR__.'/../services/accounting_core.php';
+if($_SERVER['REQUEST_METHOD']!=='POST')ac_fail('Method not allowed.',405);
+$d=json_decode(file_get_contents('php://input'),true);
+if(!is_array($d)||!is_string($d['email']??null)||!is_string($d['password']??null)||strlen($d['email'])>191||strlen($d['password'])>1024)ac_fail('Data login tidak valid.');
+$identifier=trim($d['email']);$password=$d['password'];
+$select='SELECT u.id,u.email,u.password_hash,u.role_id,u.is_active,r.name AS role_name FROM users u LEFT JOIN roles r ON r.id=u.role_id';
+$rows=ac_rows($conn,$select.' WHERE LOWER(TRIM(u.email))=LOWER(?) LIMIT 2',[$identifier]);
+if(!$rows)$rows=ac_rows($conn,$select.' WHERE EXISTS(SELECT 1 FROM employees e WHERE e.user_id=u.id AND e.employee_code=?) LIMIT 2',[$identifier]);
+$user=count($rows)===1?$rows[0]:null;
+$legacy=$user&&preg_match('/^[a-f0-9]{32}$/Di',$user['password_hash']??'')&&hash_equals(strtolower($user['password_hash']),md5($password));
+$valid=$user&&$password!==''&&($legacy||password_verify($password,$user['password_hash']??''));
+if(!$valid)ac_fail('Email atau password tidak valid.',401);
+if((int)$user['is_active']!==1)ac_fail('Akun Anda nonaktif atau aksesnya telah dicabut. Hubungi admin untuk memeriksa status akun.',401);
+if(!$user['role_name'])ac_fail('Hak akses akun belum terhubung. Hubungi admin untuk memperbaiki role akun.',403);
+$profiles=ac_rows($conn,'SELECT id AS employee_id,full_name,gender,photo_url AS photo,employee_code,position FROM employees WHERE user_id=? LIMIT 2',[(int)$user['id']]);
+if(count($profiles)>1)ac_fail('Profil karyawan terhubung lebih dari satu kali. Hubungi admin untuk memeriksa relasi akun.',409);
+$user+=($profiles[0]??['employee_id'=>null,'full_name'=>null]);
+if($legacy||password_needs_rehash($user['password_hash'],PASSWORD_DEFAULT))ac_query($conn,'UPDATE users SET password_hash=? WHERE id=? AND password_hash=?',[password_hash($password,PASSWORD_DEFAULT),(int)$user['id'],$user['password_hash']]);
+start_app_session();session_regenerate_id(true);$_SESSION=['user_id'=>(int)$user['id'],'csrf_token'=>bin2hex(random_bytes(32))];
+unset($user['password_hash']);$user['name']=$user['full_name']?:$user['email'];
+echo json_encode(['status'=>'success','message'=>'Login berhasil','user'=>$user]);

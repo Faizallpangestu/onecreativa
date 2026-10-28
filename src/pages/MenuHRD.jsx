@@ -1,108 +1,97 @@
+import { logoutUser } from "../utils/logoutUser";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, PieChart, Briefcase, CalendarClock, Users, Banknote, LogOut } from "lucide-react";
+import { 
+  PieChart, Briefcase, CalendarClock, Users, Banknote, 
+  LogOut, Search
+} from "lucide-react";
 import Layout from "../components/Layout";
+import { useState } from "react";
+import { useSEO } from "../hooks/useSEO";
 
 export default function MenuHRD() {
   const navigate = useNavigate();
+  useSEO({ title: "Menu HRD", description: "Menu navigasi HRD" });
 
-  const modules = [
-    { 
-      title: "Dashboard HRIS", 
-      desc: "Statistik Kepegawaian", 
-      icon: PieChart, 
-      color: "bg-purple-100 text-purple-600", 
-      path: "/dashboard" 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const menuGroups = [
+    {
+      category: "HRD",
+      items: [
+        { title: "Dashboard HRIS", icon: PieChart, color: "text-purple-600 bg-purple-100", path: "/dashboard" },
+        { title: "Approval Cuti", icon: Briefcase, color: "text-orange-600 bg-orange-100", path: "/leaves" },
+        { title: "Rekap Absensi", icon: CalendarClock, color: "text-blue-600 bg-blue-100", path: "/attendance" },
+        { title: "Data Karyawan", icon: Users, color: "text-emerald-600 bg-emerald-100", path: "/employees" },
+        { title: "Kalkulasi Gaji", icon: Banknote, color: "text-blue-600 bg-blue-100", path: "/payroll-hrd" },
+      ]
     },
-    { 
-      title: "Approval Cuti", 
-      desc: "Setujui Izin / Cuti", 
-      icon: Briefcase, 
-      color: "bg-orange-100 text-orange-600", 
-      path: "/leaves" 
-    },
-    { 
-      title: "Rekap Absensi", 
-      desc: "Review Kehadiran", 
-      icon: CalendarClock, 
-      color: "bg-blue-100 text-blue-600", 
-      path: "/attendance" 
-    },
-    { 
-      title: "Data Karyawan", 
-      desc: "Kelola Profil & Akun", 
-      icon: Users, 
-      color: "bg-emerald-100 text-emerald-600", 
-      path: "/employees" 
-    },
-    { 
-      title: "Kalkulasi Gaji", 
-      desc: "Hitung & Simpan Draft", 
-      icon: Banknote, 
-      color: "bg-blue-100 text-blue-600", 
-      path: "/payroll-hrd" 
-    },
-    { 
-      title: "Keluar", 
-      desc: "Akhiri sesi aktif", 
-      icon: LogOut, 
-      color: "bg-rose-100 text-rose-600", 
-      action: "logout" 
-    },
+    {
+      category: "SISTEM",
+      items: [
+        { title: "Keluar", icon: LogOut, color: "text-rose-600 bg-rose-50", action: "logout" },
+      ]
+    }
   ];
 
   return (
-    <Layout hideMobileHeader={true} hideBottomNav={true}>
-      <div className="min-h-full bg-[#f4f6f8] pb-12 relative overflow-hidden">
-        
-        {/* Navy Blue Header Background */}
-        <div className="absolute top-0 left-0 right-0 h-[280px] bg-[#0c2e59] rounded-b-[2rem] shadow-lg"></div>
+    <Layout hideMobileHeader={true} hideBottomNav={false} >
+      <div className="min-h-screen bg-[#f8fafc] md:bg-slate-50 relative pb-24 md:pb-12">
+        <div className="px-5 sm:px-10 pt-8 flex-1 flex flex-col w-full max-w-5xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-[28px] font-black text-slate-800 tracking-tight">Menu</h1>
+          </div>
 
-        {/* Top Navigation */}
-        <div className="relative z-10 px-5 pt-8 pb-2 flex justify-between items-center">
-           <button 
-             onClick={() => navigate("/home")}
-             className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition active:scale-95"
-           >
-             <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
-           </button>
-           <h1 className="text-white text-[17px] font-black tracking-wide">Human Resources</h1>
-           <div className="w-10 h-10"></div> {/* Spacer */}
-        </div>
+          <div className="relative mb-8 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Cari menu..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200/80 rounded-2xl text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]" 
+            />
+          </div>
 
-        {/* Hero Title */}
-        <div className="relative z-10 px-6 pt-4 pb-12">
-           <p className="text-white/80 text-[12px] font-bold uppercase tracking-[0.2em] mb-1">Menu HRD</p>
-           <h2 className="text-[26px] font-black text-white leading-tight">
-             Pantau Produktivitas<br/>Karyawan
-           </h2>
-        </div>
+          <div className="space-y-8 md:space-y-10">
+            {menuGroups.map((group, i) => {
+              const filteredItems = group.items.filter(item => 
+                item.title.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              
+              if (filteredItems.length === 0) return null;
 
-        {/* Grid Modules */}
-        <div className="relative z-10 px-5 mt-[-1.5rem]">
-          <div className="grid grid-cols-2 gap-4">
-            {modules.map((mod, i) => {
-              const Icon = mod.icon;
               return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (mod.action === "logout") {
-                      localStorage.removeItem("user");
-                      navigate("/login");
-                    } else {
-                      navigate(mod.path);
-                    }
-                  }}
-                  className="bg-white p-5 rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-left transition-all active:scale-95 flex flex-col justify-between h-36 border border-slate-100"
-                >
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${mod.color} mb-3`}>
-                    <Icon className="w-6 h-6" strokeWidth={2.5} />
+                <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <h2 className="text-[12px] md:text-[13px] font-black text-slate-500/80 uppercase tracking-widest mb-4 px-1">
+                    {group.category}
+                  </h2>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-7 gap-x-3 sm:gap-x-5">
+                    {filteredItems.map((item, j) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={j}
+                          onClick={() => {
+                            if (item.action === "logout") {
+                              logoutUser();
+                              navigate("/home");
+                            } else {
+                              navigate(item.path);
+                            }
+                          }}
+                          className="flex flex-col items-center text-center group"
+                        >
+                          <div className={`w-[60px] h-[60px] md:w-[64px] md:h-[64px] rounded-[1.25rem] flex items-center justify-center mb-3 ${item.color} shadow-sm group-hover:shadow-md group-hover:-translate-y-1 group-active:scale-95 transition-all duration-300`}>
+                            <Icon className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.2} />
+                          </div>
+                          <span className="text-[11px] md:text-[12px] font-extrabold text-slate-700 leading-[1.3] px-1 group-hover:text-blue-600 transition-colors">
+                            {item.title}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <h3 className="text-[14px] font-bold text-slate-800 mb-1 leading-tight">{mod.title}</h3>
-                    <p className="text-[11px] font-medium text-slate-400 leading-tight">{mod.desc}</p>
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>

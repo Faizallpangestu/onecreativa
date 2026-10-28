@@ -1,0 +1,278 @@
+{
+  "verified_at": "2026-10-12T10:23:29.688Z",
+  "original_tables_checked": 45,
+  "all_original_values_unchanged": true,
+  "financial_aggregates_unchanged": true,
+  "tables": [
+    {
+      "table": "asset_histories",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "asset_transfer_requests",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "assets",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "attendance_logs",
+      "rows_before": 39,
+      "rows_after": 39,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "auth_tokens",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "billing_invoices",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "billing_pembayaran",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "billing_siswa",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "billing_terkirim",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "budget_request_history",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "budget_request_items",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "budget_requests",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "daily_reports",
+      "rows_before": 4,
+      "rows_after": 4,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "departments",
+      "rows_before": 7,
+      "rows_after": 7,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "employees",
+      "rows_before": 8,
+      "rows_after": 8,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "finance_records",
+      "rows_before": 3,
+      "rows_after": 3,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "invoice_clients",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "invoice_records",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "leave_requests",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "leave_types",
+      "rows_before": 4,
+      "rows_after": 4,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "leaves",
+      "rows_before": 2,
+      "rows_after": 2,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lms_announcements",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lms_attendance",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lms_grades",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lms_meetings",
+      "rows_before": 2,
+      "rows_after": 2,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lms_submissions",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lms_tasks",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lpk_matching_job",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "lpk_nenkin",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "maintenance_schedules",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "office_locations",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "payroll",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "payslips",
+      "rows_before": 4,
+      "rows_after": 4,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "peserta_intensif",
+      "rows_before": 5,
+      "rows_after": 5,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "positions",
+      "rows_before": 14,
+      "rows_after": 14,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "reimbursements",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "roles",
+      "rows_before": 13,
+      "rows_after": 13,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "salary_base_rates",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "salary_request_history",
+      "rows_before": 7,
+      "rows_after": 7,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "salary_requests",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "salary_slip_events",
+      "rows_before": 3,
+      "rows_after": 3,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "salary_slips",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "settings",
+      "rows_before": 1,
+      "rows_after": 1,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "transactions",
+      "rows_before": 0,
+      "rows_after": 0,
+      "original_values_unchanged": true
+    },
+    {
+      "table": "users",
+      "rows_before": 9,
+      "rows_after": 9,
+      "original_values_unchanged": true
+    }
+  ]
+}

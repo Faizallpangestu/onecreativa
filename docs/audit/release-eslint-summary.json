@@ -1,0 +1,276 @@
+{
+  "verified_at": "2026-10-12T10:42:16.388Z",
+  "command": "node node_modules/eslint/bin/eslint.js .",
+  "scope": "Application/build configuration/maintained tools; generated output, private snapshots, vendor and legacy fix_* repair scripts excluded",
+  "files": 183,
+  "errors": 0,
+  "warnings": 21,
+  "results": [
+    {
+      "file": "src/hooks/useCamera.js",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 62,
+          "column": 6,
+          "message": "React Hook useCallback has a missing dependency: 'applyPreviewMirror'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/AccountSettings.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 69,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'loadProfile'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/Attendance.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 149,
+          "column": 59,
+          "message": "React Hook useEffect has a missing dependency: 'loadAttendance'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/DailyReportAdmin.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 52,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'fetchReports'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/DailyReportKaryawan.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 44,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'fetchReport'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/FaceClock.jsx",
+      "errorCount": 0,
+      "warningCount": 3,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 130,
+          "column": 98,
+          "message": "The ref value 'canvasRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'canvasRef.current' to a variable inside the effect, and use that variable in the cleanup function."
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 134,
+          "column": 6,
+          "message": "React Hook useEffect has missing dependencies: 'startCamera' and 'stopCamera'. Either include them or remove the dependency array."
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 258,
+          "column": 6,
+          "message": "React Hook useEffect has missing dependencies: 'detectFace', 'drawDetection', 'matchFace', and 'videoRef'. Either include them or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/FaceEnrollment.jsx",
+      "errorCount": 0,
+      "warningCount": 2,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 41,
+          "column": 6,
+          "message": "React Hook useEffect has missing dependencies: 'startCamera' and 'stopCamera'. Either include them or remove the dependency array."
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 66,
+          "column": 6,
+          "message": "React Hook useEffect has missing dependencies: 'detectFace', 'drawDetection', and 'videoRef'. Either include them or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/Leaves.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 73,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/LpkAttendance.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 106,
+          "column": 42,
+          "message": "React Hook useEffect has a missing dependency: 'loadAttendance'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/Overtime.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 107,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'loadRequests'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ga/DaftarAset.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 88,
+          "column": 37,
+          "message": "React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ga/DetailAset.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 78,
+          "column": 38,
+          "message": "React Hook useEffect has a missing dependency: 'fetchAsset'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ga/FormAset.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 74,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'isEdit'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ga/LaporanAset.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 67,
+          "column": 37,
+          "message": "React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ga/ScanQR.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 115,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'searchParams'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/lms/LmsKotoba.jsx",
+      "errorCount": 0,
+      "warningCount": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 65,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'fetchKotoba'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/lms/LmsLatihanKaiwa.jsx",
+      "errorCount": 0,
+      "warningCount": 2,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 56,
+          "column": 38,
+          "message": "The ref value 'synthRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'synthRef.current' to a variable inside the effect, and use that variable in the cleanup function."
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "severity": 1,
+          "line": 58,
+          "column": 6,
+          "message": "React Hook useEffect has a missing dependency: 'handleSend'. Either include it or remove the dependency array."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+﻿{
+    "report_date":  "2026-10-12",
+    "report_timezone":  "Asia/Bangkok",
+    "scope":  "Phase 1 audit only",
+    "database_table_count":  45,
+    "schema_and_row_counts_unchanged":  true,
+    "finance_and_document_aggregates_unchanged":  true,
+    "checks":  [
+                   {
+                       "name":  "budget_workflow_test.php",
+                       "status":  "passed",
+                       "checks":  75
+                   },
+                   {
+                       "name":  "salary_workflow_test.php",
+                       "status":  "passed",
+                       "checks":  68
+                   },
+                   {
+                       "name":  "Vite production build to temporary audit directory",
+                       "status":  "passed",
+                       "warnings":  [
+                                        "Browserslist dataset outdated",
+                                        "vendor-export chunk exceeds warning limit"
+                                    ],
+                       "initial_attempt":  "Sandbox spawn EPERM; retry automatically reviewed and allowed"
+                   }
+               ],
+    "qa_clarification":  "User: belum di testing oleh qa",
+    "rab_root_cause":  "Unconfirmed; no QA reproduction supplied, normal isolated workflow passes",
+    "limitations":  [
+                        "Local database only; hosting database not inspected",
+                        "Tests cover existing behavior, including RAB approval income; accrual acceptance tests are planned",
+                        "No full browser UAT or production deployment",
+                        "Comparison verifies schema, counts and aggregate quality; it is not a row-by-row checksum",
+                        "Existing test bootstrap runs CREATE TABLE IF NOT EXISTS settings; settings already existed"
+                    ],
+    "business_migrations_applied":  false,
+    "application_source_modified":  false
+}

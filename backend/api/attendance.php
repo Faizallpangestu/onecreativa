@@ -9,7 +9,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require '../config/database.php';
+require_once __DIR__.'/../config/database.php';
+require_once __DIR__.'/../services/employee_directory.php';
+$actor=ed_start($conn);ed_personal_scope($conn,$actor);
+if($_SERVER['REQUEST_METHOD']==='DELETE')ac_fail('Riwayat absensi tidak dihapus. Ajukan koreksi dengan alasan kepada administrator.',409);
 
 // ── GET: Ambil semua data attendance ──────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -18,19 +21,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $eid = (int)$_GET['employee_id'];
         $where = "WHERE attendance_logs.employee_id = '$eid'";
     }
+    // Ambil setting jam kerja
+    $settingQuery = mysqli_query($conn, "SELECT check_in_time FROM settings LIMIT 1");
+    $settingData = mysqli_fetch_assoc($settingQuery);
+    $shiftStart = $settingData['check_in_time'] ?? "08:00:00";
 
     $query = mysqli_query(
         $conn,
         "SELECT
             attendance_logs.id,
             attendance_logs.employee_id,
+            employees.employee_code,
+            employees.position AS department,
             employees.full_name AS name,
+            employees.work_type,
             attendance_logs.date,
             attendance_logs.check_in_at AS check_in,
             attendance_logs.check_out_at AS check_out,
             attendance_logs.status,
-            0 AS late_minutes,
-            0 AS overtime_minutes
+            attendance_logs.notes,
+            attendance_logs.check_in_lat,
+            attendance_logs.check_in_lng,
+            attendance_logs.check_out_lat,
+            attendance_logs.check_out_lng,
+            GREATEST(0, TIMESTAMPDIFF(MINUTE, CONCAT(attendance_logs.date, ' $shiftStart'), attendance_logs.check_in_at)) AS late_minutes,
+            GREATEST(0, TIMESTAMPDIFF(MINUTE, attendance_logs.check_in_at, attendance_logs.check_out_at)) AS working_minutes
          FROM attendance_logs
          LEFT JOIN employees ON employees.id = attendance_logs.employee_id
          $where
@@ -56,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $body    = json_decode(file_get_contents("php://input"), true);
     $id      = (int)($body['id'] ?? 0);
-    $role    = $body['role'] ?? '';
+    $role    = $actor['role'];
 
     if ($role !== 'super_admin') {
         http_response_code(403);
@@ -101,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     $body = json_decode(file_get_contents("php://input"), true);
     $id   = (int)($body['id'] ?? 0);
-    $role = $body['role'] ?? '';
+    $role = $actor['role'];
 
     if ($role !== 'super_admin') {
         http_response_code(403);

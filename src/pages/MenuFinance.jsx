@@ -1,99 +1,114 @@
+import { logoutUser } from "../utils/logoutUser";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Banknote, Receipt, TrendingUp, LogOut } from "lucide-react";
+import { 
+  LogOut, Search, Settings, Home, DollarSign, ArrowUpRight, 
+  ArrowDownRight, WalletCards, Receipt, CalendarClock, 
+  Calendar as CalendarIcon, Banknote, ClipboardList, Clock, 
+  BookOpen, Briefcase, MapPin
+} from "lucide-react";
 import Layout from "../components/Layout";
+import { useState } from "react";
+import { useSEO } from "../hooks/useSEO";
+import { FINANCE_MENU_ITEMS } from "../utils/financeNavigation";
 
 export default function MenuFinance() {
   const navigate = useNavigate();
+  useSEO({ title: "Menu Finance", description: "Menu navigasi Finance" });
 
-  const modules = [
-    { 
-      title: "Payroll & Slip Gaji", 
-      desc: "Hitung dan cetak slip gaji bulanan karyawan", 
-      icon: Banknote, 
-      color: "bg-emerald-500 text-white shadow-emerald-500/30", 
-      path: "/payroll" 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const menuGroups = [
+    {
+      category: "HRD",
+      items: [
+        { title: "Riwayat Absensi", icon: CalendarClock, color: "text-emerald-500 bg-emerald-50", path: "/attendance" },
+        { title: "Pengajuan Cuti", icon: CalendarIcon, color: "text-amber-500 bg-amber-50", path: "/leaves" },
+        { title: "Penggajian Karyawan", icon: Banknote, color: "text-emerald-500 bg-emerald-50", path: "/salary" },
+        { title: "Laporan Kerja", icon: ClipboardList, color: "text-rose-500 bg-rose-50", path: "/daily-report-admin" },
+        { title: "Lembur", icon: Clock, color: "text-rose-500 bg-rose-50", path: "/overtime" },
+      ]
     },
-    { 
-      title: "Laporan Profit", 
-      desc: "Grafik arus kas, laba, dan pencatatan pengeluaran", 
-      icon: TrendingUp, 
-      color: "bg-indigo-600 text-white shadow-indigo-600/30", 
-      path: "/profit" 
+    {
+      category: "KEUANGAN",
+      items: FINANCE_MENU_ITEMS.filter(item => item.path !== "/salary")
     },
-    { 
-      title: "Approval Reimbursement", 
-      desc: "Validasi struk klaim karyawan", 
-      icon: Receipt, 
-      color: "bg-cyan-500 text-white shadow-cyan-500/30", 
-      path: "/reimbursement" 
+    {
+      category: "LPK CREATIVA",
+      items: [
+        { title: "LMS", icon: BookOpen, color: "text-blue-500 bg-blue-50", path: "/lms/agenda" },
+        { title: "Matching Job", icon: Briefcase, color: "text-purple-500 bg-purple-50", path: "/matching-job" },
+        { title: "Nenkin", icon: DollarSign, color: "text-indigo-500 bg-indigo-50", path: "/nenkin" },
+      ]
     },
-    { 
-      title: "Keluar", 
-      desc: "Akhiri sesi aktif", 
-      icon: LogOut, 
-      color: "bg-rose-500 text-white shadow-rose-500/30", 
-      action: "logout" 
-    },
+    {
+      category: "SETTING",
+      items: [
+        { title: "Pengaturan Sistem", icon: Settings, color: "text-slate-600 bg-slate-100", path: "/settings" },
+        { title: "Pengaturan Lokasi", icon: MapPin, color: "text-teal-500 bg-teal-50", path: "/location-settings" },
+        { title: "Keluar", icon: LogOut, color: "text-rose-600 bg-rose-50", action: "logout" },
+      ]
+    }
   ];
 
   return (
-    <Layout hideMobileHeader={true} hideBottomNav={true}>
-      <div className="min-h-full bg-[#f4f6f8] pb-12 relative overflow-hidden">
-        
-        {/* Navy Blue Header Background */}
-        <div className="absolute top-0 left-0 right-0 h-[280px] bg-[#0c2e59] rounded-b-[2rem] shadow-lg"></div>
-
-        {/* Header Section */}
-        <div className="flex items-center justify-center pt-6 mb-8 relative">
-          <span className="text-white/90 text-sm font-medium">Menu Keuangan</span>
-          
-          <button 
-            onClick={() => navigate('/home')}
-            className="absolute left-5 top-5 w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="relative z-10 px-6">
-          {/* Title Area */}
-          <div className="mb-10 text-white">
-            <h1 className="text-2xl font-bold mb-2">Keuangan & Akuntansi</h1>
-            <p className="text-blue-100 text-[13px] opacity-90 leading-relaxed">
-              Kelola aset, gaji, dan analisis arus kas perusahaan.
-            </p>
+    <Layout hideMobileHeader={true} hideBottomNav={false}>
+      <div className="min-h-screen bg-[#f8fafc] md:bg-slate-50 relative pb-24 md:pb-12">
+        <div className="px-5 sm:px-10 pt-8 flex-1 flex flex-col w-full max-w-5xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-[28px] font-black text-slate-800 tracking-tight">Menu Finance</h1>
           </div>
 
-          {/* Menu Cards */}
-          <div className="space-y-4">
-            {modules.map((mod, i) => {
-              const Icon = mod.icon;
+          <div className="relative mb-8 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Cari menu..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200/80 rounded-2xl text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]" 
+            />
+          </div>
+
+          <div className="space-y-8 md:space-y-10">
+            {menuGroups.map((group, i) => {
+              const filteredItems = group.items.filter(item => 
+                item.title.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              
+              if (filteredItems.length === 0) return null;
+
               return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (mod.action === "logout") {
-                      if(window.confirm("Yakin ingin keluar?")) {
-                        localStorage.removeItem("user");
-                        navigate("/login");
-                      }
-                    } else if (mod.path) {
-                      navigate(mod.path);
-                    }
-                  }}
-                  className="w-full bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 hover:border-blue-200 active:scale-[0.98] transition-all flex items-center gap-5 group"
-                >
-                  <div className={`w-[52px] h-[52px] rounded-[1.2rem] flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${mod.color}`}>
-                    <Icon className="w-6 h-6" strokeWidth={2.5} />
+                <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <h2 className="text-[12px] md:text-[13px] font-black text-slate-500/80 uppercase tracking-widest mb-4 px-1">
+                    {group.category}
+                  </h2>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-7 gap-x-3 sm:gap-x-5">
+                    {filteredItems.map((item, j) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={j}
+                          onClick={() => {
+                             if (item.action === "logout") {
+                               logoutUser();
+                               navigate("/home");
+                             } else if (item.path) {
+                               navigate(item.path);
+                             }
+                          }}
+                          className="flex flex-col items-center text-center group"
+                        >
+                          <div className={`w-[60px] h-[60px] md:w-[64px] md:h-[64px] rounded-[1.25rem] flex items-center justify-center mb-3 ${item.color || "text-blue-600 bg-blue-100"} shadow-sm group-hover:shadow-md group-hover:-translate-y-1 group-active:scale-95 transition-all duration-300`}>
+                            {Icon && <Icon className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.2} />}
+                          </div>
+                          <span className="text-[11px] md:text-[12px] font-extrabold text-slate-700 leading-[1.3] px-1 group-hover:text-blue-600 transition-colors">
+                            {item.title}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="text-left flex-1">
-                    <h3 className="text-[15px] font-bold text-slate-800 mb-0.5">{mod.title}</h3>
-                    <p className="text-[11px] text-slate-500 font-medium leading-tight">{mod.desc}</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                    <ChevronLeft className="w-4 h-4 rotate-180" />
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>

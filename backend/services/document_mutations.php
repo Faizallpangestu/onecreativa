@@ -1,0 +1,22 @@
+<?php
+require_once __DIR__.'/relationships.php';
+function dm_file_hash(string $field):?string{
+ if(!isset($_FILES[$field])||$_FILES[$field]['error']===UPLOAD_ERR_NO_FILE)return null;
+ if($_FILES[$field]['error']!==UPLOAD_ERR_OK||!is_uploaded_file($_FILES[$field]['tmp_name']))ac_fail('Upload dokumen tidak lengkap.');
+ return hash_file('sha256',$_FILES[$field]['tmp_name']);
+}
+function dm_create(mysqli $db,array $a,string $key,string $operation,array $payload,callable $create):array{
+ return ac_atomic($db,function()use($db,$a,$key,$operation,$payload,$create){ac_one($db,'SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$a['id']]);$retry=ac_retry($db,$a,$key,$operation,$payload);if($retry)return $retry;$result=$create();ac_remember($db,$a,$key,$operation,$payload,$result);return $result;});
+}
+function dm_invoice_client(mysqli $db,array $a,array $d):array{
+ ac_require($db,$a,'prepare');$key=ac_key($d['request_key']??'');$p=['name'=>ac_text($d['name']??'','Nama',255),'phone'=>ac_text($d['phone']??'','Telepon',50,false),'email'=>ac_text($d['email']??'','Email',255,false),'program_type'=>ac_text($d['program_type']??'','Program',50),'total_biaya'=>ac_decimal(ac_cents($d['total_biaya']??'')),'keterangan'=>ac_text($d['keterangan']??'','Keterangan',10000,false)];if($p['total_biaya']==='0.00')ac_fail('Total biaya harus positif.');if($p['email']&&!filter_var($p['email'],FILTER_VALIDATE_EMAIL))ac_fail('Email tidak valid.');
+ return dm_create($db,$a,$key,'invoice_client_create',$p,function()use($db,$a,$p){ac_query($db,'INSERT INTO invoice_clients(name,phone,email,program_type,total_biaya,keterangan,created_by) VALUES(?,?,?,?,?,?,?)',[...array_values($p),(int)$a['id']]);$id=$db->insert_id;ac_audit($db,$a,'invoice_client',(string)$id,'created');return ['id'=>$id];});
+}
+function dm_invoice_receipt(mysqli $db,array $a,array $d):array{
+ ac_require($db,$a,'prepare');$key=ac_key($d['request_key']??'');$p=['client_id'=>ac_id($d['client_id']??null),'keterangan'=>ac_text($d['keterangan']??'','Keterangan',10000,false),'jumlah'=>ac_decimal(ac_cents($d['jumlah']??'')),'drive_link'=>ac_text($d['drive_link']??'','Link bukti',2000,false),'payment_date'=>$d['payment_date']??'','file_hash'=>dm_file_hash('invoice_file')];if($p['jumlah']==='0.00')ac_fail('Nominal bukti harus positif.');if($p['drive_link']&&!filter_var($p['drive_link'],FILTER_VALIDATE_URL))ac_fail('Link dokumen tidak valid.');if($p['drive_link']&&!str_starts_with($p['drive_link'],'https://'))ac_fail('Gunakan link dokumen HTTPS.');if(!is_string($p['payment_date']))ac_fail('Tanggal tidak valid.');if(strlen($p['payment_date'])===10)$p['payment_date'].=' 12:00:00';$date=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$p['payment_date']);if(!$date||$date->format('Y-m-d H:i:s')!==$p['payment_date'])ac_fail('Tanggal bukti tidak valid.');
+ return dm_create($db,$a,$key,'invoice_receipt_create',$p,function()use($db,$a,$p){if(!ac_one($db,'SELECT id FROM invoice_clients WHERE id=? FOR UPDATE',[$p['client_id']]))ac_fail('Client tidak ditemukan.',404);$file=rs_upload('invoice_file','invoice');if(!$file&&!$p['drive_link'])ac_fail('Dokumen atau link bukti diperlukan.');ac_query($db,'INSERT INTO invoice_records(client_id,keterangan,jumlah,file_path,drive_link,created_by,created_at) VALUES(?,?,?,?,?,?,?)',[$p['client_id'],$p['keterangan'],$p['jumlah'],$file?'invoice/'.$file:null,$file?null:$p['drive_link'],(int)$a['id'],$p['payment_date']]);$id=$db->insert_id;ac_audit($db,$a,'invoice_receipt',(string)$id,'submitted_for_review',['client_id'=>$p['client_id']]);return ['id'=>$id,'payment_status'=>'needs_review'];});
+}
+function dm_reimbursement(mysqli $db,array $a,array $d):array{
+ if(str_starts_with($a['role'],'peserta_'))ac_fail('Akses klaim employee ditolak.',403);$key=ac_key($d['request_key']??'');$p=['category'=>ac_text($d['category']??'','Kategori',100),'amount'=>ac_decimal(ac_cents($d['amount']??'')),'description'=>ac_text($d['description']??'','Keterangan',10000),'file_hash'=>dm_file_hash('receipt')];if($p['amount']==='0.00')ac_fail('Nominal klaim harus positif.');
+ return dm_create($db,$a,$key,'reimbursement_create',$p,function()use($db,$a,$p){$file=rs_upload('receipt','receipts');if(!$file)ac_fail('Struk wajib diunggah.');ac_query($db,"INSERT INTO reimbursements(user_id,category,amount,description,receipt_path,status) VALUES(?,?,?,?,?,'pending')",[(int)$a['id'],$p['category'],$p['amount'],$p['description'],'uploads/receipts/'.$file]);$id=$db->insert_id;ac_audit($db,$a,'reimbursement',(string)$id,'submitted');return ['id'=>$id];});
+}

@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+backend/config/mail.local.php
+backend/config/db_env.php
+backend/storage/backups/
+backend/storage/finance-proofs/
+backend/storage/budget-attachments/
+.phase2-build-check/
+.phase2-*.txt
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +29,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+backend/storage/qa/
+backend/storage/documents/
+backend/storage/*.log
+.prerender-build/
+One-creativa-build-*.zip

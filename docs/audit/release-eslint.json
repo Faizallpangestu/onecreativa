@@ -1,0 +1,1012 @@
+[
+  {
+    "file": "src/App.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/AccountingTools.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/AccountingTransactionForm.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/BottomNav.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/BudgetAttachment.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/BudgetRealizationForm.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/BudgetRequestDetail.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/BudgetRequestForm.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/ErrorBoundary.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/FinanceDashboardVisuals.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/GlobalLoading.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/Layout.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/LearnerDashboard.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/LearningWorkspace.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/LmsLayout.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/MeetingCalendar.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/ModuleFrame.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/ParticipantDirectory.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/ProtectedRoute.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/SalaryBaseSettings.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/SalaryBreakdown.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/SalaryRequestDetail.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/SalarySlipPreview.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/Sidebar.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/components/StudentBilling.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/hooks/useAccessAccounts.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/hooks/useBudgetRequests.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/hooks/useCamera.js",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 62,
+        "column": 6,
+        "message": "React Hook useCallback has a missing dependency: 'applyPreviewMirror'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/hooks/useFaceApi.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/hooks/useSEO.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/hooks/useSalaryRequests.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/main.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/AccessRights.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/AccessRightsLPK.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/AccountSettings.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 69,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'loadProfile'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/AnggaranBiaya.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/AssignRFID.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Attendance.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 149,
+        "column": 59,
+        "message": "React Hook useEffect has a missing dependency: 'loadAttendance'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/DailyReportAdmin.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 52,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'fetchReports'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/DailyReportKaryawan.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 44,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'fetchReport'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/Dashboard.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardCreativa.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardFinance.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardPesertaAlumni.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardPesertaIntensif.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardPesertaMatching.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardPesertaMendang.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardPesertaNenkin.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardSensei.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DashboardSiswaIntensif.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/DinasLuarKota.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Employees.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/FaceClock.jsx",
+    "errorCount": 0,
+    "warningCount": 3,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 130,
+        "column": 98,
+        "message": "The ref value 'canvasRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'canvasRef.current' to a variable inside the effect, and use that variable in the cleanup function."
+      },
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 134,
+        "column": 6,
+        "message": "React Hook useEffect has missing dependencies: 'startCamera' and 'stopCamera'. Either include them or remove the dependency array."
+      },
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 258,
+        "column": 6,
+        "message": "React Hook useEffect has missing dependencies: 'detectFace', 'drawDetection', 'matchFace', and 'videoRef'. Either include them or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/FaceEnrollment.jsx",
+    "errorCount": 0,
+    "warningCount": 2,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 41,
+        "column": 6,
+        "message": "React Hook useEffect has missing dependencies: 'startCamera' and 'stopCamera'. Either include them or remove the dependency array."
+      },
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 66,
+        "column": 6,
+        "message": "React Hook useEffect has missing dependencies: 'detectFace', 'drawDetection', and 'videoRef'. Either include them or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/FinanceWorkspace.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/HistoryInvoice.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Home.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/InvoicePenagihan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LearningClasses.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Leaves.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 73,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/LocationSettings.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Login.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkAlumni.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkAttendance.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 106,
+        "column": 42,
+        "message": "React Hook useEffect has a missing dependency: 'loadAttendance'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/LpkIntensif.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkMagang.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkMateri.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkNenkin.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkNilai.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkQuiz.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/LpkTugas.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/MatchingJob.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/MenuAdmin.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/MenuFinance.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/MenuGA.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/MenuHRD.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/MenuKaryawan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Overtime.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 107,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'loadRequests'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/Payroll.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/PayrollHRD.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Positions.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Profit.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Reimbursement.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/SalaryKaryawan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/Settings.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/SlipGajiKaryawan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/StravaAdmin.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/StravaIntegration.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/StudentBillingAdmin.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/TransaksiPemasukan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/TransaksiPengeluaran.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/ga/ApprovalPerpindahan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/ga/DaftarAset.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 88,
+        "column": 37,
+        "message": "React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/ga/DetailAset.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 78,
+        "column": 38,
+        "message": "React Hook useEffect has a missing dependency: 'fetchAsset'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/ga/FormAset.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 74,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'isEdit'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/ga/LaporanAset.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 67,
+        "column": 37,
+        "message": "React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/ga/LaporanAudit.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/ga/Maintenance.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/ga/ScanQR.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 115,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'searchParams'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/lms/LmsAbsensi.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsAdminAgenda.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsBelajar.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsCalendar.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsDashboard.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsInstructor.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsKalender.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsKartuSiswa.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsKonsultasi.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsKotoba.jsx",
+    "errorCount": 0,
+    "warningCount": 1,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 65,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'fetchKotoba'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/lms/LmsLatihanKaiwa.jsx",
+    "errorCount": 0,
+    "warningCount": 2,
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 56,
+        "column": 38,
+        "message": "The ref value 'synthRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'synthRef.current' to a variable inside the effect, and use that variable in the cleanup function."
+      },
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "line": 58,
+        "column": 6,
+        "message": "React Hook useEffect has a missing dependency: 'handleSend'. Either include it or remove the dependency array."
+      }
+    ]
+  },
+  {
+    "file": "src/pages/lms/LmsLeaderboard.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsMateri.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsNilai.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsPengumuman.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsProfil.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsQuiz.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsTagihan.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsTugas.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/LmsUkom.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/lms/PresenceCode.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiAgenda.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiBarcode.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiKehadiran.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiKonsultasi.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiLeaderboard.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiMateri.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiNilaiSiswa.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiQuiz.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiTugas.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/pages/sensei/SenseiUkom.jsx",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/services/api.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/services/sessionHeaders.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/accountingApi.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/budgetApi.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/employeeApi.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/financeNavigation.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/logoutUser.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/lpkStudents.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/moduleApi.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/roleAccess.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  },
+  {
+    "file": "src/utils/salaryApi.js",
+    "errorCount": 0,
+    "warningCount": 0,
+    "messages": []
+  }
+]

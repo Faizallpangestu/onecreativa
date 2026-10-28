@@ -7,17 +7,29 @@ export function useCamera() {
   const [error, setError] = useState(null);
   const [permission, setPermission] = useState("prompt"); // 'prompt'|'granted'|'denied'
 
+  const applyPreviewMirror = useCallback((mirror = false) => {
+    if (videoRef.current) {
+      videoRef.current.style.transform = mirror ? "scaleX(-1)" : "none";
+    }
+  }, []);
+
   const startCamera = useCallback(async (constraints = {}) => {
     setError(null);
     setIsReady(false);
 
     try {
+      const videoConstraint = constraints.video || {};
+      const facingModeValue =
+        typeof videoConstraint.facingMode === "string"
+          ? videoConstraint.facingMode
+          : videoConstraint.facingMode?.ideal || videoConstraint.facingMode?.exact || "user";
+
       const defaultConstraints = {
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user",
-          ...constraints.video,
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          ...videoConstraint,
+          facingMode: facingModeValue,
         },
         audio: false,
       };
@@ -28,6 +40,7 @@ export function useCamera() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        applyPreviewMirror(facingModeValue === "user");
         await new Promise((resolve) => {
           videoRef.current.onloadedmetadata = () => {
             videoRef.current.play();
@@ -49,14 +62,31 @@ export function useCamera() {
   }, []);
 
   const stopCamera = useCallback(() => {
+    // Stop all tracks in stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      try {
+        streamRef.current.getTracks().forEach((track) => {
+          track.stop();
+        });
+      } catch (err) {
+        console.warn("Error stopping tracks:", err);
+      }
       streamRef.current = null;
     }
+
+    // Clear video source
     if (videoRef.current) {
-      videoRef.current.srcObject = null;
+      try {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+        videoRef.current.style.transform = "none";
+      } catch (err) {
+        console.warn("Error clearing video:", err);
+      }
     }
+
     setIsReady(false);
+    setPermission("prompt");
   }, []);
 
   // Capture snapshot dari video sebagai base64 JPEG

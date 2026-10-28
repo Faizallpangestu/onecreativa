@@ -53,7 +53,7 @@ export default function DinasLuarKota() {
   const navigate = useNavigate();
   const user       = getUser();
   const isApprover = user && APPROVER_ROLES.includes(user.role_name);
-  const isHR       = user && user.role_name === "hr";
+  
   const isEmployee = user && (user.role_name === "employee" || user.role_name === "karyawan");
   const canExport  = user && ["super_admin", "manager", "hr"].includes(user.role_name);
 
@@ -61,14 +61,12 @@ export default function DinasLuarKota() {
   const [requests,   setRequests]   = useState([]);
   const [employees,  setEmployees]  = useState([]);
   const [isLoading,  setIsLoading]  = useState(true);
-  const [submitMsg,  setSubmitMsg]  = useState({ type: "", text: "" });
-  const [searchQuery, setSearchQuery] = useState("");
-
+  const [submitMsg,  setSubmitMsg]  = useState({ type: "", text: "" });
   const fileInputRef = useRef(null);
 
   // Form state
   const [form, setForm] = useState({
-    employee_id:   isEmployee ? user.id : "",
+    employee_id:   isEmployee ? (user.employee_id || user.id) : "",
     start_date:    new Date().toISOString().slice(0, 10),
     end_date:      new Date().toISOString().slice(0, 10),
     reason:        "",
@@ -79,7 +77,7 @@ export default function DinasLuarKota() {
   const loadRequests = async () => {
     try {
       setIsLoading(true);
-      const params = isEmployee ? { employee_id: user?.id, category: 'dinas' } : { category: 'dinas' };
+      const params = isApprover ? { category: 'dinas' } : { employee_id: user?.employee_id || user?.id, category: 'dinas' };
       const res    = await axios.get(DinasLuarKota_API, { params });
       setRequests(res.data?.data ?? []);
     } catch {
@@ -105,7 +103,7 @@ export default function DinasLuarKota() {
     // eslint-disable-next-line
   }, []);
 
-  const selectedEmployee = employees.find(e => e.id == form.employee_id);
+  
 
   // ── Submit request Dinas ──────────────────────────────────────────────
   const handleSubmit = async (e) => {
@@ -140,7 +138,7 @@ export default function DinasLuarKota() {
 
       setSubmitMsg({ type: "success", text: "Pengajuan berhasil dikirim! Menunggu persetujuan." });
       setForm({
-        employee_id: isEmployee ? user.id : "",
+        employee_id: isEmployee ? (user.employee_id || user.id) : "",
         start_date: new Date().toISOString().slice(0, 10),
         end_date: new Date().toISOString().slice(0, 10),
         reason: "",
@@ -331,13 +329,15 @@ export default function DinasLuarKota() {
 
 
                 {/* Submit Button */}
-                <button
-                  type="submit"
-                  className="mt-2 w-full h-12 rounded-2xl bg-blue-600 text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)] transition-all hover:bg-blue-700 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Kirim Pengajuan
-                </button>
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="submit"
+                    className="sm:w-auto sm:min-w-[200px] w-[200px] h-12 px-8 rounded-2xl bg-blue-600 text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)] transition-all hover:bg-blue-700 active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    Kirim Pengajuan
+                  </button>
+                </div>
               </form>
             </div>
           </div>

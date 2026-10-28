@@ -1,36 +1,51 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const MODEL_URL = "/models";
 
 let modelsLoaded = false;
 let faceapi = null;
+let preloadingPromise = null;
+
+export const preloadFaceModels = () => {
+  if (modelsLoaded) return Promise.resolve();
+  if (preloadingPromise) return preloadingPromise;
+
+  preloadingPromise = (async () => {
+    try {
+      // Dynamic import face-api.js
+      const fa = await import("face-api.js");
+      faceapi = fa;
+
+      // Ensure models load concurrently
+      await Promise.all([
+        fa.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        fa.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        fa.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      ]);
+
+      modelsLoaded = true;
+    } catch (err) {
+      console.error("face-api.js preload error:", err);
+      throw err;
+    }
+  })();
+  return preloadingPromise;
+};
 
 export function useFaceApi() {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(modelsLoaded);
   const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     if (modelsLoaded && faceapi) {
-      setIsLoaded(true);
       return;
     }
 
     const load = async () => {
       try {
-        // Dynamic import face-api.js
-        const fa = await import("face-api.js");
-        faceapi = fa;
-
-        await Promise.all([
-          fa.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-          fa.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          fa.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ]);
-
-        modelsLoaded = true;
+        await preloadFaceModels();
         setIsLoaded(true);
       } catch (err) {
-        console.error("face-api.js load error:", err);
         setLoadError(err.message || "Gagal memuat model wajah");
       }
     };

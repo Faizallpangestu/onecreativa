@@ -1,0 +1,5 @@
+<?php
+header('Content-Type: application/json; charset=utf-8');require_once __DIR__.'/../config/database.php';require_once __DIR__.'/../services/learning.php';
+$a=rs_start($conn);if($_SERVER['REQUEST_METHOD']!=='GET')ac_fail('Metode tidak diizinkan.',405);if($a['role']==='peserta_intensif')rs_student($conn,$a);
+$subs=ls_submissions($conn,$a);$rows=rs_roster($conn,$a);$data=[];foreach($rows as $r){$scores=array_map(fn($s)=>(float)$s['grade'],array_filter($subs,fn($s)=>(int)$s['siswa_id']===(int)$r['user_id']&&$s['published_at']&&$s['grade']!==null));$data[]=['siswa_id'=>(int)$r['id'],'siswa_name'=>$r['name'],'level'=>$r['level'],'batch'=>$r['batch'],'total_poin'=>$scores?round(array_sum($scores)/count($scores),1):null,'published_results'=>count($scores)];}
+usort($data,fn($x,$y)=>($y['total_poin']??-1)<=>($x['total_poin']??-1));foreach($data as $i=>&$r)$r['rank']=$a['role']==='peserta_intensif'||$r['total_poin']===null?null:$i+1;unset($r);ed_respond(200,['status'=>'success','data'=>$data]);

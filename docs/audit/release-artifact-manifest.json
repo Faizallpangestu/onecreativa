@@ -1,0 +1,1485 @@
+{
+  "verified_at": "2026-10-12T10:39:14.462Z",
+  "artifact": ".phase2-build-check",
+  "production_gate": "NO-GO",
+  "deployed": false,
+  "files": 294,
+  "total_bytes": 35621625,
+  "private_data_excluded": true,
+  "diagnostic_apis_excluded": true,
+  "private_directory_protections_present": true,
+  "provider_secret_pattern_scan_passed": true,
+  "scope": "Static local artifact verification; target web-server enforcement and business acceptance remain unverified",
+  "entries": [
+    {
+      "file": ".htaccess",
+      "bytes": 3839,
+      "sha256": "4c4b0d3fa73e7677d5f63742081d2f4ded861576e5ca9157158e10ce092034da"
+    },
+    {
+      "file": "api/.htaccess",
+      "bytes": 195,
+      "sha256": "eacef0c545653e56762f7b50940c5d539c683d0681f6d530a2a70565c1111ce4"
+    },
+    {
+      "file": "api/accounting.php",
+      "bytes": 10335,
+      "sha256": "0f502c76528f156229e9bf7d7047a0cc283d434c9f985ed08224dc24b61f8491"
+    },
+    {
+      "file": "api/asset_histories.php",
+      "bytes": 12260,
+      "sha256": "32c35a67acb98c8082e66ed0a0e5d00a0427973a72295d540b98e649044952c5"
+    },
+    {
+      "file": "api/assets.php",
+      "bytes": 18584,
+      "sha256": "8a1d4135d856a6adaa55ad14b1169af110e611aa3a121f78f153ee6b8c0e92e2"
+    },
+    {
+      "file": "api/attendance.php",
+      "bytes": 5412,
+      "sha256": "4375446941d1b78af408f06b3ebd00c01585334c9a61b95592b5570b89097d85"
+    },
+    {
+      "file": "api/billing.php",
+      "bytes": 4566,
+      "sha256": "7c6a571815c262c6d8f0a7aad00ff55709dac422b4537b1af33906c0897709f3"
+    },
+    {
+      "file": "api/budgets.php",
+      "bytes": 3830,
+      "sha256": "0ec6c6c5e13d155c174d76f8eeba621cd583103a9896a5194455171afb4c3b7d"
+    },
+    {
+      "file": "api/daily_reports.php",
+      "bytes": 3560,
+      "sha256": "30d5b6cc4ffc89071131c2dd348230af5ea5280b4fde1cf18d2a95beb063830d"
+    },
+    {
+      "file": "api/dashboard_karyawan.php",
+      "bytes": 8918,
+      "sha256": "aa8959528cd7553b72786c5fd18e0476eefcf40acfd1604ea6f34f944fad7da2"
+    },
+    {
+      "file": "api/dashboard_stats.php",
+      "bytes": 1482,
+      "sha256": "77fc3ab640e042842cddff4df29416324e9c4e56aba7eebf0d0fb17aab4f9de6"
+    },
+    {
+      "file": "api/departments.php",
+      "bytes": 2178,
+      "sha256": "d2732195cc3fa369461e487ee82d070059039be8ab829a85cf55945e15fda368"
+    },
+    {
+      "file": "api/employee_stats.php",
+      "bytes": 1451,
+      "sha256": "202dbdaf1f3414b09b6bd8c2e6a737fa364884289017af11b76033b6f49a4494"
+    },
+    {
+      "file": "api/employees.php",
+      "bytes": 1193,
+      "sha256": "49cc1da241436284b7980c95c982ce538b54ef7e69c1dcc93afb769dbb592d94"
+    },
+    {
+      "file": "api/face_clock.php",
+      "bytes": 8874,
+      "sha256": "3892868045043e9967d4f2a1895b93cc526e7ef48205cd8bb549ea02b5d66717"
+    },
+    {
+      "file": "api/face_enroll.php",
+      "bytes": 6043,
+      "sha256": "0c30cb17843ee31d177fe42be7692794d54bc9be0f53ec696cc41c59cbea5e54"
+    },
+    {
+      "file": "api/finance.php",
+      "bytes": 2053,
+      "sha256": "6f7a744529ec19a6762932a6ac6da9cd6723a7663f6261a8c942de19214e4cd2"
+    },
+    {
+      "file": "api/invoice.php",
+      "bytes": 2903,
+      "sha256": "10383ad43956db90628e0540374105b7d325193a1fb1938951f1de6a353acfba"
+    },
+    {
+      "file": "api/leaves.php",
+      "bytes": 9828,
+      "sha256": "f065c6feb1db560ac766f04b4d59d126059c92e053265cbbd1ef6ea3298e8c0c"
+    },
+    {
+      "file": "api/lms_announcements.php",
+      "bytes": 2001,
+      "sha256": "0f9565ded2526af4ed5eea0e0797bae8e6ce22ac64f3e32cbeac0ee70b66f542"
+    },
+    {
+      "file": "api/lms_attendance.php",
+      "bytes": 1130,
+      "sha256": "7bb097c9cca187518fe1acbabece4fae0526b89ad0aed926fd50f0b0b7490a2c"
+    },
+    {
+      "file": "api/lms_dashboard_stats.php",
+      "bytes": 503,
+      "sha256": "9519b49c7d439d08416565a8c4b4b019f9c76b43f8b06b8e76754aceb1032075"
+    },
+    {
+      "file": "api/lms_grades.php",
+      "bytes": 671,
+      "sha256": "b59ebad691664f82c44e62cb1f5d998a3005957f033f852d0cd6b0a374de33be"
+    },
+    {
+      "file": "api/lms_kaiwa.php",
+      "bytes": 7952,
+      "sha256": "8554e1b16684bc4e24a7c9083da7914e0a2530286dd2a1cf63e6813c9f150612"
+    },
+    {
+      "file": "api/lms_leaderboard.php",
+      "bytes": 1003,
+      "sha256": "008aee7aa83d541d2aae05b4482b78330d3deceaa2a0422a6f26994d2e21f576"
+    },
+    {
+      "file": "api/lms_meetings.php",
+      "bytes": 4001,
+      "sha256": "b7549c00a33bf1d798c7b51c38eb6e68001113b8bba5b030e00147d3c45d8458"
+    },
+    {
+      "file": "api/lms_submissions.php",
+      "bytes": 1377,
+      "sha256": "5be22b728559edfd32bc061322ba8e0997daf6db190c1e18ed91cc47462daa0c"
+    },
+    {
+      "file": "api/lms_tasks.php",
+      "bytes": 2767,
+      "sha256": "43303a98bfce179e71e731641bb6f97c9b10fc226a8b0fb3f7f34ebeb953c0c5"
+    },
+    {
+      "file": "api/login.php",
+      "bytes": 1764,
+      "sha256": "9d76cf81cb66c31312ae19f3ef822759c1899a78cef59d9e63d7cd107d83caed"
+    },
+    {
+      "file": "api/logout.php",
+      "bytes": 675,
+      "sha256": "44c456c27ae097076f0423e8bc39ae76db275b88d94e64029da18f2291dba7b7"
+    },
+    {
+      "file": "api/lpk_alumni.php",
+      "bytes": 291,
+      "sha256": "1486ea62a72d53e778f72e4fb63f0f39ddff171e49b8e923f8e318c62b54ef21"
+    },
+    {
+      "file": "api/lpk_intensif.php",
+      "bytes": 300,
+      "sha256": "ecb6c88f51ceedd5ece2eb7759cf7fe64dc6fb86c884fd5750e14bb2e8985123"
+    },
+    {
+      "file": "api/lpk_matching.php",
+      "bytes": 2301,
+      "sha256": "78ed29ca829c062cd17cd602bcc2ad36b0d4bef607fa944d97c9e71b010aa5f8"
+    },
+    {
+      "file": "api/lpk_mendang.php",
+      "bytes": 293,
+      "sha256": "b056e17922dc51f2a95f63aa9f62e92497afaf87f1e08ff823e96c69658d3921"
+    },
+    {
+      "file": "api/lpk_nenkin.php",
+      "bytes": 292,
+      "sha256": "eafbb0f924b222f0855e316c447c3cf6a579bf57775db8c01c96e1903af505e6"
+    },
+    {
+      "file": "api/maintenance.php",
+      "bytes": 7263,
+      "sha256": "a5e201e912d3cc966486032aa2eeedfa389810c7ebca7e1d6cc3749bf90bf995"
+    },
+    {
+      "file": "api/overtime.php",
+      "bytes": 1101,
+      "sha256": "291842c9c7998364949b00611569a7017d882164f133fb3ea70a3b5efe1b0174"
+    },
+    {
+      "file": "api/payroll.php",
+      "bytes": 5512,
+      "sha256": "5acd0dfc51d3f1e90743bdac8a2518eb5d27625414856bf3626de9c7f141073b"
+    },
+    {
+      "file": "api/positions.php",
+      "bytes": 4719,
+      "sha256": "1158314512562aa7fd39fe4a4df2b9b3d5584b6234cabceffd6925adccafb381"
+    },
+    {
+      "file": "api/profile.php",
+      "bytes": 13013,
+      "sha256": "ae3f4f79b8a70bdd6f4216dee105799984f13dddf9527273c7191e48b6ebc50f"
+    },
+    {
+      "file": "api/publish_payroll.php",
+      "bytes": 281,
+      "sha256": "06a10d4e39848038365bfeb191cf61159c28cbf62871d43a500c74aed5b57a1b"
+    },
+    {
+      "file": "api/reimbursements.php",
+      "bytes": 4015,
+      "sha256": "71a5c50bcc1ed1ea580718ccc427483deba2893c60b98ece19b9910985a0ecab"
+    },
+    {
+      "file": "api/relationships.php",
+      "bytes": 2160,
+      "sha256": "7139e845ddb0e53d3252e2158427333ca61d8d60661bac25158f8e5054b45140"
+    },
+    {
+      "file": "api/rfid_scan.php",
+      "bytes": 358,
+      "sha256": "3e735245ee5284339c2f373b7bff49640d46679be1ea18c6968730a5595c0774"
+    },
+    {
+      "file": "api/rfid.php",
+      "bytes": 3526,
+      "sha256": "54c5e87ece77d4013e3cf3fe243b8d2571ffdc625d720e82b0f204fb7e03c029"
+    },
+    {
+      "file": "api/salaries.php",
+      "bytes": 3163,
+      "sha256": "2121314eb69d75abf03a459765b8c3802b9d1960b0dbfb56b19682625b3be35d"
+    },
+    {
+      "file": "api/salary_slips.php",
+      "bytes": 2600,
+      "sha256": "3b4ffba0f8b5f7fd849f38efd6ab91333d7cac1d835a195ff48f809c9cca116c"
+    },
+    {
+      "file": "api/save_payroll.php",
+      "bytes": 263,
+      "sha256": "9758565841da6657aa2b2a4a1fd571ba1fbebb529014651081baa69e08590a73"
+    },
+    {
+      "file": "api/sensei_dashboard_stats.php",
+      "bytes": 369,
+      "sha256": "b1468a902cd63b652f51cc0961e308fbca34fc156af915969e9dce315dca1917"
+    },
+    {
+      "file": "api/session.php",
+      "bytes": 547,
+      "sha256": "95ff4d374424b5e42378abdf8af793b251bf867f0820ad71b2579270f00992ce"
+    },
+    {
+      "file": "api/settings.php",
+      "bytes": 3291,
+      "sha256": "8e57d069782539702c6d2631b55aa9b99ae9986cd501c8cbf66ed8b89c4d0200"
+    },
+    {
+      "file": "api/student_billing.php",
+      "bytes": 2567,
+      "sha256": "4f60806833cab7dd7ba8584ce705b52dc49ab056032f784c8e2e37fcf1c31383"
+    },
+    {
+      "file": "api/upload_photo.php",
+      "bytes": 4209,
+      "sha256": "282ca2d93b5da3ec27f055594ab0bbcf1d19a451cf011f2314fcc36892905d9b"
+    },
+    {
+      "file": "assets/3d_calendar_clock.jpg",
+      "bytes": 522669,
+      "sha256": "6f47855dfa2764e016ac9933816edfbd0226fdcdfc15fd329c8b2bcdf36a143c"
+    },
+    {
+      "file": "assets/3d_calendar.jpg",
+      "bytes": 401637,
+      "sha256": "90614eb5af361d575f34d7146fef42acd2d5d5b459f4e6ca5265b5ec0b87ba23"
+    },
+    {
+      "file": "assets/3d_clipboard_books.jpg",
+      "bytes": 495794,
+      "sha256": "62cb420306435dee67e7c4e0189045951529292e06a6cdb04a99a8aee8afc710"
+    },
+    {
+      "file": "assets/AccessRights-Cm-0FiDF.js",
+      "bytes": 14756,
+      "sha256": "3b35348ac0d81ab71fa2382e787608dd5a90bff9c2e6aa8268cac4d861b8bab9"
+    },
+    {
+      "file": "assets/AccessRightsLPK-D3Jr6F07.js",
+      "bytes": 15012,
+      "sha256": "37a326f2a1f19fefe796172434d528a0f2be033e59bc8c4428a94fa552e38ce9"
+    },
+    {
+      "file": "assets/AccountSettings-CRgDg8aH.js",
+      "bytes": 20529,
+      "sha256": "cf6e0f740074c3cba9710568946078dc005ffc06add717b35ea6e5e5a51d8e45"
+    },
+    {
+      "file": "assets/akira_sensei_open-DhWabBQd.jpg",
+      "bytes": 677834,
+      "sha256": "d730bd3467e2323eff575afa5f14ecc9f8c274afb2f0db8c0d06cce3fa5e2b58"
+    },
+    {
+      "file": "assets/akira_sensei-iY7nQD3q.jpg",
+      "bytes": 775660,
+      "sha256": "acd3cd465ae8ca25cb3b65382030cb7fe7995075440384cb4eb6b3b4f0da94f1"
+    },
+    {
+      "file": "assets/AnggaranBiaya-BquEAXf2.js",
+      "bytes": 35994,
+      "sha256": "8945d1f85da27cd764cca94c14ed2e8768a9b987e0ef89de7f9c30bd1e45c782"
+    },
+    {
+      "file": "assets/AnggaranBiaya-CUR8ltQj.js",
+      "bytes": 1934,
+      "sha256": "44cc2d1f607eb14778ea24948e59575cbe6bd333c81c172a58a6396f95b8b24f"
+    },
+    {
+      "file": "assets/AnggaranBiaya-DAXyuC98.css",
+      "bytes": 11229,
+      "sha256": "67533abf04d7ed2a0d96b17aa8be478b3bac7c604fb405a5bfb31e27eda0610a"
+    },
+    {
+      "file": "assets/anime_student_banner.jpg",
+      "bytes": 827906,
+      "sha256": "fbb8cfdbcb7b533816a0fc0aad4f8e2264706ba279739d8b09f3215795eb87c1"
+    },
+    {
+      "file": "assets/api-CvOF8rD-.js",
+      "bytes": 283,
+      "sha256": "00c67932767d0c192cf964ef904a6b9b7519c41ac26f2f4f00aadd5c4097c800"
+    },
+    {
+      "file": "assets/ApprovalPerpindahan-HKjnT-bB.js",
+      "bytes": 17212,
+      "sha256": "39ff0c3da608c75749dfe9d2c2c3768593f13c6214612b3decf69108569f8bb6"
+    },
+    {
+      "file": "assets/AssignRFID-D5-SDWMT.js",
+      "bytes": 8383,
+      "sha256": "b91cc227990aef0be50d7823194159743fe31fa2f4925ec6ca17ebc9ec2312fd"
+    },
+    {
+      "file": "assets/Attendance-FTjiC8Fp.js",
+      "bytes": 44405,
+      "sha256": "9e1a58b13dfc5e55a769b4085d639cc4fe3a5b5353cad0256873658ee838c603"
+    },
+    {
+      "file": "assets/DaftarAset-CzA9pqc0.js",
+      "bytes": 21795,
+      "sha256": "8d2edd16384cdf8450e4970fee0dbfd5714f06768802af5fa0dbcaf14350025b"
+    },
+    {
+      "file": "assets/DailyReportAdmin-YIJZdG4E.js",
+      "bytes": 22636,
+      "sha256": "ef4f3803286c3100a3ae4981a657245b3e66887ea275620acbca8748ff707246"
+    },
+    {
+      "file": "assets/DailyReportKaryawan-fDCP-AvD.js",
+      "bytes": 19667,
+      "sha256": "89885f54e7f2296f74fba8386c12f2a84e3eb7c6b17242ca041a2ea192c4cf45"
+    },
+    {
+      "file": "assets/Dashboard-gYQ0yv88.js",
+      "bytes": 30471,
+      "sha256": "18f950e93e865b54fe2d042cfd3d4c0eb9e970be7c62b36d6f71a5d62a884006"
+    },
+    {
+      "file": "assets/DashboardCreativa-6l5tyv7s.js",
+      "bytes": 6172,
+      "sha256": "f0ce9954e8a33cc7cb1a8628faa07922c16f290158e902ea6a93039a9985270a"
+    },
+    {
+      "file": "assets/DashboardFinance-BcnT13SU.js",
+      "bytes": 206,
+      "sha256": "432f68c643ca2006c08aa80c1fb2caf5f9e279754dfbb49c52b3ba1d5da32b71"
+    },
+    {
+      "file": "assets/DashboardPesertaAlumni-ZsGEayg3.js",
+      "bytes": 7414,
+      "sha256": "ba542068516a52f6ab9f3d0afce957930cb59fb80929487837220a5c5a9d8f60"
+    },
+    {
+      "file": "assets/DashboardPesertaIntensif-BzSOsXLS.js",
+      "bytes": 7161,
+      "sha256": "ae608e5985319fce12fde1ab9c0d4f231401189601049b2a4b5b39d9f3f561ef"
+    },
+    {
+      "file": "assets/DashboardPesertaMatching-aFRXDLFD.js",
+      "bytes": 10010,
+      "sha256": "20f1aed14e2eebfb5466b8498711382ca432bfee6fc26eed7a5e3a4d438513a2"
+    },
+    {
+      "file": "assets/DashboardPesertaMendang-8rZr7o9B.js",
+      "bytes": 6498,
+      "sha256": "35e431cb7ac0f66d272d217d59a439b3f4c8bc932f2196850f3933bb244ecae7"
+    },
+    {
+      "file": "assets/DashboardPesertaNenkin-TfUng3V0.js",
+      "bytes": 21727,
+      "sha256": "7f5994c056369b9a4963a2ddf8d3babb23248550f6a08ffa46a3e49430943719"
+    },
+    {
+      "file": "assets/DashboardSensei-TV5M3Yq0.js",
+      "bytes": 38905,
+      "sha256": "12413f876a99cec6daa44dd3fd24272c1ee69add5309b04086a4870ea16e3b21"
+    },
+    {
+      "file": "assets/DashboardSiswaIntensif-ZvVUcwI7.js",
+      "bytes": 159,
+      "sha256": "73f5e4b8960b8266287dfe8e7de620dd2aae691967b87f30817d97528263a391"
+    },
+    {
+      "file": "assets/DetailAset-CJGQnKIy.js",
+      "bytes": 13907,
+      "sha256": "aaddb1d269ba76c4cbfe6a05635cd2d5ca0d6573b4bf0f6e3d16f62c07fe64d4"
+    },
+    {
+      "file": "assets/Employees-Bj6uPMfF.js",
+      "bytes": 37750,
+      "sha256": "d87552e0c5a2897baa5ef40e23a9f150115e3908cf174c1ce4c29a6260538855"
+    },
+    {
+      "file": "assets/es6-B4rzXHSO.js",
+      "bytes": 3858,
+      "sha256": "1051510fbab97e31ee9b1fe57f61b6f503a50a78503cfaef4fae0d6b3dc06a87"
+    },
+    {
+      "file": "assets/FaceClock-7Grm4r5p.js",
+      "bytes": 12698,
+      "sha256": "190ff438c879b26501f366c5111babe28a443eef8a08d11f934fa514c495e804"
+    },
+    {
+      "file": "assets/FaceEnrollment-BNmrCCRl.js",
+      "bytes": 11168,
+      "sha256": "5ea0368858a23f6d3273f0a617f89e8ec1fd1099256c7ebfa34aee7bf19e8cef"
+    },
+    {
+      "file": "assets/financeNavigation-8JMNpB-z.js",
+      "bytes": 1289,
+      "sha256": "1a76a7e9cb1253c04f71b52e0108a42d86eb05944d6f645adb99a49a24d7dc31"
+    },
+    {
+      "file": "assets/FinanceWorkspace-Bj2eBQvA.js",
+      "bytes": 23639,
+      "sha256": "82b99e81afa34a91e23cc803a520d81f89e07f7558da5fd0827c34a8fe5fb6b5"
+    },
+    {
+      "file": "assets/FinanceWorkspace-C17X_JlK.js",
+      "bytes": 22390,
+      "sha256": "ea9ba2ee97250850cb1383eb65887df4c8f383b01e2e8ccedd82295c95a14e29"
+    },
+    {
+      "file": "assets/FinanceWorkspace-DXtHmT-n.css",
+      "bytes": 3366,
+      "sha256": "3943ac7c01db3d6a55b33e8b4321a669803a2b4f5f7e1f2d05687cf7d76ab170"
+    },
+    {
+      "file": "assets/FormAset-B7MwX6dw.js",
+      "bytes": 12300,
+      "sha256": "2b1afa1e90d20010c3cfaa1cfd31985f1f9ac78ea85a8b1ad682d0ab56284569"
+    },
+    {
+      "file": "assets/HistoryInvoice-Cwt-S-vp.js",
+      "bytes": 30540,
+      "sha256": "437e4579862630a8ca87907a52704e9f2c70d262a6195bc016591c22316a77bc"
+    },
+    {
+      "file": "assets/Home-HTXFFc5I.js",
+      "bytes": 7651,
+      "sha256": "4d6dac4b1bc2d591772e1b06eb3d9c0dea74c1f17fdd217960f0ec19e717b9c7"
+    },
+    {
+      "file": "assets/hr_3d_bg-So1nu0gQ.webp",
+      "bytes": 115016,
+      "sha256": "f53e92180a07ea775a050de5ba3a4a3268f488d1bcedf3d42726d031fec422ee"
+    },
+    {
+      "file": "assets/index-Bn_nz6iD.js",
+      "bytes": 29646,
+      "sha256": "045972aa42f5327a8d01368522f7251c3c86681ddcbb1ca5466dd9dfc4a717d6"
+    },
+    {
+      "file": "assets/index-D66JEIpA.css",
+      "bytes": 132539,
+      "sha256": "a0b6b247193513aff1f6905410aeb4162b91ad6b4adb51742a37c1563aa57944"
+    },
+    {
+      "file": "assets/index.es-DaLdHCZ1.js",
+      "bytes": 2221,
+      "sha256": "4f7a1dd1db28a6d6476be25e2fdf7d4da5fe282feeb0665644311e2426a18f07"
+    },
+    {
+      "file": "assets/InvoicePenagihan-BKalY_Wg.js",
+      "bytes": 71339,
+      "sha256": "2d05f9f43a4f6db325186ec5fb9617b2bd10ab5c202d9178945b2f0e3bfbbf56"
+    },
+    {
+      "file": "assets/karyawan_3d_bg-Bj8-tQds.webp",
+      "bytes": 62326,
+      "sha256": "409fc465534ef1dbc142ad7baf91f9f99055aef04d16553367584e51cd3b32a5"
+    },
+    {
+      "file": "assets/LaporanAset-JDB8PVk3.js",
+      "bytes": 12903,
+      "sha256": "dc20e72ca71422a004fae93ad323e44aa62b9eb335b2536b0b1675abd6991aef"
+    },
+    {
+      "file": "assets/LaporanAudit-CIhLPM17.js",
+      "bytes": 27045,
+      "sha256": "c66aed48ec319872ac69fb711f04a9c11b3c767ee7f00b1cd25341a707becbb8"
+    },
+    {
+      "file": "assets/Layout-6I0aAokD.js",
+      "bytes": 49655,
+      "sha256": "fdb4f7cd5fc1a713ed28cd27f3d1434c10891a40506b5f6d0ea5cfa2979a0bad"
+    },
+    {
+      "file": "assets/LearnerDashboard-DpId_C4W.js",
+      "bytes": 3174,
+      "sha256": "d73d2b64c5284d6f4f04cf49b91c4dce6d6387672f94a633f5d880e79be742a6"
+    },
+    {
+      "file": "assets/LearningClasses-Q72iiUIX.js",
+      "bytes": 6476,
+      "sha256": "df1b7e7a31952901f49b5eb8e1f35dd093eb2361d019a0c0b09716002272b4b7"
+    },
+    {
+      "file": "assets/LearningWorkspace-CYzC88Ym.js",
+      "bytes": 20662,
+      "sha256": "12ffc5a7ea5573951d9a9255825cc243a2d9e830671f1a6c23e563647d6713f0"
+    },
+    {
+      "file": "assets/Leaves-CXJJx2Eu.js",
+      "bytes": 26051,
+      "sha256": "96646470f2f89681967b373d13928a625543cf12333e93a396c6870bc53145a4"
+    },
+    {
+      "file": "assets/lms_belajar_bg-1wEloY6f.png",
+      "bytes": 888264,
+      "sha256": "7a756d756fac12a13601116b4a95c720def742d70278fb862ef808631c3c61e9"
+    },
+    {
+      "file": "assets/LmsAbsensi-C0uBHBOd.js",
+      "bytes": 177,
+      "sha256": "8fba4be434846749b1b2e6db5281db797ff3c131858dbe3cca6193efe48d6a02"
+    },
+    {
+      "file": "assets/LmsAdminAgenda-BL56abb5.js",
+      "bytes": 173,
+      "sha256": "581b9a0e9b7d3e29c2263d77f67188453ef708d1cb2011f294845c67704750f0"
+    },
+    {
+      "file": "assets/LmsBelajar-Cg10FOYH.js",
+      "bytes": 5655,
+      "sha256": "d71463f8853cd95da6330c82fe1574d9419de3d5cbba3902e0095a9bb88bb88d"
+    },
+    {
+      "file": "assets/LmsCalendar-DWFTH8CJ.js",
+      "bytes": 173,
+      "sha256": "581b9a0e9b7d3e29c2263d77f67188453ef708d1cb2011f294845c67704750f0"
+    },
+    {
+      "file": "assets/LmsDashboard-hy01uVe9.js",
+      "bytes": 159,
+      "sha256": "73f5e4b8960b8266287dfe8e7de620dd2aae691967b87f30817d97528263a391"
+    },
+    {
+      "file": "assets/LmsInstructor-rXkSE7a4.js",
+      "bytes": 1263,
+      "sha256": "49900247077c608e816f91d654558de1e175911f761e2e0b8a5d735acfc7872d"
+    },
+    {
+      "file": "assets/LmsKalender-C5ZAVCb-.js",
+      "bytes": 173,
+      "sha256": "581b9a0e9b7d3e29c2263d77f67188453ef708d1cb2011f294845c67704750f0"
+    },
+    {
+      "file": "assets/LmsKartuSiswa-CVUcHqiV.js",
+      "bytes": 171,
+      "sha256": "b899ebddd2e8e24bd9dc50b339a0650af67222f1e79485a996d84913c839988e"
+    },
+    {
+      "file": "assets/LmsKonsultasi-BxgXaJoD.js",
+      "bytes": 177,
+      "sha256": "557936d35af74c284a43d72d74fb3e68acea0ee6ab4c67ae0f18d18de91a488a"
+    },
+    {
+      "file": "assets/LmsKotoba-sIICw8Tb.js",
+      "bytes": 7534,
+      "sha256": "bff69b5aa57411b87a6b15e74b35be72d701f8dcc3ead7fa747e467d0b410da5"
+    },
+    {
+      "file": "assets/LmsLatihanKaiwa-B6QOxW9P.js",
+      "bytes": 7251,
+      "sha256": "9c45df10808cb78b6bdfcc0bfdfdcb58670728b058190196c571228f9623263f"
+    },
+    {
+      "file": "assets/LmsLeaderboard-DadfmPVC.js",
+      "bytes": 178,
+      "sha256": "147443b060cddaa2f25582e827d64ca7bf9b39aca5fe4006727230231a4da544"
+    },
+    {
+      "file": "assets/LmsMateri-Cg9xmz7c.js",
+      "bytes": 173,
+      "sha256": "580389795e596d36249564f338fcb8caf1e4b733e999d5282be09f0eda9cbcf7"
+    },
+    {
+      "file": "assets/LmsNilai-BscM5jtC.js",
+      "bytes": 173,
+      "sha256": "0f6db3b8f1fb7ce6426b8498afa011dab157c11ac9fa9bad90a64c129c07280d"
+    },
+    {
+      "file": "assets/LmsPengumuman-6riBLbbY.js",
+      "bytes": 8274,
+      "sha256": "8f8ad297023200ceb26096c5731b73d7920272de774bf7b743cce170d966c3a7"
+    },
+    {
+      "file": "assets/LmsProfil-c7LKN47p.js",
+      "bytes": 174,
+      "sha256": "e48e902d9be13d44ff728c86706d2f5b042bd2f956c03f9231b6477a6aee2d9b"
+    },
+    {
+      "file": "assets/LmsQuiz-CBPjp_CN.js",
+      "bytes": 171,
+      "sha256": "4b09f37cdb0b57b2ea64d013eec0d7ec20d4084005eb48fe1ea3def6143a86e8"
+    },
+    {
+      "file": "assets/LmsTagihan-CZJt7GQ7.js",
+      "bytes": 157,
+      "sha256": "847e63bd0972ab7a39692247cc5b946d5db81fa69016914027b0c458f44fffcc"
+    },
+    {
+      "file": "assets/LmsTugas-CJ0MpVV0.js",
+      "bytes": 172,
+      "sha256": "b7ecf78dd79fe3a8f3375659614b48f101b7245d0d3e43785ae50c25c1a7de03"
+    },
+    {
+      "file": "assets/LmsUkom-DKw_6fGG.js",
+      "bytes": 171,
+      "sha256": "7ffd79ba4630b72d19b26030b31f748810ccdd2077b6de8a765982e00ffd3fd2"
+    },
+    {
+      "file": "assets/LocationSettings-BaRk5MBT.js",
+      "bytes": 8014,
+      "sha256": "ed8bafea120c6addecbeda9046b7c22b926e44d5ad39a0cbc068e6e5c03577ff"
+    },
+    {
+      "file": "assets/Login-BiRlenJa.js",
+      "bytes": 8782,
+      "sha256": "64c40222c664974ef6300a58b60d622915c9b437dc28811effb2094d209da070"
+    },
+    {
+      "file": "assets/login-illustration-lwGjsyGi.jpg",
+      "bytes": 414797,
+      "sha256": "fc53cfc462b8c688c1616d33581f454826e2fb5c87dd8729721087062d70c4b7"
+    },
+    {
+      "file": "assets/logo-Bxt9ZxCG.png",
+      "bytes": 185639,
+      "sha256": "3c82c0c8f90bf18c2509c24092c4a7fdae3bb115aa46956d84fd723d47959e66"
+    },
+    {
+      "file": "assets/logo-DXjXnetU.webp",
+      "bytes": 53936,
+      "sha256": "ccfdfba170f9582b99644796165b4f693ab57443de41aa319c477e2cfd9eecb4"
+    },
+    {
+      "file": "assets/logo-lJDAn2er.js",
+      "bytes": 50,
+      "sha256": "06a00a4cf303bc89942937f65dece28f869bd57bec8b73c9f31a6519f962d0cb"
+    },
+    {
+      "file": "assets/logoutUser-CPsMuMYI.js",
+      "bytes": 214,
+      "sha256": "0b19cd6f46dc12c4c12e91b1f0ba4aae4780031ead39ef12f7f6a6d6c225a496"
+    },
+    {
+      "file": "assets/LpkAlumni-oDX78pNW.js",
+      "bytes": 649,
+      "sha256": "cacdffa13ee26e36bd5d31b869b9a476b5c475ac95727b93d1fc85fdfba9afb9"
+    },
+    {
+      "file": "assets/LpkAttendance-BKlEnNpv.js",
+      "bytes": 12365,
+      "sha256": "a7ca4f5bfb8c5c8a227bcdfc845603d05fdbfced702c720fa7eaecc9570d82d2"
+    },
+    {
+      "file": "assets/LpkIntensif-BcM2Uib1.js",
+      "bytes": 205,
+      "sha256": "86b015eb9ff2dde0afc28fa47f4533a4e716e55c55d5728c3f7327e724e07fc7"
+    },
+    {
+      "file": "assets/LpkMagang-D54KY6Ph.js",
+      "bytes": 154,
+      "sha256": "0a2935f0030cca3740dc1ecbfc5716177c1bdf9520aa10f495d89d0a69499c87"
+    },
+    {
+      "file": "assets/LpkMateri-zmH7uhTh.js",
+      "bytes": 173,
+      "sha256": "580389795e596d36249564f338fcb8caf1e4b733e999d5282be09f0eda9cbcf7"
+    },
+    {
+      "file": "assets/LpkNenkin-BjWlDkcw.js",
+      "bytes": 201,
+      "sha256": "28a7cda10c8422abb6a18dc76a124e9e7d110ab6e23f2817550eec7fb14a849f"
+    },
+    {
+      "file": "assets/LpkNilai-CGJ2we_A.js",
+      "bytes": 173,
+      "sha256": "0f6db3b8f1fb7ce6426b8498afa011dab157c11ac9fa9bad90a64c129c07280d"
+    },
+    {
+      "file": "assets/LpkQuiz-DGTqqssX.js",
+      "bytes": 171,
+      "sha256": "4b09f37cdb0b57b2ea64d013eec0d7ec20d4084005eb48fe1ea3def6143a86e8"
+    },
+    {
+      "file": "assets/LpkTugas-Bw8SgrqV.js",
+      "bytes": 172,
+      "sha256": "b7ecf78dd79fe3a8f3375659614b48f101b7245d0d3e43785ae50c25c1a7de03"
+    },
+    {
+      "file": "assets/Maintenance-Bjp9nx2W.js",
+      "bytes": 22687,
+      "sha256": "02cac80e70913c1500b3fbc7b6950d0e6c84f1afe5b4b63425fe8b02c96d3d47"
+    },
+    {
+      "file": "assets/MatchingJob-BKldvBbq.js",
+      "bytes": 51606,
+      "sha256": "d5d7e2cf7934a48fd4552b1625fa583744dfd8779949bcfc094f6b73d7c40237"
+    },
+    {
+      "file": "assets/MenuAdmin-NgBHJt5P.js",
+      "bytes": 6816,
+      "sha256": "ee16a00dfafb4541ae9aaddb049ad9f12e318310feb991de9b7c4f332b69ac0a"
+    },
+    {
+      "file": "assets/MenuFinance-BgiFgWCV.js",
+      "bytes": 4138,
+      "sha256": "d3598aa7734daa846de7a02d5bd76b728c8ffab472e51a8548cdde5ecabe16cf"
+    },
+    {
+      "file": "assets/MenuGA-_MRU4nZ2.js",
+      "bytes": 3128,
+      "sha256": "26cfbe185c41c63e397a660628ac047c3e96f90426efc121639df678dafb90d3"
+    },
+    {
+      "file": "assets/MenuHRD-DZdIleqR.js",
+      "bytes": 3173,
+      "sha256": "b1cf89c9db946c3b9ceb3fefaa264e4e8e0200578f335214aa9f630405918aa0"
+    },
+    {
+      "file": "assets/MenuKaryawan-_UU3833T.js",
+      "bytes": 23972,
+      "sha256": "9f9b7396f111df25856819404a7bf13c799d19da099357dbd14cf951fda8266b"
+    },
+    {
+      "file": "assets/moduleApi-HbEP6ODD.js",
+      "bytes": 2487,
+      "sha256": "970cf925b4a44cec677337302dc72794a88386fa6dde35bcfd44f693e1663a94"
+    },
+    {
+      "file": "assets/Overtime-ufKmq7Yu.js",
+      "bytes": 25009,
+      "sha256": "5ea291d201c160272b7d4c50868a0c8b0e43184a4096dc1182f1b9c224f0009a"
+    },
+    {
+      "file": "assets/ParticipantDirectory-BvJGMYcw.js",
+      "bytes": 4868,
+      "sha256": "b124ef4313af5821417c76a2f40fb1cd243baf713b56ab79931057f14aeec95f"
+    },
+    {
+      "file": "assets/Payroll-CxxKkUpC.js",
+      "bytes": 144,
+      "sha256": "99a1d0996ace014e0cc74ca0c174334046051208cd83c4ab3449cd79a13f04d1"
+    },
+    {
+      "file": "assets/PayrollHRD-BBZ-e33Z.js",
+      "bytes": 24381,
+      "sha256": "73505e1f19fbc54595788bce5460d217440b05558bab53e6f78425e01d1ccbbb"
+    },
+    {
+      "file": "assets/Positions-BDcDOqoC.js",
+      "bytes": 18040,
+      "sha256": "694d960f7d7e51c48cf8486288e6be4795b614288ecbb84e2638cdb969a4231f"
+    },
+    {
+      "file": "assets/PresenceCode-1d1TxK3y.js",
+      "bytes": 174,
+      "sha256": "9ff147d8dbaf9726b4b291d49bb92c30b06cc6c8bcdd006ec80ef1d1673c50cf"
+    },
+    {
+      "file": "assets/Profit-Di4dK74t.js",
+      "bytes": 203,
+      "sha256": "4fef566eb368e47ea2eb8a03c167a664e65f0babec00bc23405221b9e71a6800"
+    },
+    {
+      "file": "assets/purify.es-CSoWorGs.js",
+      "bytes": 69,
+      "sha256": "c78a4c641cd8e9ae31cc72af605881880b51c77f325b8727cf8f12bdd4c28af8"
+    },
+    {
+      "file": "assets/Reimbursement-BRs-JLEv.js",
+      "bytes": 29319,
+      "sha256": "602c744ecb2194f2f0174ca5036daa53e63dfe0dec25fb0d94a7d30a7deeef9b"
+    },
+    {
+      "file": "assets/roleAccess-qi88o38n.js",
+      "bytes": 1619,
+      "sha256": "df92ec70ae98a7290e744db6ef40600de39782bba93d3236d20ba8f8fdd956e2"
+    },
+    {
+      "file": "assets/rolldown-runtime-B1FJdls4.js",
+      "bytes": 1075,
+      "sha256": "9991c472f01ae5b180ad1495d62f35e368315d386c4bef8cc0b3df58f1cc08e7"
+    },
+    {
+      "file": "assets/SalaryKaryawan-C5JJIqp1.js",
+      "bytes": 1686,
+      "sha256": "309dc78f0f49f316f53886b28605aa3b8188e7b5b066a19f732afe271bd5d475"
+    },
+    {
+      "file": "assets/SalaryKaryawan-CsU7FCm3.js",
+      "bytes": 38882,
+      "sha256": "2cf2f5e1c7a1027ec3d848a4fea217d89b30002e05c20a09bce5a6fb694cc1fc"
+    },
+    {
+      "file": "assets/SalaryKaryawan-CVHMqKDH.css",
+      "bytes": 7036,
+      "sha256": "721261fbc345df7d7ec1a70dbe949e1b3242cbd754ff579e04c97a567cf465f9"
+    },
+    {
+      "file": "assets/ScanQR-D3iowIYq.js",
+      "bytes": 23455,
+      "sha256": "256d40502c8d29a94640374f689a8f06d3e9642d384234ea9a2723460b3f2921"
+    },
+    {
+      "file": "assets/SenseiAgenda-CPxTBYCC.js",
+      "bytes": 173,
+      "sha256": "581b9a0e9b7d3e29c2263d77f67188453ef708d1cb2011f294845c67704750f0"
+    },
+    {
+      "file": "assets/SenseiBarcode-kgc0-plt.js",
+      "bytes": 174,
+      "sha256": "9ff147d8dbaf9726b4b291d49bb92c30b06cc6c8bcdd006ec80ef1d1673c50cf"
+    },
+    {
+      "file": "assets/SenseiKehadiran-BFHTJzDM.js",
+      "bytes": 177,
+      "sha256": "8fba4be434846749b1b2e6db5281db797ff3c131858dbe3cca6193efe48d6a02"
+    },
+    {
+      "file": "assets/SenseiKonsultasi-CtbOIBbs.js",
+      "bytes": 177,
+      "sha256": "557936d35af74c284a43d72d74fb3e68acea0ee6ab4c67ae0f18d18de91a488a"
+    },
+    {
+      "file": "assets/SenseiLeaderboard-BTIrzh_D.js",
+      "bytes": 178,
+      "sha256": "147443b060cddaa2f25582e827d64ca7bf9b39aca5fe4006727230231a4da544"
+    },
+    {
+      "file": "assets/SenseiMateri-o5BicdQB.js",
+      "bytes": 173,
+      "sha256": "580389795e596d36249564f338fcb8caf1e4b733e999d5282be09f0eda9cbcf7"
+    },
+    {
+      "file": "assets/SenseiNilaiSiswa-CkKZzcj9.js",
+      "bytes": 173,
+      "sha256": "0f6db3b8f1fb7ce6426b8498afa011dab157c11ac9fa9bad90a64c129c07280d"
+    },
+    {
+      "file": "assets/SenseiQuiz-D3HdsbdE.js",
+      "bytes": 171,
+      "sha256": "4b09f37cdb0b57b2ea64d013eec0d7ec20d4084005eb48fe1ea3def6143a86e8"
+    },
+    {
+      "file": "assets/SenseiTugas-Br7LMvvC.js",
+      "bytes": 172,
+      "sha256": "b7ecf78dd79fe3a8f3375659614b48f101b7245d0d3e43785ae50c25c1a7de03"
+    },
+    {
+      "file": "assets/SenseiUkom-CPVgxUmW.js",
+      "bytes": 171,
+      "sha256": "7ffd79ba4630b72d19b26030b31f748810ccdd2077b6de8a765982e00ffd3fd2"
+    },
+    {
+      "file": "assets/sessionHeaders-DFazjzNc.js",
+      "bytes": 463,
+      "sha256": "788739fb3c3b3c5aa3cd72e1da1809a063bc75bc54e8f02997f16b5fab5c0351"
+    },
+    {
+      "file": "assets/Settings-C8FCJsJk.js",
+      "bytes": 3947,
+      "sha256": "bb2f6ca80e9cb79a710157cd3bf7ee6d2badfa3e49ff00662e6e44800d68d00b"
+    },
+    {
+      "file": "assets/SlipGajiKaryawan-CvgfuVEL.js",
+      "bytes": 5329,
+      "sha256": "f21c33c5b2b3fb95cef7b745d595b0ff32c7ea840e85b445fce6330144f21b03"
+    },
+    {
+      "file": "assets/StravaAdmin-DstnUj5f.js",
+      "bytes": 6680,
+      "sha256": "2380f3dc0071ef606099866024f1a764ce0409c9390f35360de4940ec484eb33"
+    },
+    {
+      "file": "assets/StravaIntegration-D0oK6DkS.js",
+      "bytes": 7513,
+      "sha256": "9a09121afefede52e881f1f6320b2d21e563d3c62bb0c7bcdadd295ef3805e41"
+    },
+    {
+      "file": "assets/StudentBilling-DbaF6yvZ.js",
+      "bytes": 7975,
+      "sha256": "ad176869032c569670e91189b7effe7fc382abe032fc60733f2c59e181980c31"
+    },
+    {
+      "file": "assets/StudentBillingAdmin-B3_TF2ee.js",
+      "bytes": 167,
+      "sha256": "4eb5ae6f7c3b48e0cd1e3b0b6bc92a18c8184801ff25e30140ede2656b3cb0fd"
+    },
+    {
+      "file": "assets/TransaksiPemasukan-gFsLhqeD.js",
+      "bytes": 207,
+      "sha256": "13d296625812c079a748b48c5f5fa9e6d985732a97eb4bf945efe4db4f161544"
+    },
+    {
+      "file": "assets/TransaksiPengeluaran-atztcr4M.js",
+      "bytes": 210,
+      "sha256": "f896e621de82c87447f72c60bf4a337c9f152a23ad0b2c0b03d6c4700b15ea2a"
+    },
+    {
+      "file": "assets/useAccessAccounts-CUnU6xS_.js",
+      "bytes": 1287,
+      "sha256": "1de1e8015960aecf1ac3f72e6f229c42faf8990acc0f76e772bf713bc99ca848"
+    },
+    {
+      "file": "assets/useCamera-BVZ1qFgO.js",
+      "bytes": 1733,
+      "sha256": "6da6b6cede3de57c3c44b3db0d51cbf0c6e58fc8ed1ca58fecc2655d71ec3702"
+    },
+    {
+      "file": "assets/useFaceApi-DDEQ2PXC.js",
+      "bytes": 2575,
+      "sha256": "dacbb3c2ec2842813f7b9603e7c4618e29b20b9be7fe31a41fa4845fc35c8f8e"
+    },
+    {
+      "file": "assets/useSEO-C-koQ6r0.js",
+      "bytes": 1188,
+      "sha256": "e377f75f8ccddde80d78d2521ece0ee763fa0af73a99da5ab766f62cbd203261"
+    },
+    {
+      "file": "assets/vendor-charts--1I_TwgO.js",
+      "bytes": 400583,
+      "sha256": "a84d037bc5ce79cdbf172ab8a30accd465f5d7f52c3b91965118b227069285b5"
+    },
+    {
+      "file": "assets/vendor-export-ubHXJi2-.js",
+      "bytes": 1777470,
+      "sha256": "b78ceb74565e3fd8f639a77b15157895a55c98a705148dd56e42c6c8e082dd7a"
+    },
+    {
+      "file": "assets/vendor-faceapi-BZJbyh0g.js",
+      "bytes": 659483,
+      "sha256": "e57249552157d19b56a1177812301eda50372aa4922211142879ae53c9a22477"
+    },
+    {
+      "file": "assets/vendor-network-BUPSUAHl.js",
+      "bytes": 36499,
+      "sha256": "6b11f24d9a77aa1444133c88e11cf0c6fdd7316dc856eebfd0c9da62235e7511"
+    },
+    {
+      "file": "assets/vendor-others-3kSeEL6T.js",
+      "bytes": 651788,
+      "sha256": "e6ffda78ce3014785ef427ed7581bc42b685a244f5977ddbe68ef5fb00ac0a29"
+    },
+    {
+      "file": "assets/vendor-react-wSJ3o_Cr.js",
+      "bytes": 256106,
+      "sha256": "edb593a7c75f9c7c8bcee4565109a6fc5fc2ea00387e61980cab60c6c1748a2a"
+    },
+    {
+      "file": "config/.htaccess",
+      "bytes": 14,
+      "sha256": "ef94d4c2ac2a038b6c2ae673d9573333a0a20f7fac9e2d75af11c6c387a157a3"
+    },
+    {
+      "file": "config/database.php",
+      "bytes": 2093,
+      "sha256": "9a0ed33ae8565d7b123b0d5c7eca00128fc36b4cfb41aa73e6724253f618a20e"
+    },
+    {
+      "file": "config/mail.example.php",
+      "bytes": 467,
+      "sha256": "f7fef51c1dbc22ebae9616358e8644e1d1fd7c77194bea86cd5a5e259c1335ee"
+    },
+    {
+      "file": "config/session.php",
+      "bytes": 1053,
+      "sha256": "6e62638ce045c855ff631d969ae79c77f83417e345046019fe5e9ccf1beef0a9"
+    },
+    {
+      "file": "daily_report_3d.jpg",
+      "bytes": 445119,
+      "sha256": "ef2341426eabad554c21aca8dfc77402519d9cea128151fa439346563b196daa"
+    },
+    {
+      "file": "erplogo.png",
+      "bytes": 4612817,
+      "sha256": "5bbac99fddde3832dff6418d2da04be4d12c737578a27daca18901ad2a45d876"
+    },
+    {
+      "file": "favicon.svg",
+      "bytes": 9522,
+      "sha256": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66"
+    },
+    {
+      "file": "hero-fuji.jpg",
+      "bytes": 712973,
+      "sha256": "7e5c9e391e115cdce264b4ebe3afe23ea4db9af30a5ece27c8c8bfad9e8dc3c7"
+    },
+    {
+      "file": "icons.svg",
+      "bytes": 5031,
+      "sha256": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a"
+    },
+    {
+      "file": "images/dashboard_hero_dark.jpg",
+      "bytes": 656242,
+      "sha256": "5004eafec871786e41b7a58482f2e969473c3e40e566d65df72cbce7ca53f49f"
+    },
+    {
+      "file": "images/hero_slip_gaji_white.jpg",
+      "bytes": 368727,
+      "sha256": "4152ab0e5382440fb8c61f429d9b547290f2983838a512f1fd15531bea99f9fc"
+    },
+    {
+      "file": "images/hero_slip_gaji.jpg",
+      "bytes": 623753,
+      "sha256": "b6ef39fb51cdd55ff91b1ccc92d6e80614f846d0656daf394ebc9c564586a272"
+    },
+    {
+      "file": "images/karyawan_hero_3d_new.jpg",
+      "bytes": 400203,
+      "sha256": "62b7df9c33f69b9435f27f02e201483db4dbf14368b80a1806494c406ffc2f9a"
+    },
+    {
+      "file": "images/karyawan_hero_3d.jpg",
+      "bytes": 646382,
+      "sha256": "e50a9e0d2863a3ef450128e45cb3b6572960f1e8d7bb0d21623a14a9d8b24177"
+    },
+    {
+      "file": "images/leaves_hero_dark.jpg",
+      "bytes": 783195,
+      "sha256": "98fe1c9e7017e9cfcdc8bff98ae81e7347f8523dafb12d73dc9c2c0f12c60745"
+    },
+    {
+      "file": "images/quiz_hero_3d.jpg",
+      "bytes": 646626,
+      "sha256": "05658553f4372422400c1fcceb26a4e10095dc40b2b01c40c600feb8f4d54098"
+    },
+    {
+      "file": "index.html",
+      "bytes": 13368,
+      "sha256": "19a502e33884c91801d1d85d37f784c1a48e4b974c110e01fd13a266ba475464"
+    },
+    {
+      "file": "logo.png",
+      "bytes": 185639,
+      "sha256": "3c82c0c8f90bf18c2509c24092c4a7fdae3bb115aa46956d84fd723d47959e66"
+    },
+    {
+      "file": "manifest.webmanifest",
+      "bytes": 1243,
+      "sha256": "653086ec50850038b04e9a159f9346d20021d0d2e8eedc6fb5cf0ed1960bcb94"
+    },
+    {
+      "file": "migrations/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "migrations/20261012_attendance_sessions.sql",
+      "bytes": 676,
+      "sha256": "4fddf151e5900be26c9491151a11a6e0f6858cd6d7887b53f89c85d62a53f553"
+    },
+    {
+      "file": "migrations/20261012_overtime_requests.sql",
+      "bytes": 1068,
+      "sha256": "25e3026f7cc54ce83c9565ca3ad25a448e987ff7f111593eb1e6180d540b93f7"
+    },
+    {
+      "file": "migrations/20261012_relationships.sql",
+      "bytes": 6216,
+      "sha256": "cc1b96bd8c9f855e41b8e311bc072de70b723a8828aa6fa17f36ac4397e173d5"
+    },
+    {
+      "file": "migrations/20261012_student_payments.sql",
+      "bytes": 1407,
+      "sha256": "52c54c7b7795b1f59a0afdf8c3b218d4b854d33974b78a7778b3a8918e3dd935"
+    },
+    {
+      "file": "migrations/budget_workflow.php",
+      "bytes": 393,
+      "sha256": "c8e4fc47b89dcadb7e9f3ef1c9fcc92b55171d966916be6f217392af21dbb351"
+    },
+    {
+      "file": "migrations/finance_traceability.php",
+      "bytes": 701,
+      "sha256": "63ac2870aa302514812e0d761264110a79486971dcaebaa25a39ac7a21363ab8"
+    },
+    {
+      "file": "migrations/salary_workflow.php",
+      "bytes": 305,
+      "sha256": "1f68a8b93f706cb88efa9ad85d378831d161c34450e333e74105756851081591"
+    },
+    {
+      "file": "models/face_landmark_68_model-shard1",
+      "bytes": 356840,
+      "sha256": "4611ef65c87d836d03d684b30eec4d195d8b219fa1dd58fc58945831c6b9299b"
+    },
+    {
+      "file": "models/face_landmark_68_model-weights_manifest.json",
+      "bytes": 7889,
+      "sha256": "d30f6cc341009ea4f8223876959289b96576fc54a2615f92da9741ab9c5f0bbc"
+    },
+    {
+      "file": "models/face_recognition_model-shard1",
+      "bytes": 4194304,
+      "sha256": "412566a2b8d814d84c60b8055ec5d3b3b2328ef7cd7853384e03ec3db7b053d8"
+    },
+    {
+      "file": "models/face_recognition_model-shard2",
+      "bytes": 2249728,
+      "sha256": "69350fdecd845c532e44dd8f7d0521c773505ef46b87cc34f46640a0cc334ecc"
+    },
+    {
+      "file": "models/face_recognition_model-weights_manifest.json",
+      "bytes": 18303,
+      "sha256": "6619f4126f845c1f7857f39cbd79565f375734f46e0dd25d9602f8dc21cda9f5"
+    },
+    {
+      "file": "models/ssd_mobilenetv1_model-shard1",
+      "bytes": 4194304,
+      "sha256": "6ff16f095b0371f24accb48aab82e595697baa821cf851167cbf9203d1d7ec9a"
+    },
+    {
+      "file": "models/ssd_mobilenetv1_model-shard2",
+      "bytes": 1422653,
+      "sha256": "2539847e627c8c4a561e999170735e6c527deecc6fdba2959fc5312fb1ea1de3"
+    },
+    {
+      "file": "models/ssd_mobilenetv1_model-weights_manifest.json",
+      "bytes": 26548,
+      "sha256": "9b84918d1d8b2e988dc5d72c0d77e7cc0a3d433f2452516fcd88dca8051b552f"
+    },
+    {
+      "file": "registerSW.js",
+      "bytes": 134,
+      "sha256": "9742073ef7fc795e7673d98f272992843298426a0ffd8cb3507784df5143608b"
+    },
+    {
+      "file": "resources/salary-logo.png",
+      "bytes": 185639,
+      "sha256": "3c82c0c8f90bf18c2509c24092c4a7fdae3bb115aa46956d84fd723d47959e66"
+    },
+    {
+      "file": "robots.txt",
+      "bytes": 1104,
+      "sha256": "61b35ca0d5e30a7ea9b0bce34413670c4dbdddd5deb899500e3f454c148fba40"
+    },
+    {
+      "file": "sensei_teaching_3d.jpg",
+      "bytes": 822471,
+      "sha256": "341f36cd85b9b39f449975854df43413d22efc8252dcdbd186f6d46274b88834"
+    },
+    {
+      "file": "services/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "services/accounting_cash.php",
+      "bytes": 26094,
+      "sha256": "8cecca6ddcd625b220ea2166f06d2410c4f066449fd8410a15edd1a37a7ddfd1"
+    },
+    {
+      "file": "services/accounting_core.php",
+      "bytes": 5542,
+      "sha256": "b55c7dc0c7d92c103193295d159eda8af232332c83e2bf003cdc7c20343ce4c4"
+    },
+    {
+      "file": "services/accounting_documents.php",
+      "bytes": 6580,
+      "sha256": "3f1fd957d34135400916260951ad680d758768ef4c56128d7b5546adcf15228e"
+    },
+    {
+      "file": "services/accounting_journal.php",
+      "bytes": 11806,
+      "sha256": "ffa10407b13d7cc88ddc7459c2a9359f50a856a131365ee0934db1adcc60f583"
+    },
+    {
+      "file": "services/accounting_ledger.php",
+      "bytes": 12564,
+      "sha256": "cb2121d04e99e7b2df43fc0cbde04b35daa8f454310011075d3947e49713d6a5"
+    },
+    {
+      "file": "services/accounting_reports.php",
+      "bytes": 10111,
+      "sha256": "9afdc38fe648534dc28d88f6611445e0926df6ffdd017e8ed2480ede28e727e5"
+    },
+    {
+      "file": "services/accounting_schema.php",
+      "bytes": 14615,
+      "sha256": "97b85459f7e2cf322d8b32b6527c246127bb9040f9df71905681b26b3686f2e2"
+    },
+    {
+      "file": "services/accounting_vendor.php",
+      "bytes": 2479,
+      "sha256": "3022f8bfa24f1cf948cde79d440f82f85f9dbb303be845541505b1060f05994f"
+    },
+    {
+      "file": "services/api_entry_policy.php",
+      "bytes": 2566,
+      "sha256": "7db30852c80e851f918330b3f8688e01489f4124b5514f2fc24bf65eb25a7efe"
+    },
+    {
+      "file": "services/api_session_guard.php",
+      "bytes": 789,
+      "sha256": "99a53ad4e15504630ee6800bf2dd2a902316b1153bbee19b5f4dddb9cfbc9c9c"
+    },
+    {
+      "file": "services/budget_attachments.php",
+      "bytes": 3990,
+      "sha256": "d047b39812d4dc1e87fe39e73c31385d45355bb573aba3e660e67cad2c4f09da"
+    },
+    {
+      "file": "services/budget_realization.php",
+      "bytes": 6690,
+      "sha256": "2fe0c89221a1bf7e2811528030c27d90bd0f51f6e0e1d09109adf079a72afac2"
+    },
+    {
+      "file": "services/budget_schema.php",
+      "bytes": 3225,
+      "sha256": "1854e94319678f9b71ecfb1d6cd480f296eb4df8cb25befdb5fe7f5057d1152d"
+    },
+    {
+      "file": "services/budget_workflow.php",
+      "bytes": 14899,
+      "sha256": "a8d39d604d9b0463ef991b71c2f334f70e81502839449b6e7915a30ebbe933bd"
+    },
+    {
+      "file": "services/document_mutations.php",
+      "bytes": 4540,
+      "sha256": "42ece0c847bf2733b5d499c8ff130caf3ba1b6754af3baed3e5ac822e19cb85b"
+    },
+    {
+      "file": "services/employee_directory.php",
+      "bytes": 12531,
+      "sha256": "b5db478332afb4db69cd6d4f601dd6867933b8e58ecc1590992446fa166064ee"
+    },
+    {
+      "file": "services/employee_employment.php",
+      "bytes": 2322,
+      "sha256": "9e44b00a094cd123af78833c12ae7c736547c87f163660cc7414591e77d418ac"
+    },
+    {
+      "file": "services/learning_attendance.php",
+      "bytes": 5700,
+      "sha256": "e5c4ad3f91be1c4dfaf5cef3f4c609637d0a6957e6b52b243051342a999a2a94"
+    },
+    {
+      "file": "services/learning_dashboard.php",
+      "bytes": 3370,
+      "sha256": "bd690439c362733ba8969607291808abe5a6774de9a23fd4126146960230efa4"
+    },
+    {
+      "file": "services/learning.php",
+      "bytes": 7837,
+      "sha256": "026e6c40ae73f145d0a35bb079a85ba23041c6b6a34c0d983bca5b76c83e281a"
+    },
+    {
+      "file": "services/lms_access.php",
+      "bytes": 227,
+      "sha256": "1d68cf2dec8f99bbe0d5b4182ae1f14996f9f5c349fd020a01cf1d6ba8cb40f5"
+    },
+    {
+      "file": "services/matching.php",
+      "bytes": 6429,
+      "sha256": "047d36306e1858d8dd0aae5a6a775e55d7c25bd7739e317a2fb7c5750ac6ac3c"
+    },
+    {
+      "file": "services/overtime_workflow.php",
+      "bytes": 3168,
+      "sha256": "02e479c48b839ec356cbefe464d7547ee150c98ef94d6bb7b26f5a5cc15eb1ba"
+    },
+    {
+      "file": "services/participant_directory.php",
+      "bytes": 5455,
+      "sha256": "7cf61d1af8eb83aedcdc96422272a9d4789216d39aa3b2152d47f85ec1104802"
+    },
+    {
+      "file": "services/relationships.php",
+      "bytes": 11654,
+      "sha256": "7993b791130c0bef729f2b14cff40e3a736fc2a060ce6bfcc23fa05b37ef659b"
+    },
+    {
+      "file": "services/salary_mail.php",
+      "bytes": 3823,
+      "sha256": "64a9e0269f1829030a5480056bb208b1bc386fb7e4ee5af9f5f767119a9b636e"
+    },
+    {
+      "file": "services/salary_schema.php",
+      "bytes": 6462,
+      "sha256": "22776624254133675405d4dce803e131108010ad09fb6f0b38eebee90b6b4c4d"
+    },
+    {
+      "file": "services/salary_slip_document.php",
+      "bytes": 10138,
+      "sha256": "c99cc4725def4584852e55af72ff2acde3e86e2ff069ea2477ca7d7c1fce2b1d"
+    },
+    {
+      "file": "services/salary_slip.php",
+      "bytes": 10026,
+      "sha256": "eaffa76008cc19f76dd611ed9da9136f0d20cebaeb642947fb036ff2d4c535a2"
+    },
+    {
+      "file": "services/salary_workflow.php",
+      "bytes": 24515,
+      "sha256": "63796280fcebe206a65152f73c6e0b8f8573024ac8fec2e28481feb863dad9fe"
+    },
+    {
+      "file": "services/student_billing.php",
+      "bytes": 7305,
+      "sha256": "1afd5affa55f64957629ad0edf305474e34f2d06bcdf1d4b690dcb180ce56c03"
+    },
+    {
+      "file": "sitemap.xml",
+      "bytes": 445,
+      "sha256": "6624a16f1bc2326a850e3e91b70fce7c6fccfda58a9b9b159a5f0ab43fbbe149"
+    },
+    {
+      "file": "storage/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "student_learning_3d.jpg",
+      "bytes": 737630,
+      "sha256": "bda94ed70ea1586758d58492c88c340508d59092fc5cb97d8410d44209883597"
+    },
+    {
+      "file": "sw.js",
+      "bytes": 9157,
+      "sha256": "adcc0c7c1dfef6c6ff2721382fa090e4676645305db85035c094439d5be47678"
+    },
+    {
+      "file": "uploads/.htaccess",
+      "bytes": 203,
+      "sha256": "017122b8a7433cb07ec5bf44c66aec9005c972605ce062ecc5e18bdeb4513393"
+    },
+    {
+      "file": "uploads/alumni/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/announcements/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/face_snapshots/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/intensif/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/invoice/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/leaves/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/lms_materials/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/lms_submissions/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/lms_tasks/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/matching/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/mendang/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/nenkin/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/photos/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "uploads/receipts/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "vendor/.htaccess",
+      "bytes": 19,
+      "sha256": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934"
+    },
+    {
+      "file": "vendor/phpmailer/LICENSE",
+      "bytes": 26529,
+      "sha256": "a1a33180d02960ab1c5de36cf20b1a2f0fe9888d83826ad263da5db52f1b183b"
+    },
+    {
+      "file": "vendor/phpmailer/README.creativa.md",
+      "bytes": 335,
+      "sha256": "1d3bfc752e25f85c29504afaf70da05c02686f100a1947ed69b1dc7b675210f9"
+    },
+    {
+      "file": "vendor/phpmailer/src/Exception.php",
+      "bytes": 1256,
+      "sha256": "22ab858ae438d98f58f41f38ad2191d1b0d59570aebea0463a7948cfae1021b7"
+    },
+    {
+      "file": "vendor/phpmailer/src/PHPMailer.php",
+      "bytes": 196355,
+      "sha256": "45599a196ae7944ee2dcd4f3d3da0ac4243513d346b2d77bbd15dbd0c37f7064"
+    },
+    {
+      "file": "vendor/phpmailer/src/SMTP.php",
+      "bytes": 53629,
+      "sha256": "522bcf0d07be7e7e00114711db5c9ce2b4d59ac041c5ec36eaadd979d5fa7046"
+    },
+    {
+      "file": "vendor/phpmailer/VERSION",
+      "bytes": 6,
+      "sha256": "511a8bbd0ef0e332c8286ff60c232bfc1c804c0ba11eee76606cdfdc1722de92"
+    },
+    {
+      "file": "workbox-e5929aca.js",
+      "bytes": 22270,
+      "sha256": "99084b276d0fdf093271238577aca77c7493ae8a6d06cf21e813e1bf21f53372"
+    }
+  ]
+}

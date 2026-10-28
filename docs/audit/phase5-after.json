@@ -1,0 +1,478 @@
+{
+  "audited_at": "2026-10-12T06:38:37.969Z",
+  "mode": "read-only; SELECT/SHOW only, configuration PHP not executed",
+  "environment": {
+    "host": "localhost",
+    "database": "one-creativa",
+    "config_file": "database.php",
+    "version": "10.4.32-MariaDB",
+    "session_timezone": "SYSTEM",
+    "system_timezone": "Asia/Bangkok",
+    "database_now": "2026-10-12 13:38:37"
+  },
+  "tables": {
+    "accounting_audit_logs": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accounting_idempotency": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accounting_periods": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accounting_source_documents": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accounting_transactions": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accounts": {
+      "count": 20,
+      "row_sha256": "b8b95585b78615209b723a18358f989fd6c38bcbc1b8526340d94cc78ba16e2d"
+    },
+    "asset_histories": {
+      "count": 1,
+      "row_sha256": "141e452aded9e836b1b7a8c1584da637a4cea8a2246c4643506948a4223c4445"
+    },
+    "asset_transfer_requests": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "assets": {
+      "count": 1,
+      "row_sha256": "6081a5f281a8b5dc83338b20afb4d62177c13a23a518c1336e5ec3c6a2b7a5de"
+    },
+    "attendance_logs": {
+      "count": 39,
+      "row_sha256": "6f6fbb39b1bf596e272e40420afdad6d85f46082648dee1ddae655c000110bea"
+    },
+    "auth_tokens": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "billing_invoices": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "billing_pembayaran": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "billing_siswa": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "billing_terkirim": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "budget_commitments": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "budget_realizations": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "budget_request_history": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "budget_request_items": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "budget_requests": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cash_bank_accounts": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "daily_reports": {
+      "count": 4,
+      "row_sha256": "60634b7b904379872ed2783bf740b3b999cf5ed8d0dadbcfdd570a5d769d04ad"
+    },
+    "departments": {
+      "count": 7,
+      "row_sha256": "c497049b2769b97202805a1e2b4bc96fc1726b00299334c9008a8f311a7a4c8e"
+    },
+    "employees": {
+      "count": 8,
+      "row_sha256": "932e0c67f361126b2b7f59c52982491053e4ab73e7bd29f9998ce3061fd56481"
+    },
+    "finance_records": {
+      "count": 3,
+      "row_sha256": "811e3948bded10d6b4254545ed321fcac3740ec4e6bdba926a3903287b3cad54"
+    },
+    "finance_role_permissions": {
+      "count": 25,
+      "row_sha256": "0fe1a3b0722b7f83e5d6d5db44a1f9243198c84398fe72a6f13e443f1280e78a"
+    },
+    "invoice_clients": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "invoice_records": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "journal_entries": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "journal_lines": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "leave_requests": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "leave_types": {
+      "count": 4,
+      "row_sha256": "f46c7c40a03e85712ddc44667e850d8c5a203782618770fb4293fa15dcbaf52b"
+    },
+    "leaves": {
+      "count": 2,
+      "row_sha256": "c60c692b9b7d8d0c9a24b83beeaf34c774dc08c672665662e756ceecf1dffa98"
+    },
+    "lms_announcements": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lms_attendance": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lms_grades": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lms_meetings": {
+      "count": 2,
+      "row_sha256": "7f623d172191218f2468da7ba81873f87dba3095fed8acb1e1d22bae2bdbc622"
+    },
+    "lms_submissions": {
+      "count": 1,
+      "row_sha256": "748bd0bc1bdddd627239046a60a973e90351f63a09ee1cce4a98085c1f5ed115"
+    },
+    "lms_tasks": {
+      "count": 1,
+      "row_sha256": "0556471769c2c7cd7986c9ccb3ad14d83af0fa7585d9c4a66452ed21e39e1d29"
+    },
+    "lpk_matching_job": {
+      "count": 1,
+      "row_sha256": "9d260f1745b299d3ce2ce0ed647cec4a3b263c7f3e1c784f43f61498eb1200eb"
+    },
+    "lpk_nenkin": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_schedules": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "office_locations": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "payment_allocations": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "payroll": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "payslips": {
+      "count": 4,
+      "row_sha256": "1ef914be6d2e89695cf4da7eec83d8472742f816403ba30bbb923d4bd2de0578"
+    },
+    "peserta_intensif": {
+      "count": 5,
+      "row_sha256": "4f957d17bb275ebedda6497d63dc14b73c6ecb42cb5713f9bd8259844d85801f"
+    },
+    "positions": {
+      "count": 14,
+      "row_sha256": "3b102e35d79006c67e04afba56dde794dbdf861c679ace9f3ed29538e7809e1f"
+    },
+    "reimbursements": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "roles": {
+      "count": 13,
+      "row_sha256": "a74698121a9355e9ee3eac7d1cb04e59303efc63fb881bdbc27c9e91ea2b3da4"
+    },
+    "salary_base_rates": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "salary_request_history": {
+      "count": 7,
+      "row_sha256": "bb44924c9b3aca076f1e42cac7d624df18326f824b2d0c81b418a8e254eb05b4"
+    },
+    "salary_requests": {
+      "count": 1,
+      "row_sha256": "98da74e7c27b02b61b3c492f3e3caa3a3a9f514c1a4c8ebfeffbd6c4ae0350aa"
+    },
+    "salary_slip_events": {
+      "count": 3,
+      "row_sha256": "63ec03f2d2541e2ef9e060ee242f191c4005c1bb776842f486f0c02b98dbb60f"
+    },
+    "salary_slips": {
+      "count": 1,
+      "row_sha256": "142ca9dca90a6f096e221539070055f6fe71f8668ae0cf84e58bc428e18a73ae"
+    },
+    "schema_migrations": {
+      "count": 1,
+      "row_sha256": "1076eae59d3960426581df6dcee85010bc4a8b73a8836629ef2c702bd075b6ad"
+    },
+    "settings": {
+      "count": 1,
+      "row_sha256": "3804b8cb81a81a7cd8e3cf0ac237f22ebcb3833514fee9638ce0030a4557af39"
+    },
+    "transactions": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "users": {
+      "count": 9,
+      "row_sha256": "1d09f59012a6bcb8920057e3239b1e0b9896c36ae265120052f24c32111014d9"
+    },
+    "vendor_bills": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "vendors": {
+      "count": 0,
+      "row_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "issues": [
+    {
+      "issue": "employee_orphan_user",
+      "module": "employees",
+      "count": 1
+    },
+    {
+      "issue": "employee_missing_department",
+      "module": "employees",
+      "count": 0
+    },
+    {
+      "issue": "duplicate_employee_user",
+      "module": "employees",
+      "count": 0
+    },
+    {
+      "issue": "duplicate_employee_code",
+      "module": "employees",
+      "count": 0
+    },
+    {
+      "issue": "user_orphan_role",
+      "module": "users",
+      "count": 0
+    },
+    {
+      "issue": "student_without_account",
+      "module": "peserta_intensif",
+      "count": 3
+    },
+    {
+      "issue": "duplicate_student_email",
+      "module": "peserta_intensif",
+      "count": 0
+    },
+    {
+      "issue": "meeting_missing_teacher",
+      "module": "lms_meetings",
+      "count": 2
+    },
+    {
+      "issue": "submission_missing_user",
+      "module": "lms_submissions",
+      "count": 1
+    },
+    {
+      "issue": "duplicate_attendance",
+      "module": "lms_attendance",
+      "count": 0
+    },
+    {
+      "issue": "duplicate_submissions",
+      "module": "lms_submissions",
+      "count": 0
+    },
+    {
+      "issue": "duplicate_matching_email",
+      "module": "lpk_matching_job",
+      "count": 0
+    },
+    {
+      "issue": "attendance_orphan_employee",
+      "module": "attendance_logs",
+      "count": 0
+    },
+    {
+      "issue": "payroll_orphan_employee",
+      "module": "payroll",
+      "count": 0
+    },
+    {
+      "issue": "unbalanced_posted_journal",
+      "module": "journal_entries",
+      "count": 0
+    }
+  ],
+  "roles": [
+    {
+      "id": 1,
+      "name": "employee",
+      "label": "Karyawan",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 2,
+      "name": "hr_admin",
+      "label": "HR Admin",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 3,
+      "name": "finance_admin",
+      "label": "Finance Admin",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 4,
+      "name": "super_admin",
+      "label": "Super Admin / Owner",
+      "accounts": "1",
+      "active_accounts": "1"
+    },
+    {
+      "id": 5,
+      "name": "admin",
+      "label": "",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 6,
+      "name": "karyawan",
+      "label": "karyawan",
+      "accounts": "4",
+      "active_accounts": "4"
+    },
+    {
+      "id": 7,
+      "name": "hr",
+      "label": "hr",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 8,
+      "name": "finance",
+      "label": "finance",
+      "accounts": "1",
+      "active_accounts": "1"
+    },
+    {
+      "id": 9,
+      "name": "ga",
+      "label": "ga",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 13,
+      "name": "lpk",
+      "label": "lpk",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 14,
+      "name": "peserta_nenkin",
+      "label": "peserta_nenkin",
+      "accounts": "0",
+      "active_accounts": null
+    },
+    {
+      "id": 15,
+      "name": "sensei",
+      "label": "sensei",
+      "accounts": "1",
+      "active_accounts": "1"
+    },
+    {
+      "id": 16,
+      "name": "peserta_intensif",
+      "label": "peserta_intensif",
+      "accounts": "2",
+      "active_accounts": "2"
+    }
+  ],
+  "employee_groups": [
+    {
+      "role": null,
+      "is_active": null,
+      "count": "1"
+    },
+    {
+      "role": "finance",
+      "is_active": 1,
+      "count": "1"
+    },
+    {
+      "role": "karyawan",
+      "is_active": 1,
+      "count": "3"
+    },
+    {
+      "role": "peserta_intensif",
+      "is_active": 1,
+      "count": "2"
+    },
+    {
+      "role": "sensei",
+      "is_active": 1,
+      "count": "1"
+    }
+  ],
+  "employee_visible_default": "3",
+  "other_databases_with_employee_table": [
+    {
+      "database_name": "creativa_one_erp",
+      "estimated_count": "0"
+    },
+    {
+      "database_name": "hris_creativa",
+      "estimated_count": "8"
+    }
+  ],
+  "employee_api_query": {
+    "success": null,
+    "reason": "Legacy query no longer present; verify new service through isolated HTTP tests"
+  },
+  "relationship_gaps": [
+    "No class/enrollment/teaching-assignment table in existing schema",
+    "lms_grades uses peserta_intensif id; submissions/attendance use users id",
+    "billing_invoices and invoice_clients have no student_id foreign key",
+    "lpk_matching_job has no student_id foreign key",
+    "employees has no manager/employment_type/status columns"
+  ]
+}

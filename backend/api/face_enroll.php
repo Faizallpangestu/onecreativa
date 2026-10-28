@@ -25,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             fe.descriptors,
             fe.quality_score,
             e.full_name AS employee_name,
-            e.photo AS employee_photo
+            e.photo_url AS employee_photo
         FROM face_enrollments fe
         JOIN employees e ON e.id = fe.employee_id
-        WHERE fe.is_active = 1
+        WHERE fe.is_active = 1 AND e.user_id=".(ed_hr($GLOBALS['verified_api_actor'])?'e.user_id':(int)$GLOBALS['verified_api_actor']['id'])."
     ");
 
     if (!$result) {
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $employee_id   = (int)($body["employee_id"]   ?? 0);
     $descriptors   = $body["descriptors"]          ?? null;
     $quality_score = (float)($body["quality_score"] ?? 0);
-    $enrolled_by   = (int)($body["enrolled_by"]   ?? 0);
+    $enrolled_by   = (int)$GLOBALS['verified_api_actor']['id'];
 
     // Validasi
     if (!$employee_id) {
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Cek karyawan ada
-    $empCheck = mysqli_query($conn, "SELECT id, name FROM employees WHERE id = $employee_id LIMIT 1");
+    $empCheck = mysqli_query($conn, "SELECT id, full_name AS name FROM employees WHERE id = $employee_id LIMIT 1");
     $emp = mysqli_fetch_assoc($empCheck);
     if (!$emp) {
         http_response_code(404);

@@ -9,7 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require '../config/database.php';
+require_once __DIR__.'/../config/database.php';
+require_once __DIR__.'/../services/employee_directory.php';
+$actor=ed_start($conn);ed_personal_scope($conn,$actor);
+require_once __DIR__.'/../services/relationships.php';
+if($_SERVER['REQUEST_METHOD']==='GET'&&($_GET['view']??'')==='file'){
+ $row=ac_one($conn,'SELECT l.attachment,e.user_id FROM leaves l JOIN employees e ON e.id=l.employee_id WHERE l.id=?',[ac_id($_GET['id']??null)]);
+ if(!$row)ac_fail('Lampiran tidak ditemukan.',404);
+ if(!ed_hr($actor)&&(int)$row['user_id']!==(int)$actor['id'])ac_fail('Lampiran employee lain tidak diizinkan.',403);
+ rs_file('leaves',$row['attachment']??'','leaves');
+}
 
 define('APPROVER_ROLES', ['super_admin', 'manager']);
 
@@ -66,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if ($row['attachment']) {
             $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
             $host = $_SERVER['HTTP_HOST'];
-            $row['attachment_url'] = $protocol . '://' . $host . '/One-creativa/backend/uploads/leaves/' . $row['attachment'];
+            $row['attachment_url'] = '/api/leaves.php?view=file&id='.$row['id'];
         } else {
             $row['attachment_url'] = null;
         }
@@ -112,17 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Upload Surat Sakit
     $filename = null;
     if ($category === 'sakit' && isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = '../uploads/leaves/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-        $ext = pathinfo($_FILES['attachment']['name'], PATHINFO_EXTENSION);
-        $filename = time() . '_' . $employee_id . '.' . $ext;
-        if (!move_uploaded_file($_FILES['attachment']['tmp_name'], $uploadDir . $filename)) {
-            http_response_code(500);
-            echo json_encode(["status" => "error", "message" => "Gagal upload file"]);
-            exit;
-        }
+        $filename = rs_upload('attachment','leaves');
     }
 
     $filenameSql = $filename ? "'$filename'" : "NULL";
@@ -151,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     
     $id            = (int)($body['id'] ?? 0);
     $action        = $body['action'] ?? '';
-    $approver_role = $body['approver_role'] ?? '';
+    $approver_role = $actor['role'];
 
     // Validasi role
     if (!in_array($approver_role, APPROVER_ROLES)) {
@@ -166,8 +165,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    // Ambil data leaves
-    $lq = mysqli_query($conn, "SELECT * FROM leaves WHERE id='$id'");
+    mysqli_begin_transaction($conn);
+    // Lock the request before checking its approval state.
+    $lq = mysqli_query($conn, "SELECT * FROM leaves WHERE id='$id' FOR UPDATE");
     $leave = mysqli_fetch_assoc($lq);
     
     if (!$leave || $leave['status'] !== 'pending') {
@@ -178,8 +178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
     $status = ($action === 'approve') ? 'approved' : 'rejected';
 
-    mysqli_begin_transaction($conn);
     try {
+        $employee=ac_one($conn,'SELECT user_id,leave_balance FROM employees WHERE id=? FOR UPDATE',[(int)$leave['employee_id']]);
+        if(!$employee)ac_fail('Employee tidak ditemukan.',409);
+        if((int)$employee['user_id']===(int)$actor['id'])ac_fail('Pengajuan sendiri harus disetujui reviewer lain.',403);
         mysqli_query($conn, "UPDATE leaves SET status = '$status' WHERE id = '$id'");
 
         // Jika diapprove dan kategorinya cuti, potong saldo cuti
@@ -188,40 +190,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $end   = new DateTime($leave['end_date']);
             $diff  = $start->diff($end)->days + 1;
 
+            if((float)$employee['leave_balance']<$diff)ac_fail('Saldo cuti tidak cukup.',409);
             mysqli_query($conn, "UPDATE employees SET leave_balance = leave_balance - $diff WHERE id = '{$leave['employee_id']}'");
         }
 
-        // Jika diapprove dan kategorinya dinas, insert otomatis ke attendance_logs sebagai hadir
-        if ($status === 'approved' && $leave['category'] === 'dinas') {
-            $start = new DateTime($leave['start_date']);
-            $end   = new DateTime($leave['end_date']);
-            
-            $current = clone $start;
-            while ($current <= $end) {
-                // Hari minggu tidak dimasukkan absen kecuali dinas juga dihitung hari minggu.
-                // Untuk amannya, masukkan saja karena sedang dinas
-                $dateStr = $current->format('Y-m-d');
-                $checkIn = $dateStr . ' 08:00:00';
-                $checkOut = $dateStr . ' 17:00:00';
-                $eid = $leave['employee_id'];
-                
-                $cek = mysqli_query($conn, "SELECT id FROM attendance_logs WHERE employee_id='$eid' AND date='$dateStr'");
-                if (mysqli_num_rows($cek) == 0) {
-                    mysqli_query($conn, "INSERT INTO attendance_logs (employee_id, date, check_in_at, check_out_at, status) VALUES ('$eid', '$dateStr', '$checkIn', '$checkOut', 'dinas')");
-                } else {
-                    mysqli_query($conn, "UPDATE attendance_logs SET status='dinas', check_in_at='$checkIn', check_out_at='$checkOut' WHERE employee_id='$eid' AND date='$dateStr'");
-                }
-                
-                $current->modify('+1 day');
+        // Leave is absence, not a fabricated worked shift. Preserve recorded attendance.
+        if($status==='approved'){
+            $current=new DateTimeImmutable(ac_date($leave['start_date']));$end=new DateTimeImmutable(ac_date($leave['end_date']));
+            while($current<=$end){$date=$current->format('Y-m-d');$existing=ac_one($conn,'SELECT id FROM attendance_logs WHERE employee_id=? AND date=? FOR UPDATE',[(int)$leave['employee_id'],$date]);
+                if($existing)ac_fail('Absensi pada periode ini sudah tercatat. Review konflik sebelum persetujuan cuti.',409);
+                ac_query($conn,'INSERT INTO attendance_logs(employee_id,date,status) VALUES(?,?,?)',[(int)$leave['employee_id'],$date,$leave['category']]);$current=$current->modify('+1 day');
             }
         }
-
+        ed_audit($conn,$actor,(int)$leave['employee_id'],'leave_'.$status,['leave_id'=>$id]);
         mysqli_commit($conn);
         echo json_encode(["status" => "success", "message" => "Pengajuan berhasil di-" . $action]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         mysqli_rollback($conn);
-        http_response_code(500);
-        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+        if($e instanceof AccountingException)ed_respond($e->getCode(),["status"=>"error","message"=>$e->getMessage()]);
+        throw $e;
     }
     
     exit;

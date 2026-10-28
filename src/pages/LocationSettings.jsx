@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, MapPin, Map as MapIcon, Target, Save, Search } from "lucide-react";
 import Layout from "../components/Layout";
+import api from "../services/api";
 
 export default function LocationSettings() {
   const navigate = useNavigate();
@@ -14,21 +15,45 @@ export default function LocationSettings() {
   });
 
   useEffect(() => {
-    // In a real app, fetch the existing location settings from the API
-    const savedConfig = localStorage.getItem("geofence_config");
-    if (savedConfig) {
-      setForm(JSON.parse(savedConfig));
-    }
+    // Ambil setting dari database
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get("/settings.php");
+        if (res.data?.data) {
+          const { office_latitude, office_longitude, office_radius } = res.data.data;
+          setForm({
+            latitude: office_latitude || "-6.2088",
+            longitude: office_longitude || "106.8456",
+            radius: office_radius ? parseInt(office_radius) : 50,
+            mapLink: "",
+          });
+        }
+      } catch (err) {
+        console.error("Gagal memuat pengaturan lokasi:", err);
+      }
+    };
+    fetchSettings();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      localStorage.setItem("geofence_config", JSON.stringify(form));
+    try {
+      // Ambil data yang ada dulu biar field lain nggak hilang
+      const curr = await api.get("/settings.php");
+      const baseData = curr.data?.data || {};
+
+      await api.put("/settings.php", {
+        ...baseData,
+        office_latitude: form.latitude,
+        office_longitude: form.longitude,
+        office_radius: form.radius
+      });
+      navigate("/menu-admin"); 
+    } catch {
+      alert("Gagal menyimpan pengaturan lokasi!");
+    } finally {
       setIsLoading(false);
-      navigate("/menu-admin"); // Redirect ke dashboard admin sesuai request user
-    }, 800);
+    }
   };
 
   const handleGetCurrentLocation = () => {
@@ -51,15 +76,17 @@ export default function LocationSettings() {
     }
   };
 
-  const handleMapLinkChange = (e) => {
+  const handleMapLinkChange = async (e) => {
     const url = e.target.value;
     setForm((prev) => ({ ...prev, mapLink: url }));
 
-    // Extract coordinates from Google Maps URL
+    if (!url) return;
+
+    // First try direct regex for long URLs
     const regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
     const regexBang = /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/;
 
-    let match = url.match(regexAt) || url.match(regexBang);
+    let match = url.match(regexBang) || url.match(regexAt);
 
     if (match) {
       setForm((prev) => ({
@@ -67,6 +94,25 @@ export default function LocationSettings() {
         latitude: match[1],
         longitude: match[2],
       }));
+      return;
+    }
+
+    // If it's a short URL (e.g., maps.app.goo.gl), call backend to resolve
+    if (url.includes("maps.app.goo.gl") || url.includes("goo.gl/maps")) {
+      try {
+        const res = await api.post("/resolve_map.php", { url });
+        if (res.data?.status === "success") {
+          setForm((prev) => ({
+            ...prev,
+            latitude: res.data.latitude,
+            longitude: res.data.longitude,
+          }));
+        }
+      } catch (err) {
+        console.error("Gagal mendeteksi koordinat dari short link", err);
+        // Optionally show an error to the user:
+        // alert("Gagal mengekstrak lokasi dari link pendek. Pastikan link valid.");
+      }
     }
   };
 
@@ -74,36 +120,8 @@ export default function LocationSettings() {
     <Layout hideMobileHeader={true} hideBottomNav={true}>
       <div className="min-h-full bg-slate-50 pb-12 relative overflow-hidden">
         
-        {/* ── Background Gradient Hero ── */}
-        <div className="absolute top-0 left-0 right-0 h-[280px] bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 rounded-b-[3rem] shadow-lg">
-          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden rounded-b-[3rem]">
-             <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white rounded-full blur-3xl"></div>
-             <div className="absolute bottom-[-10%] left-[-10%] w-48 h-48 bg-white rounded-full blur-3xl"></div>
-          </div>
-        </div>
-
-        {/* ── Top Navigation ── */}
-        <div className="relative z-10 px-5 pt-8 pb-2 flex justify-between items-center">
-           <button 
-             onClick={() => navigate("/menu-admin")}
-             className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition active:scale-95"
-           >
-             <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
-           </button>
-           <h1 className="text-white text-[17px] font-black tracking-wide">Pengaturan</h1>
-           <div className="w-10 h-10"></div> {/* Spacer */}
-        </div>
-
-        {/* ── Hero Title ── */}
-        <div className="relative z-10 px-6 pt-4 pb-8">
-           <p className="text-white/80 text-[12px] font-bold uppercase tracking-[0.2em] mb-1">Geofencing GPS</p>
-           <h2 className="text-[26px] font-black text-white leading-tight">
-             Tentukan Titik<br/>Lokasi Absensi
-           </h2>
-        </div>
-
         {/* ── Map Simulation Card ── */}
-        <div className="relative z-20 px-5 mt-[-1rem]">
+        <div className="px-5 pt-8">
           <div className="bg-white rounded-[2rem] shadow-[0_12px_35px_rgba(0,0,0,0.06)] border border-slate-100 overflow-hidden mb-6">
             <div className="h-[200px] bg-slate-100 relative w-full flex items-center justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] overflow-hidden">
               <div className="absolute inset-0 bg-emerald-50/60"></div>

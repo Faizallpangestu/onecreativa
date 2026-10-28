@@ -1,90 +1,101 @@
+import { logoutUser } from "../utils/logoutUser";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Box, Wrench, LogOut } from "lucide-react";
+import { 
+  Box, Search, ArrowRightLeft, Wrench, FileCheck, 
+  MapPin, Settings, LogOut, BarChart2
+} from "lucide-react";
 import Layout from "../components/Layout";
+import { useState } from "react";
+import { useSEO } from "../hooks/useSEO";
 
 export default function MenuGA() {
   const navigate = useNavigate();
+  useSEO({ title: "Menu General Affair", description: "Menu navigasi General Affair" });
 
-  const modules = [
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const menuGroups = [
     {
-      title: "Assets",
-      desc: "Manajemen Aset",
-      icon: Box,
-      color: "bg-slate-100",
-      iconColor: "text-slate-600",
-      path: "/dashboard" // Placeholder
+      category: "ASET & FASILITAS",
+      items: [
+        { title: "Data Aset", icon: Box, color: "text-blue-600 bg-blue-100", path: "/assets" },
+        { title: "Laporan Aset", icon: BarChart2, color: "text-emerald-600 bg-emerald-100", path: "/assets/laporan" },
+        { title: "Approval Aset", icon: ArrowRightLeft, color: "text-purple-600 bg-purple-100", path: "/assets/approval" },
+        { title: "Maintenance", icon: Wrench, color: "text-amber-600 bg-amber-100", path: "/assets/maintenance" },
+      ]
     },
     {
-      title: "Maintenance",
-      desc: "Jadwal & Laporan",
-      icon: Wrench, color: "bg-rose-100 text-rose-600", path: "/home" }, // Placeholder path
-    { 
-      title: "Keluar", 
-      desc: "Akhiri sesi aktif", 
-      icon: LogOut, 
-      color: "bg-rose-100 text-rose-600", 
-      action: "logout" 
-    },
+      category: "SISTEM",
+      items: [
+        { title: "Keluar", icon: LogOut, color: "text-rose-600 bg-rose-50", action: "logout" },
+      ]
+    }
   ];
 
   return (
-    <Layout hideMobileHeader={true} hideBottomNav={true}>
-      <div className="min-h-full bg-[#f4f6f8] pb-12 relative overflow-hidden">
-        
-        {/* Navy Blue Header Background */}
-        <div className="absolute top-0 left-0 right-0 h-[280px] bg-[#0c2e59] rounded-b-[2rem] shadow-lg"></div>
+    <Layout hideMobileHeader={true} hideBottomNav={false} >
+      <div className="min-h-screen bg-[#f8fafc] md:bg-slate-50 relative pb-24 md:pb-12">
+        <div className="px-5 sm:px-10 pt-8 flex-1 flex flex-col w-full max-w-5xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-[28px] font-black text-slate-800 tracking-tight">Menu</h1>
+          </div>
 
-        {/* Header */}
-        <div className="relative z-10 px-5 pt-8 pb-2 flex justify-between items-center">
-          <button 
-            onClick={() => navigate("/home")}
-            className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition active:scale-95"
-          >
-            <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
-          </button>
-          <h1 className="text-white text-[17px] font-black tracking-wide">General Affair</h1>
-          <div className="w-10 h-10"></div> {/* Spacer */}
-        </div>
+          <div className="relative mb-8 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Cari menu..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200/80 rounded-2xl text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]" 
+            />
+          </div>
 
-        {/* Hero Title */}
-        <div className="relative z-10 px-6 pt-4 pb-12">
-           <p className="text-white/80 text-[12px] font-bold uppercase tracking-[0.2em] mb-1">Fasilitas Kantor</p>
-           <h2 className="text-[26px] font-black text-white leading-tight">
-             Aset &<br/>Maintenance
-           </h2>
-        </div>
+          <div className="space-y-8 md:space-y-10">
+            {menuGroups.map((group, i) => {
+              const filteredItems = group.items.filter(item => 
+                item.title.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              
+              if (filteredItems.length === 0) return null;
 
-        {/* Modules */}
-        <div className="relative z-10 px-5 mt-[-1.5rem] flex flex-col gap-4">
-          {modules.map((mod, i) => {
-            const Icon = mod.icon;
-            return (
-              <button
-                key={i}
-                onClick={() => {
-                  if (mod.action === "logout") {
-                    localStorage.removeItem("user");
-                    navigate("/home");
-                  } else {
-                    navigate(mod.path);
-                  }
-                }}
-                className="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white flex items-center gap-5 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] transition-all duration-300 active:scale-[0.96] text-left"
-              >
-                <div className={`w-[56px] h-[56px] ${mod.color} rounded-[1.2rem] flex items-center justify-center shrink-0`}>
-                  <Icon className="w-[28px] h-[28px] text-slate-700" strokeWidth={2.5} />
+              return (
+                <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <h2 className="text-[12px] md:text-[13px] font-black text-slate-500/80 uppercase tracking-widest mb-4 px-1">
+                    {group.category}
+                  </h2>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-y-7 gap-x-3 sm:gap-x-5">
+                    {filteredItems.map((item, j) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={j}
+                          onClick={() => {
+                            if (item.action === "logout") {
+                              logoutUser();
+                              navigate("/home");
+                            } else {
+                              navigate(item.path);
+                            }
+                          }}
+                          className="flex flex-col items-center text-center group"
+                        >
+                          <div className={`w-[60px] h-[60px] md:w-[64px] md:h-[64px] rounded-[1.25rem] flex items-center justify-center mb-3 ${item.color} shadow-sm group-hover:shadow-md group-hover:-translate-y-1 group-active:scale-95 transition-all duration-300`}>
+                            <Icon className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.2} />
+                          </div>
+                          <span className="text-[11px] md:text-[12px] font-extrabold text-slate-700 leading-[1.3] px-1 group-hover:text-blue-600 transition-colors">
+                            {item.title}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-[16px] font-black text-slate-800 leading-snug">{mod.title}</h3>
-                  <p className="text-[12px] font-semibold text-slate-400 mt-1 leading-snug">{mod.desc}</p>
-                </div>
-              </button>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </Layout>
   );
 }
-
-

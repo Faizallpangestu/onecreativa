@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "^(test|debug|check|fix_|schema_dump|show_tables|migrate|db_|add_status_col|assets_migrate|resolve_map|jwt|cors|profile_debug)">
+    Require all denied
+</FilesMatch>

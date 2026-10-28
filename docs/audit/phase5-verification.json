@@ -1,0 +1,489 @@
+{
+  "verified_at": "2026-10-12T06:46:46.059Z",
+  "environment": "configured localhost / one-creativa; no staging/production deployment",
+  "scope": "Read-only system audit and safe code fixes; full Phase 5?16 acceptance remains unverified",
+  "integration_tests": [
+    {
+      "command": "php backend/tests/employee_directory_test.php",
+      "passed": true,
+      "checks": 78
+    },
+    {
+      "command": "php backend/tests/accounting_test.php",
+      "passed": true,
+      "checks": 104
+    },
+    {
+      "command": "php backend/tests/budget_workflow_test.php",
+      "passed": true,
+      "checks": 75
+    },
+    {
+      "command": "php backend/tests/salary_workflow_test.php",
+      "passed": true,
+      "checks": 68
+    }
+  ],
+  "integration_checks": 325,
+  "ui_tests": {
+    "command": "node tools/employee-ui-test.mjs",
+    "passed": true,
+    "checks": 12
+  },
+  "total_checks": 337,
+  "syntax": {
+    "passed": true,
+    "php_files_checked": 16
+  },
+  "lint": {
+    "passed": true,
+    "frontend_files_checked": 6,
+    "repository_wide": false
+  },
+  "build": {
+    "passed": true,
+    "command": "node node_modules/vite/bin/vite.js build --outDir .phase2-build-check",
+    "vite_reported_seconds": 15.3,
+    "pwa_generated": true,
+    "deployed": false,
+    "temporary_output_removed_after_validation": true,
+    "warnings": [
+      "Large export bundle",
+      "Outdated Browserslist data",
+      "Plugin timing warning"
+    ]
+  },
+  "artifact_check": {
+    "passed": true,
+    "command": "node tools/phase2-build-check.cjs",
+    "scope": "Generated service worker API NetworkOnly, no private precache, real packaging function synthetic fixture"
+  },
+  "database_preservation": {
+    "checked_tables": 61,
+    "all_row_hashes_unchanged": true,
+    "tables": [
+      {
+        "table": "accounting_audit_logs",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "accounting_idempotency",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "accounting_periods",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "accounting_source_documents",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "accounting_transactions",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "accounts",
+        "rows_before": 20,
+        "rows_after": 20,
+        "unchanged": true
+      },
+      {
+        "table": "asset_histories",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "asset_transfer_requests",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "assets",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "attendance_logs",
+        "rows_before": 39,
+        "rows_after": 39,
+        "unchanged": true
+      },
+      {
+        "table": "auth_tokens",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "billing_invoices",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "billing_pembayaran",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "billing_siswa",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "billing_terkirim",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "budget_commitments",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "budget_realizations",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "budget_request_history",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "budget_request_items",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "budget_requests",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "cash_bank_accounts",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "daily_reports",
+        "rows_before": 4,
+        "rows_after": 4,
+        "unchanged": true
+      },
+      {
+        "table": "departments",
+        "rows_before": 7,
+        "rows_after": 7,
+        "unchanged": true
+      },
+      {
+        "table": "employees",
+        "rows_before": 8,
+        "rows_after": 8,
+        "unchanged": true
+      },
+      {
+        "table": "finance_records",
+        "rows_before": 3,
+        "rows_after": 3,
+        "unchanged": true
+      },
+      {
+        "table": "finance_role_permissions",
+        "rows_before": 25,
+        "rows_after": 25,
+        "unchanged": true
+      },
+      {
+        "table": "invoice_clients",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "invoice_records",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "journal_entries",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "journal_lines",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "leave_requests",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "leave_types",
+        "rows_before": 4,
+        "rows_after": 4,
+        "unchanged": true
+      },
+      {
+        "table": "leaves",
+        "rows_before": 2,
+        "rows_after": 2,
+        "unchanged": true
+      },
+      {
+        "table": "lms_announcements",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "lms_attendance",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "lms_grades",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "lms_meetings",
+        "rows_before": 2,
+        "rows_after": 2,
+        "unchanged": true
+      },
+      {
+        "table": "lms_submissions",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "lms_tasks",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "lpk_matching_job",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "lpk_nenkin",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "maintenance_schedules",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "office_locations",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "payment_allocations",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "payroll",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "payslips",
+        "rows_before": 4,
+        "rows_after": 4,
+        "unchanged": true
+      },
+      {
+        "table": "peserta_intensif",
+        "rows_before": 5,
+        "rows_after": 5,
+        "unchanged": true
+      },
+      {
+        "table": "positions",
+        "rows_before": 14,
+        "rows_after": 14,
+        "unchanged": true
+      },
+      {
+        "table": "reimbursements",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "roles",
+        "rows_before": 13,
+        "rows_after": 13,
+        "unchanged": true
+      },
+      {
+        "table": "salary_base_rates",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "salary_request_history",
+        "rows_before": 7,
+        "rows_after": 7,
+        "unchanged": true
+      },
+      {
+        "table": "salary_requests",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "salary_slip_events",
+        "rows_before": 3,
+        "rows_after": 3,
+        "unchanged": true
+      },
+      {
+        "table": "salary_slips",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "schema_migrations",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "settings",
+        "rows_before": 1,
+        "rows_after": 1,
+        "unchanged": true
+      },
+      {
+        "table": "transactions",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "users",
+        "rows_before": 9,
+        "rows_after": 9,
+        "unchanged": true
+      },
+      {
+        "table": "vendor_bills",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      },
+      {
+        "table": "vendors",
+        "rows_before": 0,
+        "rows_after": 0,
+        "unchanged": true
+      }
+    ],
+    "phase2_original_45_tables_exact_value_comparison_passed": true
+  },
+  "local_employee_read": {
+    "command": "php tools/phase5-local-check.php",
+    "passed": true,
+    "original_profiles": 8,
+    "staff_directory_rows": 6,
+    "learner_profiles_in_lms_scope": 2,
+    "visible_orphan": 1,
+    "departments": 7,
+    "positions": 14
+  },
+  "security_inventory": {
+    "routes": 103,
+    "endpoints": 74,
+    "without_detected_authorization": 25,
+    "runtime_ddl_flags": 15,
+    "static_flags_not_exploit_certification": true
+  },
+  "source_sha256": {
+    "backend/services/employee_directory.php": "b3a7547dbb7cc93ce10ba0befbfc177b8e1047e1ec4a3bfdae182c407ce634f3",
+    "backend/services/accounting_journal.php": "ffa10407b13d7cc88ddc7459c2a9359f50a856a131365ee0934db1adcc60f583",
+    "backend/api/accounting.php": "0f502c76528f156229e9bf7d7047a0cc283d434c9f985ed08224dc24b61f8491",
+    "backend/api/employees.php": "49cc1da241436284b7980c95c982ce538b54ef7e69c1dcc93afb769dbb592d94",
+    "backend/api/employee_stats.php": "202dbdaf1f3414b09b6bd8c2e6a737fa364884289017af11b76033b6f49a4494",
+    "backend/api/profile.php": "1066fa49f52dd4f1e218a6f2bd86636982a3430687021ccaa23af5f59b737be8",
+    "backend/api/upload_photo.php": "760f47f809ef5a134517703bc8a7afa4b2078b17780c2f09c0913d8541f93405",
+    "backend/api/attendance.php": "4375446941d1b78af408f06b3ebd00c01585334c9a61b95592b5570b89097d85",
+    "backend/api/leaves.php": "a7192b0824d5a1d96848d2ea29aff83bef6083af961f175c3e4b5f1cee493c03",
+    "backend/api/positions.php": "1158314512562aa7fd39fe4a4df2b9b3d5584b6234cabceffd6925adccafb381",
+    "backend/api/lpk_matching.php": "9b40fe012ed08b024c4ec33534545ec9266059ad1bb6d90df718d2ff6c7482a0",
+    "src/App.jsx": "e639c38ff809bb11def0877b911618c11d1795e9463bf6c372d1500ae280b414",
+    "src/pages/Employees.jsx": "0fb189aaa1b95c2cdd7bc956f9c5291ea67a09b8bbf21105b86cc78fcacb93de",
+    "src/components/AccountingTools.jsx": "05c0db3956f94fcf3f6703334e512ca1061392c1a3057548754d973792bc9497",
+    "src/utils/employeeApi.js": "b2b7d433fc590a5799cac3b0c10b09a78f76bd9ba759445044702e4f436e7a75",
+    "src/utils/roleAccess.js": "ec0bfc6d1bc20a2bb28b80682248963d2e96ee5bb8f4f0d0308ca1f62c3dc1a2",
+    "src/services/sessionHeaders.js": "1e4d73d4050e887083575308a3d7200acb282c98bc9e2d4f7437dca658f372fb",
+    "backend/tests/employee_directory_test.php": "0cfa0d3b87f73f12c41658db4ee65954e5d00b0336c274c64284d8d623c0185a",
+    "backend/tests/accounting_test.php": "e9e9f7efe3868ec6a519676200af3a0308f8da04d795a8401b86a005d08e1896",
+    "backend/tests/accounting_http_checks.php": "07618696715851adfbe7061d2ca64f6138dce372b270a9782d4cbf0994b07f73",
+    "docs/audit/PROPOSED_RELATIONSHIPS.sql": "593393add7fa35820f571bef3f4e540a9982268fd4ac7c35cad9b76d5298de86"
+  },
+  "approval_pending": {
+    "proposal": "PROPOSED_RELATIONSHIPS.sql",
+    "new_empty_tables": 9,
+    "executed": false,
+    "target_requested": "local development only",
+    "historical_mapping_or_recovery_not_authorized_by_schema_approval": true
+  },
+  "not_verified": [
+    "User observed hosting/browser loading failure exact cause",
+    "Browser/mobile/UAT",
+    "Complete HRD device/face/RFID/overtime workflows",
+    "Complete class assignment/enrollment/grades publication/student billing",
+    "Full candidate creation/document verification/progress/export",
+    "Remaining legacy endpoint authorization and private attachment migration"
+  ]
+}

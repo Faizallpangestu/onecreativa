@@ -9,9 +9,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require '../config/database.php';
+require_once __DIR__.'/../config/database.php';
+require_once __DIR__.'/../services/api_session_guard.php';
+$actor=api_session_guard($conn,null);
 
 $method = $_SERVER['REQUEST_METHOD'];
+require_once __DIR__.'/../services/relationships.php';
+if($method==='GET'&&($_GET['view']??'')==='receipt'){$row=ac_one($conn,'SELECT user_id,receipt_path FROM reimbursements WHERE id=?',[ac_id($_GET['id']??null)]);if(!$row)ac_fail('Struk tidak ditemukan.',404);if((int)$row['user_id']!==(int)$actor['id']&&!ac_can($conn,$actor,'read'))ac_fail('Struk pengguna lain tidak diizinkan.',403);rs_file('receipts',basename($row['receipt_path']??''),'receipts');}
+
 
 function respond($statusCode, $payload) {
     http_response_code($statusCode);
@@ -23,11 +28,11 @@ function respond($statusCode, $payload) {
 // GET: Ambil Data Klaim
 // =======================
 if ($method === 'GET') {
-    $user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
-    $role = isset($_GET['role']) ? $_GET['role'] : 'karyawan';
+    $user_id = (int)$actor['id'];
+    $role = $actor['role'];
 
     // Jika Finance / Admin, kembalikan semua data
-    if (in_array($role, ['finance', 'admin', 'super_admin'])) {
+    if (ac_can($conn,$actor,'read')) {
         $sql = "SELECT r.*, e.full_name as employee_name, e.employee_code 
                 FROM reimbursements r 
                 LEFT JOIN users u ON r.user_id = u.id 
@@ -53,82 +58,16 @@ if ($method === 'GET') {
 // ==================================
 // POST: Ajukan Klaim (Upload Foto)
 // ==================================
-if ($method === 'POST') {
-    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
-    $category = $_POST['category'] ?? '';
-    $amount = $_POST['amount'] ?? 0;
-    $description = $_POST['description'] ?? '';
+if($method==='POST'){require_once __DIR__.'/../services/document_mutations.php';$result=dm_reimbursement($conn,$actor,$_POST);respond(201,['status'=>'success','message'=>'Klaim tersimpan dan menunggu review.','id'=>$result['id'],'data'=>$result]);}
 
-    // Validasi input
-    if ($user_id === 0 || empty($category) || empty($amount) || empty($description)) {
-        respond(400, ["status" => "error", "message" => "Harap isi semua field (Nominal, Kategori, Deskripsi)"]);
-    }
-
-    // Validasi file upload
-    if (!isset($_FILES['receipt']) || $_FILES['receipt']['error'] !== UPLOAD_ERR_OK) {
-        respond(400, ["status" => "error", "message" => "Gagal mengunggah foto struk. Pastikan file dipilih."]);
-    }
-
-    // Buat direktori jika belum ada
-    $uploadDir = '../uploads/receipts/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-
-    // Ekstensi file
-    $fileExt = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
-    $allowedExt = ['jpg', 'jpeg', 'png', 'pdf'];
-    if (!in_array($fileExt, $allowedExt)) {
-        respond(400, ["status" => "error", "message" => "Format file tidak valid. Harap unggah format JPG, PNG, atau PDF."]);
-    }
-
-    // Generate nama file unik agar tidak bentrok
-    $fileName = time() . '_' . rand(1000, 9999) . '.' . $fileExt;
-    $targetPath = $uploadDir . $fileName;
-
-    // Pindahkan file ke server
-    if (!move_uploaded_file($_FILES['receipt']['tmp_name'], $targetPath)) {
-        respond(500, ["status" => "error", "message" => "Gagal menyimpan file ke server."]);
-    }
-
-    // Simpan ke DB
-    $receipt_path = 'uploads/receipts/' . $fileName;
-    $categoryEsc = mysqli_real_escape_string($conn, $category);
-    $descEsc = mysqli_real_escape_string($conn, $description);
-    $amountFloat = floatval($amount);
-
-    $sql = "INSERT INTO reimbursements (user_id, category, amount, description, receipt_path, status) 
-            VALUES ($user_id, '$categoryEsc', $amountFloat, '$descEsc', '$receipt_path', 'pending')";
-
-    if (mysqli_query($conn, $sql)) {
-        respond(200, ["status" => "success", "message" => "Klaim reimbursement berhasil diajukan!"]);
-    } else {
-        respond(500, ["status" => "error", "message" => "Gagal menyimpan data ke database: " . mysqli_error($conn)]);
-    }
-}
-
-// ==================================
-// PUT: Finance Approve / Reject
-// ==================================
 if ($method === 'PUT') {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $id = isset($data['id']) ? intval($data['id']) : 0;
-    $status = isset($data['status']) ? $data['status'] : '';
-    $finance_notes = isset($data['finance_notes']) ? $data['finance_notes'] : '';
-
-    if ($id === 0 || !in_array($status, ['approved', 'rejected'])) {
-        respond(400, ["status" => "error", "message" => "Data tidak lengkap atau status tidak valid."]);
-    }
-
-    $notesEsc = mysqli_real_escape_string($conn, $finance_notes);
-    $statusEsc = mysqli_real_escape_string($conn, $status);
-
-    $sql = "UPDATE reimbursements SET status='$statusEsc', finance_notes='$notesEsc' WHERE id=$id";
-    if (mysqli_query($conn, $sql)) {
-        respond(200, ["status" => "success", "message" => "Status reimbursement berhasil diperbarui."]);
-    } else {
-        respond(500, ["status" => "error", "message" => "Gagal mengubah status: " . mysqli_error($conn)]);
-    }
+    try{
+        ac_require($conn,$actor,'approve');$data=json_decode(file_get_contents('php://input'),true,512,JSON_THROW_ON_ERROR);$id=ac_id($data['id']??null);$status=$data['status']??'';if(!in_array($status,['approved','rejected'],true))ac_fail('Status keputusan tidak valid.');$notes=ac_text($data['finance_notes']??'','Catatan keputusan',2000,$status==='rejected');
+        ac_atomic($conn,function()use($conn,$actor,$id,$status,$notes){$claim=ac_one($conn,'SELECT * FROM reimbursements WHERE id=? FOR UPDATE',[$id]);if(!$claim||$claim['status']!=='pending')ac_fail('Klaim tidak menunggu keputusan.',409);if((int)$claim['user_id']===(int)$actor['id'])ac_fail('Pengaju tidak boleh menyetujui sendiri.',403);ac_query($conn,'UPDATE reimbursements SET status=?,finance_notes=? WHERE id=?',[$status,$notes,$id]);if(ac_table($conn,'accounting_audit_logs'))ac_audit($conn,$actor,'reimbursement',(string)$id,$status,['note'=>$notes]);});
+        respond(200,['status'=>'success','message'=>'Keputusan reimbursement tersimpan.']);
+    }catch(AccountingException $e){respond($e->getCode(),['status'=>'error','message'=>$e->getMessage()]);}
+    catch(JsonException $e){respond(400,['status'=>'error','message'=>'JSON tidak valid.']);}
+    catch(Throwable $e){error_log('Reimbursement decision: '.$e->getMessage());respond(500,['status'=>'error','message'=>'Keputusan gagal disimpan.']);}
 }
 
 // Method tidak didukung

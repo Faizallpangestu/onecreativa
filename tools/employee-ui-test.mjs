@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { employeeData, employeeError, employeeForm } from '../src/utils/employeeApi.js';
+import { getRoleLandingPath, getSystemRole } from '../src/utils/roleAccess.js';
+const inactive = employeeForm({id:19,is_active:0,join_date:'2024-02-29',birth_date:'1991-01-02',phone:'001234',base_salary:'1234.25',password_hash:'secret'});
+assert.equal(inactive.is_active,0);
+assert.equal(inactive.join_date,'2024-02-29');
+assert.equal(inactive.phone,'001234');
+assert.equal(inactive.base_salary,'1234.25');
+assert.equal(inactive.password,'');
+assert.equal(inactive.password_hash,undefined);
+assert.deepEqual(employeeData({status:'success',data:[]}),[]);
+assert.throws(()=>employeeData({status:'error',message:'API failed',data:[]}),/API failed/);
+assert.throws(()=>employeeData({status:'success',data:{}}),/tidak valid/);
+assert.equal(employeeError({response:{data:{message:'Permission denied',request_id:'qa-request'}}},'Fallback'),'Permission denied (ID permintaan: qa-request)');
+assert.equal(getRoleLandingPath('hr_admin'),'/menu-hrd');
+assert.equal(getSystemRole('hr_admin').value,'hr');
+console.log('PASS: 12 employee UI state, response, role and error checks.');

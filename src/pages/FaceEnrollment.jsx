@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useCamera } from "../hooks/useCamera";
 import { useFaceApi } from "../hooks/useFaceApi";
 import api from "../services/api";
+import { useSEO } from "../hooks/useSEO";
 
 const STEPS = [
   { id: 1, label: "Persiapan", icon: "📋" },
@@ -14,6 +15,11 @@ const STEPS = [
 
 export default function FaceEnrollment() {
   const navigate = useNavigate();
+
+  useSEO({
+    title: "Pendaftaran Wajah Face Recognition",
+    description: "Pendaftaran biometrik wajah karyawan untuk absensi real-time ONE Creativa."
+  });
   const canvasRef = useRef(null);
   const detectionLoop = useRef(null);
 
@@ -27,7 +33,7 @@ export default function FaceEnrollment() {
   const [enrolledData, setEnrolledData] = useState(null);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const employeeId = user.employee_id || user.id;
+  const employeeId = user.employee_id;
 
   const { videoRef, isReady, error: camError, startCamera, stopCamera, captureSnapshot } = useCamera();
   const { isLoaded, loadError, detectFace, captureDescriptors, drawDetection } = useFaceApi();
@@ -77,7 +83,7 @@ export default function FaceEnrollment() {
     const descriptors = await captureDescriptors(
       videoRef.current,
       5,
-      (current, total) => {
+      (current) => {
         setCaptureProgress(current);
         // Take a snapshot thumbnail
         const snap = captureSnapshot(0.5);
@@ -97,7 +103,11 @@ export default function FaceEnrollment() {
 
   // Step 4: Save to server
   const saveEnrollment = async () => {
-    if (!enrolledData || !employeeId) return;
+    if (!employeeId) {
+      setSaveError("Profil karyawan belum terhubung ke akun login. Hubungi admin untuk menghubungkannya.");
+      return;
+    }
+    if (!enrolledData) return;
     setSaving(true);
     setSaveError(null);
 

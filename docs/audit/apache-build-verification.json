@@ -1,0 +1,6 @@
+{
+  "verified_at": "2026-10-15T02:50:49.297Z",
+  "server": "Separate loopback Apache, production .htaccess, no PHP or database access",
+  "checks": 9,
+  "passed": true
+}

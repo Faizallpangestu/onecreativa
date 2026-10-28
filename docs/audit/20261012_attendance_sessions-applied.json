@@ -1,0 +1,21 @@
+{
+  "verified_at": "2026-10-12T08:36:19.837Z",
+  "database": "one-creativa",
+  "local_only": true,
+  "migration": "20261012_attendance_sessions",
+  "migration_sha256": "4fddf151e5900be26c9491151a11a6e0f6858cd6d7887b53f89c85d62a53f553",
+  "mode": "applied-local",
+  "backup": "backend/storage/backups/release-1791794167248",
+  "backup_sha256": "091ab99301d801623fd28262c2c031b37d9a9d5de05ac0ee317cedb5dd14fb75",
+  "restore_verified": true,
+  "triggers_restored": 9,
+  "original_tables": 70,
+  "original_rows_unchanged": true,
+  "tables": [
+    "lms_attendance_sessions"
+  ],
+  "created": [
+    "lms_attendance_sessions"
+  ],
+  "historical_recovery_executed": false
+}

@@ -1,0 +1,26 @@
+{
+  "synthetic_data_only": true,
+  "original_rows_unchanged": true,
+  "checks": [
+    "Unauthenticated access redirects to login",
+    "Server role overrides forged browser role and blocks account management",
+    "Old cached account list is discarded",
+    "UI deletion removes correct user ID despite different employee ID",
+    "UI can delete account with no employee profile",
+    "Archived deletion stays absent after reload and preserves attendance",
+    "Deleted access revokes open browser session",
+    "New login account persists through UI",
+    "UI status update disables login",
+    "Inactive account login is denied",
+    "Logout completes before session check and stays on login",
+    "Service worker keeps repeat login visits on lightweight public entry",
+    "Public login password toggle has accessible names and works",
+    "Public login authenticates and rejects external redirect",
+    "Server restores employee ID when local login cache is missing",
+    "Ordinary worker remains blocked from full employee directory",
+    "Real UI clock in sends CSRF token and persists own attendance",
+    "Real UI clock out sends CSRF token and persists",
+    "Working mode refreshes from own profile instead of stale cache",
+    "Login UI explains inactive account after correct password"
+  ]
+}

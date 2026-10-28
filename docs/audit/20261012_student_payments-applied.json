@@ -1,0 +1,21 @@
+{
+  "verified_at": "2026-10-12T08:45:23.264Z",
+  "database": "one-creativa",
+  "local_only": true,
+  "migration": "20261012_student_payments",
+  "migration_sha256": "52c54c7b7795b1f59a0afdf8c3b218d4b854d33974b78a7778b3a8918e3dd935",
+  "mode": "applied-local",
+  "backup": "backend/storage/backups/release-1791794711562",
+  "backup_sha256": "f52e6257d7bf2322a7e2ffd4f6f9f3de95e707b12fe4ab41feb7d3244db7b28e",
+  "restore_verified": true,
+  "triggers_restored": 9,
+  "original_tables": 71,
+  "original_rows_unchanged": true,
+  "tables": [
+    "student_payment_submissions"
+  ],
+  "created": [
+    "student_payment_submissions"
+  ],
+  "historical_recovery_executed": false
+}

@@ -2,14 +2,20 @@
 # ONE Creativa - Performance & Security .htaccess
 # ============================================================
 
+Options -Indexes
+ServerSignature Off
+
 # ── SPA Routing ─────────────────────────────────────────────
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  RewriteRule ^$ /login [R=302,L]
+  RewriteRule ^login/?$ /login.html [L]
 
-  # Jangan redirect API/uploads
+  # Jangan redirect API/uploads/backend
   RewriteCond %{REQUEST_URI} ^/api/ [OR]
-  RewriteCond %{REQUEST_URI} ^/uploads/
+  RewriteCond %{REQUEST_URI} ^/uploads/ [OR]
+  RewriteCond %{REQUEST_URI} ^/backend/
   RewriteRule ^ - [L]
 
   RewriteRule ^index\.html$ - [L]
@@ -65,7 +71,15 @@
 <IfModule mod_headers.c>
   # Assets dengan hash (JS/CSS) boleh di-cache lama
   <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|webp|woff|woff2|ico)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+  <FilesMatch "-[A-Za-z0-9_-]{8,}\.(js|css|webp|png|jpg|woff2)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "^(sw\.js|registerSW\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
   </FilesMatch>
 
   # HTML selalu fresh
@@ -79,7 +93,12 @@
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+  Header always set Content-Security-Policy "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+  # THE_REQUEST preserves the original URL after SPA rewrites to index.html.
+  <FilesMatch "\.html$">
+    Header always set X-Robots-Tag "noindex, nofollow" "expr=%{THE_REQUEST} !~ m#^[A-Z]+ /(?:login/?|login[.]html|index[.]html)?(?:[?][^ ]*)? HTTP/#"
+  </FilesMatch>
 </IfModule>
 
 # ── Sembunyikan file sensitif ────────────────────────────────

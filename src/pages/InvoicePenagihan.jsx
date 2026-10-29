@@ -100,10 +100,13 @@ const METODE_CICILAN = [
   { label: "Full Payment", amount: 15000000 },
 ];
 
-// ─── HELPER: Generate & Download Official Invoice PDF ───────────────────────────
-export function generateInvoicePDF(inv) {
+// ─── HELPER: Generate & Download / Preview Official Invoice PDF ───────────────────────────
+export function generateInvoicePDF(inv, mode = 'download') {
   const doc = new jsPDF({ format: 'a4' });
   doc.setFont("helvetica");
+  doc.setProperties({
+    title: `INVOICE - ${inv.id || 'INVOICE'} - ${(inv.customer || '').toUpperCase()}`
+  });
 
   let currentY = 18;
 
@@ -360,7 +363,17 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`;
   doc.setFont(undefined, 'normal');
   doc.text("Direktur", 14, currentY + 3.5);
 
+  if (mode === 'preview') {
+    const blobUrl = doc.output('bloburl');
+    window.open(blobUrl, '_blank');
+    return blobUrl;
+  }
+
   doc.save(`${inv.id || 'INVOICE'}.pdf`);
+}
+
+export function previewInvoicePDF(inv) {
+  return generateInvoicePDF(inv, 'preview');
 }
 
 // ─── TEMPLATES FOR INCLUDE, EXCLUDE & NOTES ─────────────────────────────────────
@@ -1460,7 +1473,7 @@ function SiswaDetailModal({ item, onClose }) {
             { icon: Mail,         label: "Email",          value: item.email },
             { icon: Receipt,      label: "Jumlah Invoice", value: `${item.jmlInv} invoice` },
             { icon: Banknote,     label: "Total Tagihan",  value: formatRp(item.total), highlight: true },
-          ].map(({  label, value, highlight }, i) => (
+          ].map(({ icon: Icon, label, value, highlight }, i) => (
             <div key={i} className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5"><Icon className="w-4 h-4 text-slate-500" /></div>
               <div><p className="text-xs text-slate-400 font-semibold mb-0.5">{label}</p>
@@ -1609,96 +1622,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh }) {
         />
       )}
 
-      {/* ── HEADER ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border-b border-slate-100">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
-            <Receipt className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">Invoice</h1>
-            <p className="text-xs font-medium text-slate-400">Kelola data invoice siswa, pembayaran, dan status tagihan.</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari..."
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 w-36 sm:w-48 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-            />
-          </div>
-          <button
-            type="button"
-            title="Bantuan"
-            className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowBuat(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95"
-          >
-            <Plus className="w-4 h-4" /> Buat Invoice
-          </button>
-        </div>
-      </div>
-
-      <div className="p-6 pt-0 space-y-6">
-        {/* ── TOP KPI SUMMARY CARDS (Paid, Partially Paid, Unpaid) ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total Invoice */}
-          <div className="bg-white rounded-2xl p-4 border border-blue-100 shadow-xs flex items-center gap-4 hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400">Total Invoice</p>
-              <h3 className="text-lg font-black text-slate-900 leading-tight mt-0.5">{formatRp(totalNominal)}</h3>
-              <p className="text-[11px] font-bold text-blue-600 mt-0.5">{allInvoices.length} Invoice</p>
-            </div>
-          </div>
-
-          {/* Card 2: Paid (Lunas) */}
-          <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center gap-4 hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-              <CheckCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400">Paid</p>
-              <h3 className="text-lg font-black text-emerald-600 leading-tight mt-0.5">{formatRp(paidNominal)}</h3>
-              <p className="text-[11px] font-bold text-emerald-600 mt-0.5">{paidInvoices.length} Invoice</p>
-            </div>
-          </div>
-
-          {/* Card 3: Partially Paid (Sebagian) */}
-          <div className="bg-white rounded-2xl p-4 border border-amber-100 shadow-xs flex items-center gap-4 hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400">Partially Paid</p>
-              <h3 className="text-lg font-black text-amber-600 leading-tight mt-0.5">{formatRp(partiallyPaidNominal)}</h3>
-              <p className="text-[11px] font-bold text-amber-600 mt-0.5">{partiallyPaidInvoices.length} Invoice</p>
-            </div>
-          </div>
-
-          {/* Card 4: Unpaid (Belum Bayar) */}
-          <div className="bg-white rounded-2xl p-4 border border-rose-100 shadow-xs flex items-center gap-4 hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400">Unpaid</p>
-              <h3 className="text-lg font-black text-rose-600 leading-tight mt-0.5">{formatRp(unpaidNominal)}</h3>
-              <p className="text-[11px] font-bold text-rose-600 mt-0.5">{unpaidInvoices.length} Invoice</p>
-            </div>
-          </div>
-        </div>
+      <div className="p-5 space-y-4">
 
         {/* ── FILTER TOOLBAR ── */}
         <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-3.5 flex flex-wrap items-center gap-3">
@@ -1803,7 +1727,8 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh }) {
                         <td className="py-3.5 px-4">
                           <button
                             type="button"
-                            onClick={() => setViewItem(inv)}
+                            onClick={() => previewInvoicePDF(inv)}
+                            title="Buka Preview Invoice PDF"
                             className="font-bold text-blue-600 hover:text-blue-800 hover:underline tracking-wide font-mono text-xs"
                           >
                             {inv.id}
@@ -1850,9 +1775,9 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh }) {
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => setViewItem(inv)}
-                              title="Lihat Detail & Preview"
-                              className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition"
+                              onClick={() => previewInvoicePDF(inv)}
+                              title="Preview Invoice (Buka PDF)"
+                              className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-800 transition"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
@@ -1985,7 +1910,7 @@ function TabInvoiceTerkirim({ data, onDelete }) {
       {delItem  && <ConfirmDeleteModal label={delItem.id} onConfirm={() => handleDelete(delItem.id)} onCancel={() => setDelItem(null)} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {stats.map(({ label, value, sub, ok, bg, ic, vc }, i) => (
+        {stats.map(({ label, value, sub, ok, bg, ic, vc, Icon }, i) => (
           <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-slate-500">{label}</span>
@@ -2139,7 +2064,7 @@ function TabPembayaran({ data, onDelete }) {
       {delItem  && <ConfirmDeleteModal label={delItem.noInv} onConfirm={() => handleDelete()} onCancel={() => setDelItem(null)} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {stats.map(({ label, value, sub, ok, bg, ic, vc }, i) => (
+        {stats.map(({ label, value, sub, ok, bg, ic, vc, Icon }, i) => (
           <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-slate-500">{label}</span>
@@ -2299,7 +2224,7 @@ function TabSiswa({ data, onDelete }) {
               { label:"Siswa Aktif",   value:data.filter(d=>d.status==="Aktif").length,    sub:"75% dari total siswa",   ok:true,  Icon:CheckCircle,  bg:"bg-emerald-100", ic:"text-emerald-600", money:false },
               { label:"Siswa Baru",    value:data.filter(d=>d.status==="Baru").length,     sub:"+16% dari periode lalu", ok:true,  Icon:User,         bg:"bg-blue-100",    ic:"text-blue-600",    money:false },
               { label:"Piutang Siswa", value:data.reduce((s,r)=>s+r.total,0),              sub:"28% dari total tagihan", ok:false, Icon:Clock,        bg:"bg-red-100",     ic:"text-red-500",     money:true,  vc:"text-red-500" },
-            ].map(({ label,value,sub,ok,bg,ic,vc,money },i)=>(
+            ].map(({ label, value, sub, ok, bg, ic, vc, money, Icon }, i) => (
               <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold text-slate-500">{label}</span>
@@ -2474,79 +2399,79 @@ function Sidebar({ invoiceData = [] }) {
   })();
 
   return (
-    <div className="xl:w-72 flex flex-col gap-6">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="text-[13px] font-black text-slate-800 mb-4">Distribusi Invoice</h3>
-        <div className="flex items-center gap-5">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
+        <h3 className="text-xs font-bold text-slate-800 mb-3">Distribusi Invoice</h3>
+        <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
-            <div style={{ background: donutGradient }} className="w-24 h-24 rounded-full"/>
-            <div className="absolute inset-0 flex items-center justify-center"><div className="w-16 h-16 bg-white rounded-full"/></div>
+            <div style={{ background: donutGradient }} className="w-20 h-20 rounded-full"/>
+            <div className="absolute inset-0 flex items-center justify-center"><div className="w-14 h-14 bg-white rounded-full"/></div>
             <div className="absolute inset-0 flex items-center justify-center flex-col">
-              <span className="text-[10px] font-bold text-slate-400">Total</span>
-              <span className="text-[13px] font-black text-slate-700 leading-none">{invoiceData.length}</span>
+              <span className="text-[9px] font-bold text-slate-400">Total</span>
+              <span className="text-xs font-bold text-slate-800 leading-none">{invoiceData.length}</span>
             </div>
           </div>
-          <div className="flex flex-col gap-2 text-[11px] w-full">
+          <div className="flex flex-col gap-1.5 text-xs w-full">
             {pie.map((p, i) => (
               <div key={i} className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.color }}/>
-                  <span className="text-slate-500 font-semibold">{p.label}</span>
+                  <span className="text-slate-500 font-medium text-[11px]">{p.label}</span>
                 </div>
-                <span className="text-slate-700 font-black">{p.pct}%</span>
+                <span className="text-slate-800 font-bold text-[11px]">{p.pct}%</span>
               </div>
             ))}
           </div>
         </div>
       </div>
       
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[13px] font-black text-slate-800">Top Customer</h3>
-          <span className="text-[11px] font-bold text-blue-600 cursor-pointer hover:underline">Lihat Semua</span>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-slate-800">Top Customer</h3>
+          <span className="text-[10px] font-bold text-blue-600 cursor-pointer hover:underline">Lihat Semua</span>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {topCustomer.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-[11px] text-slate-400 font-semibold">Belum ada data</p>
+            <div className="text-center py-4">
+              <p className="text-xs text-slate-400 font-medium">Belum ada data</p>
             </div>
           ) : topCustomer.map((c, i) => (
-            <div key={i} className="flex justify-between items-center">
+            <div key={i} className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-2">
-                <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${i===0?'bg-blue-100 text-blue-600':i===1?'bg-amber-100 text-amber-600':i===2?'bg-emerald-100 text-emerald-600':i===3?'bg-violet-100 text-violet-600':'bg-rose-100 text-rose-600'}`}>{i+1}</div>
-                <span className="text-[11px] text-slate-600 font-semibold truncate max-w-[100px]">{c.nama}</span>
+                <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${i===0?'bg-blue-100 text-blue-600':i===1?'bg-amber-100 text-amber-600':i===2?'bg-emerald-100 text-emerald-600':i===3?'bg-violet-100 text-violet-600':'bg-rose-100 text-rose-600'}`}>{i+1}</div>
+                <span className="text-slate-700 font-semibold truncate max-w-[120px]">{c.nama}</span>
               </div>
-              <span className={`text-[11px] font-black ${c.color}`}>{formatRp(c.amount)}</span>
+              <span className={`font-bold ${c.color}`}>{formatRp(c.amount)}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[13px] font-black text-slate-800">Ringkasan Status</h3>
-          <span className="text-[11px] font-bold text-blue-600 cursor-pointer hover:underline">Lihat Semua</span>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-slate-800">Ringkasan Status</h3>
+          <span className="text-[10px] font-bold text-blue-600 cursor-pointer hover:underline">Lihat Semua</span>
         </div>
-        <div className="grid grid-cols-4 gap-2">
-           <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-emerald-50 border border-emerald-100/50">
-             <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center"><CheckCircle className="w-3.5 h-3.5 text-emerald-600"/></div>
-             <span className="text-[9px] font-bold text-emerald-600 text-center leading-tight">Paid</span>
-             <span className="text-[13px] font-black text-slate-800 leading-none">{paidCount}</span>
+        <div className="grid grid-cols-4 gap-2 text-center">
+           <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-emerald-50 border border-emerald-100">
+             <CheckCircle className="w-4 h-4 text-emerald-600"/>
+             <span className="text-[10px] font-semibold text-emerald-700">Paid</span>
+             <span className="text-xs font-bold text-slate-800">{paidCount}</span>
            </div>
-           <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-amber-50 border border-amber-100/50">
-             <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center"><Clock className="w-3.5 h-3.5 text-amber-600"/></div>
-             <span className="text-[9px] font-bold text-amber-600 text-center leading-tight">Partial</span>
-             <span className="text-[13px] font-black text-slate-800 leading-none">{partialCount}</span>
+           <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-amber-50 border border-amber-100">
+             <Clock className="w-4 h-4 text-amber-600"/>
+             <span className="text-[10px] font-semibold text-amber-700">Partial</span>
+             <span className="text-xs font-bold text-slate-800">{partialCount}</span>
            </div>
-           <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-rose-50 border border-rose-100/50">
-             <div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center"><AlertCircle className="w-3.5 h-3.5 text-rose-600"/></div>
-             <span className="text-[9px] font-bold text-rose-600 text-center leading-tight">Unpaid</span>
-             <span className="text-[13px] font-black text-slate-800 leading-none">{unpaidCount}</span>
+           <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-rose-50 border border-rose-100">
+             <AlertCircle className="w-4 h-4 text-rose-600"/>
+             <span className="text-[10px] font-semibold text-rose-700">Unpaid</span>
+             <span className="text-xs font-bold text-slate-800">{unpaidCount}</span>
            </div>
-           <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-red-100/60 border border-red-200">
-             <div className="w-6 h-6 rounded-full bg-red-200 flex items-center justify-center"><XCircle className="w-3.5 h-3.5 text-red-700"/></div>
-             <span className="text-[9px] font-bold text-red-700 text-center leading-tight">Overdue</span>
-             <span className="text-[13px] font-black text-slate-800 leading-none">{overdueCount}</span>
+           <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-red-100/70 border border-red-200">
+             <XCircle className="w-4 h-4 text-red-700"/>
+             <span className="text-[10px] font-semibold text-red-700">Overdue</span>
+             <span className="text-xs font-bold text-slate-800">{overdueCount}</span>
            </div>
         </div>
       </div>
@@ -2646,141 +2571,144 @@ export default function InvoicePenagihan() {
     fetchData();
   };
 
-  const showSidebar = activeTab === 0 || activeTab === 1;
+  const [showBuatRoot, setShowBuatRoot] = useState(false);
 
   if (loading || loadError) return <Layout><div className="rounded-xl bg-white p-6"><p role={loadError?'alert':'status'}>{loadError || 'Memuat billing…'}</p>{loadError && <button onClick={fetchData}>Coba lagi</button>}</div></Layout>;
-  const totalTagihan = invoices.reduce((s, i) => s + Number(i.total), 0);
-  const rataRata     = invoices.length > 0 ? totalTagihan / invoices.length : 0;
-  const tagihanMax   = invoices.length > 0 ? Math.max(...invoices.map(i => i.total)) : 0;
-
-
+  
+  const totalTagihan = invoices.reduce((s, i) => s + Number(i.total || 0), 0);
+  const paidInvs     = invoices.filter(i => normalizeFinanceStatus(i.status) === "Paid");
+  const paidNominal  = paidInvs.reduce((s, i) => s + Number(i.total || 0), 0);
+  const partInvs     = invoices.filter(i => normalizeFinanceStatus(i.status) === "Partially Paid");
+  const partNominal  = partInvs.reduce((s, i) => s + Number(i.total || 0), 0);
+  const unpaidInvs   = invoices.filter(i => {
+    const st = normalizeFinanceStatus(i.status);
+    return st === "Unpaid" || st === "Overdue";
+  });
+  const unpaidNominal = unpaidInvs.reduce((s, i) => s + Number(i.total || 0), 0);
 
   return (
     <Layout>
-      <div className="w-full space-y-6 font-sans">
+      <div className="w-full space-y-5 font-sans">
         
-        {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-2">
-            <div>
-              <h1 className="text-2xl font-black text-slate-800">Billing Invoice</h1>
-              <p className="text-sm font-medium text-slate-500 mt-1">Dashboard &gt; Finance &gt; Billing Invoice</p>
+        {/* ── TOP HEADER (BOOTSTRAP / LARAVEL STYLE) ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-1">
+              <span>Dashboard</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span>Finance</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-800 font-semibold">Billing Invoice</span>
             </div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Billing Invoice</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Kelola data tagihan siswa, status pembayaran, dan riwayat invoice secara terpadu.</p>
           </div>
-
-          {/* Hero Banner */}
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-[1.5rem] p-6 sm:p-8 flex items-center justify-between border border-blue-100 shadow-sm relative overflow-hidden">
-            <div className="relative z-10 flex gap-5 items-center">
-              <div className="w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-                <Receipt className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-slate-800 mb-1">Billing Invoice</h2>
-                <p className="text-[13px] font-semibold text-slate-500">Kelola seluruh tagihan dan invoice perusahaan dengan mudah dan transparan.</p>
-              </div>
-            </div>
-            
-            {/* 3D Graphic (SVG mockup) */}
-            <div className="absolute right-0 top-0 bottom-0 w-[40%] max-w-[400px] z-0 pointer-events-none opacity-90 overflow-hidden hidden md:block">
-               <svg viewBox="0 0 250 150" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full object-cover scale-125 origin-right translate-x-4">
-                  <path d="M150 40 L190 20 L230 40 L190 60 Z" fill="#93c5fd" />
-                  <path d="M150 40 L150 90 L190 110 L190 60 Z" fill="#60a5fa" />
-                  <path d="M230 40 L230 90 L190 110 L190 60 Z" fill="#3b82f6" />
-                  <ellipse cx="100" cy="110" rx="25" ry="10" fill="#f59e0b" />
-                  <path d="M75 100 L75 110 A25 10 0 0 0 125 110 L125 100 Z" fill="#fbbf24" />
-                  <ellipse cx="100" cy="100" rx="25" ry="10" fill="#fcd34d" />
-                  <path d="M160 30 Q170 10, 200 15 Q220 20, 210 50 Q180 80, 160 30 Z" fill="#3b82f6" opacity="0.8"/>
-               </svg>
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex items-center justify-between transition relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-bl-full -z-10 opacity-50"></div>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-6 h-6 text-rose-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Total Tagihan Bulan Ini</p>
-                  <h3 className="text-xl font-black text-slate-800 leading-none mb-1">{formatRp(totalTagihan)}</h3>
-                  <p className="text-[10px] text-slate-400">Belum ada data pembanding</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex items-center justify-between transition relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -z-10 opacity-50"></div>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                  <FileText className="w-6 h-6 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Jumlah Invoice</p>
-                  <h3 className="text-xl font-black text-slate-800 leading-none mb-1">{invoices.length}</h3>
-                  <p className="text-[10px] text-slate-400">Belum ada data pembanding</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex items-center justify-between transition relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full -z-10 opacity-50"></div>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                  <Wallet className="w-6 h-6 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Rata-Rata Tagihan</p>
-                  <h3 className="text-xl font-black text-slate-800 leading-none mb-1">{formatRp(rataRata)}</h3>
-                  <p className="text-[10px] text-slate-400">Belum ada data pembanding</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[1.5rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex items-center justify-between transition relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-bl-full -z-10 opacity-50"></div>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
-                  <PieChart className="w-6 h-6 text-purple-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Tagihan Terbesar</p>
-                  <h3 className="text-xl font-black text-slate-800 leading-none mb-1">{formatRp(tagihanMax)}</h3>
-                  <p className="text-[10px] font-bold text-purple-500 flex items-center gap-1"><ArrowUpRight className="w-3 h-3"/>Nilai maksimum dari invoice tercatat</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={`flex ${showSidebar?"flex-col xl:flex-row":"flex-col"} gap-6`}>
-
-            {/* Main Content Area */}
-            <div className="flex-1 min-w-0">
-              <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col min-h-[500px]">
-                {/* Tab bar */}
-                <div className="border-b border-slate-100 px-6 flex gap-2 overflow-x-auto">
-                  {TABS.map((t,i)=>(
-                    <button key={i} onClick={()=>setActiveTab(i)}
-                      className={`py-4 px-2 text-[13px] font-bold whitespace-nowrap border-b-[3px] transition-all duration-200 ${
-                        activeTab===i?"border-blue-600 text-blue-700":"border-transparent text-slate-400 hover:text-slate-600"
-                      }`}>{t}</button>
-                  ))}
-                </div>
-
-                {/* Tab content */}
-                <div>
-                  {activeTab===0 && <TabDaftarInvoice   data={invoices}   onDelete={(id) => handleDelete('invoice', id)} dataSiswa={siswa} onRefresh={fetchData} />}
-                  {activeTab===1 && <TabInvoiceTerkirim data={terkirim}   onDelete={(id) => handleDelete('terkirim', id)}   />}
-                  {activeTab===2 && <TabPembayaran      data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
-                  {activeTab===3 && <div className="p-6"><TabSiswa       data={siswa}      onDelete={(id) => handleDelete('siswa', id)}      /></div>}
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            {showSidebar && <Sidebar invoiceData={invoices} />}
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setShowBuatRoot(true)}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Buat Invoice Baru
+            </button>
           </div>
         </div>
+
+        {/* ── UNIFIED 4 KPI METRIC CARDS (CLEAN BOOTSTRAP CARD STYLE) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Total Tagihan */}
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:border-blue-300 transition">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Tagihan</span>
+              <h3 className="text-xl font-bold text-slate-900">{formatRp(totalTagihan)}</h3>
+              <span className="text-xs font-semibold text-blue-600">{invoices.length} Total Invoice</span>
+            </div>
+            <div className="w-11 h-11 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+              <Receipt className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 2: Paid (Lunas) */}
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:border-emerald-300 transition">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Lunas (Paid)</span>
+              <h3 className="text-xl font-bold text-emerald-600">{formatRp(paidNominal)}</h3>
+              <span className="text-xs font-semibold text-emerald-600">{paidInvs.length} Invoice Lunas</span>
+            </div>
+            <div className="w-11 h-11 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 3: Partially Paid (Sebagian) */}
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:border-amber-300 transition">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sebagian (Partial)</span>
+              <h3 className="text-xl font-bold text-amber-600">{formatRp(partNominal)}</h3>
+              <span className="text-xs font-semibold text-amber-600">{partInvs.length} Invoice Berjalan</span>
+            </div>
+            <div className="w-11 h-11 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 4: Unpaid (Belum Lunas) */}
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:border-rose-300 transition">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Belum Lunas (Unpaid)</span>
+              <h3 className="text-xl font-bold text-rose-600">{formatRp(unpaidNominal)}</h3>
+              <span className="text-xs font-semibold text-rose-600">{unpaidInvs.length} Menunggu Pembayaran</span>
+            </div>
+            <div className="w-11 h-11 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── MAIN CONTENT CARD (FULL WIDTH BOOTSTRAP CARD WITH NAV TABS) ── */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+          {/* Nav Tabs */}
+          <div className="border-b border-slate-200 px-6 flex gap-6 overflow-x-auto bg-slate-50/50">
+            {TABS.map((t, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveTab(i)}
+                className={`py-3.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+                  activeTab === i
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div>
+            {activeTab === 0 && <TabDaftarInvoice data={invoices} onDelete={(id) => handleDelete('invoice', id)} dataSiswa={siswa} onRefresh={fetchData} />}
+            {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} />}
+            {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
+            {activeTab === 3 && <div className="p-6"><TabSiswa data={siswa} onDelete={(id) => handleDelete('siswa', id)} /></div>}
+          </div>
+        </div>
+
+        {/* ── BOTTOM ANALYTICS ROW (DISTRIBUSI & STATUS) ── */}
+        {(activeTab === 0 || activeTab === 1) && (
+          <Sidebar invoiceData={invoices} />
+        )}
+
+        {/* Modal Buat Invoice (Root trigger) */}
+        {showBuatRoot && (
+          <BuatInvoiceWizardModal
+            onClose={() => setShowBuatRoot(false)}
+            onSuccess={() => {
+              setShowBuatRoot(false);
+              fetchData();
+            }}
+            dataSiswa={siswa}
+          />
+        )}
+      </div>
     </Layout>
   );
 }

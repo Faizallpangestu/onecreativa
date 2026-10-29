@@ -320,10 +320,105 @@ export default function DashboardFinance() {
 
   useEffect(() => { fetchData(year); }, [year, fetchData]);
 
-  // ── Derived data ────────────────────────────────────────────
+  // ── Derived activeData (Merges server data with issued local invoices in real-time) ──
+  const activeData = useMemo(() => {
+    if (!data) return null;
+    const cloned = JSON.parse(JSON.stringify(data));
+    try {
+      const savedCustom = JSON.parse(localStorage.getItem('saved_custom_invoices') || '[]');
+      if (Array.isArray(savedCustom) && savedCustom.length > 0) {
+        // Collect existing IDs in projection_items to prevent duplication
+        const existingIds = new Set((cloned.projection_items || []).map(p => String(p.id || p.number)));
+
+        savedCustom.forEach(inv => {
+          const invId = String(inv.id || inv.nomor || '');
+          if (!invId || existingIds.has(invId)) return;
+          existingIds.add(invId);
+
+          const invDate = inv.tanggal || new Date().toISOString().split('T')[0];
+          const d = new Date(invDate);
+          if (isNaN(d.getTime())) return;
+          const invYear = d.getFullYear();
+          if (invYear !== Number(year)) return;
+          const invMonth = d.getMonth() + 1; // 1-12
+          const amount = Number(inv.total) || 0;
+          const isPaid = ['paid', 'lunas'].includes(String(inv.status || '').toLowerCase());
+
+          // 1. Proyeksi: Setiap invoice yang terbit wajib masuk proyeksi kas masuk (Piutang Usaha)
+          const projItem = {
+            id: invId,
+            number: invId,
+            transaction_date: invDate,
+            type: 'income',
+            amount: amount,
+            party_name: inv.customer || 'Siswa',
+            description: inv.keterangan || `Tagihan Siswa - ${inv.customer || ''}`,
+            source_type: 'invoice_billing',
+            classification: 'Pemasukan Pelatihan',
+            approval_status: 'approved',
+            payment_status: isPaid ? 'paid' : 'unpaid',
+            cash_account_name: inv.bank_name ? `${inv.bank_name} (${inv.account_number || ''})` : 'BCA (1832-918-428)',
+            jatuh_tempo: inv.jatuhTempo,
+          };
+          if (!cloned.projection_items) cloned.projection_items = [];
+          cloned.projection_items.unshift(projItem);
+
+          // Update monthly projection in cloned.months
+          if (cloned.months && cloned.months[invMonth - 1]) {
+            cloned.months[invMonth - 1].projection = (
+              Number(cloned.months[invMonth - 1].projection || 0) + amount
+            ).toFixed(2);
+          }
+
+          // 2. Realisasi: Hanya jika siswa sudah melunasi tagihan (Dana Aktual Diterima)
+          if (isPaid) {
+            const realItem = {
+              ...projItem,
+              number: 'FIN-' + invId,
+              payment_status: 'paid',
+              paid_at: invDate,
+            };
+            if (!cloned.realization_items) cloned.realization_items = [];
+            cloned.realization_items.unshift(realItem);
+
+            if (cloned.months && cloned.months[invMonth - 1]) {
+              cloned.months[invMonth - 1].realization = (
+                Number(cloned.months[invMonth - 1].realization || 0) + amount
+              ).toFixed(2);
+              cloned.months[invMonth - 1].income = (
+                Number(cloned.months[invMonth - 1].income || 0) + amount
+              ).toFixed(2);
+            }
+          }
+        });
+
+        // Recalculate Totals
+        if (cloned.totals) {
+          const totalProj = (cloned.projection_items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+          const totalReal = (cloned.realization_items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+          cloned.totals.projection = totalProj.toFixed(2);
+          cloned.totals.realization = totalReal.toFixed(2);
+
+          let totalInc = 0;
+          let totalExp = 0;
+          (cloned.months || []).forEach(m => {
+            totalInc += Number(m.income) || 0;
+            totalExp += Number(m.expense) || 0;
+          });
+          cloned.totals.income = totalInc.toFixed(2);
+          cloned.totals.expense = totalExp.toFixed(2);
+          cloned.totals.balance = (totalInc - totalExp).toFixed(2);
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal sinkronisasi invoice lokal ke audit keuangan', e);
+    }
+    return cloned;
+  }, [data, year]);
+
   const chartData = useMemo(() => {
-    if (!data?.months) return [];
-    return data.months.map((m, i) => ({
+    if (!activeData?.months) return [];
+    return activeData.months.map((m, i) => ({
       name: MONTHS_ID[i],
       month: m.month,
       proyeksi: Number(m.projection) || 0,
@@ -331,12 +426,12 @@ export default function DashboardFinance() {
       pemasukan: Number(m.income) || 0,
       pengeluaran: Number(m.expense) || 0,
     }));
-  }, [data]);
+  }, [activeData]);
 
   const findRelated = useCallback((item, forTab) => {
-    if (!data) return null;
+    if (!activeData) return null;
     const tab = forTab || auditTab;
-    const items = tab === 'projection' ? data.realization_items : data.projection_items;
+    const items = tab === 'projection' ? activeData.realization_items : activeData.projection_items;
     if (!items || !items.length) return null;
 
     if (item.salary_request_id) {
@@ -373,7 +468,7 @@ export default function DashboardFinance() {
     }
 
     return items.find(r => Math.abs(Number(r.amount) - Number(item.amount)) < 1) || null;
-  }, [data, auditTab]);
+  }, [activeData, auditTab]);
 
   const filterItems = useCallback((items) => {
     if (!items) return [];
@@ -398,12 +493,12 @@ export default function DashboardFinance() {
   }, [selectedMonth, searchTerm]);
 
   const filteredProjectionItems = useMemo(() => {
-    return filterItems(data?.projection_items);
-  }, [data?.projection_items, filterItems]);
+    return filterItems(activeData?.projection_items);
+  }, [activeData?.projection_items, filterItems]);
 
   const filteredRealizationItems = useMemo(() => {
-    return filterItems(data?.realization_items);
-  }, [data?.realization_items, filterItems]);
+    return filterItems(activeData?.realization_items);
+  }, [activeData?.realization_items, filterItems]);
 
   const getMatchKey = useCallback((item) => {
     if (!item) return null;
@@ -460,24 +555,24 @@ export default function DashboardFinance() {
 
   // ── Pie data ────────────────────────────────────────────────
   const incomePieData = useMemo(() => {
-    if (!data?.income_by_source?.length && !data?.income_by_classification?.length) return [];
-    const src = data.income_by_classification?.length ? data.income_by_classification : data.income_by_source;
+    if (!activeData?.income_by_source?.length && !activeData?.income_by_classification?.length) return [];
+    const src = activeData.income_by_classification?.length ? activeData.income_by_classification : activeData.income_by_source;
     return (src || []).map((s, i) => ({
       name: s.classification || s.account_name || 'Lainnya',
       value: Number(s.total) || 0,
       color: COLORS[i % COLORS.length]
     }));
-  }, [data]);
+  }, [activeData]);
 
   const expensePieData = useMemo(() => {
-    if (!data?.expense_by_source?.length && !data?.expense_by_classification?.length) return [];
-    const src = data.expense_by_classification?.length ? data.expense_by_classification : data.expense_by_source;
+    if (!activeData?.expense_by_source?.length && !activeData?.expense_by_classification?.length) return [];
+    const src = activeData.expense_by_classification?.length ? activeData.expense_by_classification : activeData.expense_by_source;
     return (src || []).map((s, i) => ({
       name: s.classification || s.account_name || 'Lainnya',
       value: Number(s.total) || 0,
       color: COLORS[(i + 3) % COLORS.length]
     }));
-  }, [data]);
+  }, [activeData]);
 
   // ── Render ──────────────────────────────────────────────────
   return (
@@ -535,7 +630,7 @@ export default function DashboardFinance() {
                 <br /><button onClick={() => fetchData(year)}>Coba Lagi</button>
               </div>
             </div>
-          ) : data ? (
+          ) : activeData ? (
             <>
               {/* ── KPI Cards (4 Column Grid) ───────────────── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -550,11 +645,11 @@ export default function DashboardFinance() {
                         <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">TOTAL PROYEKSI</span>
                       </div>
                       <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
-                        ↑ 12%
+                        {activeData.projection_items?.length || 0} trx
                       </span>
                     </div>
                     <div className="text-[22px] font-black text-[#1a73e8] tracking-tight mb-3">
-                      {money(data.totals.projection)}
+                      {money(activeData.totals.projection)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1">
@@ -576,16 +671,16 @@ export default function DashboardFinance() {
                         <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">TOTAL REALISASI</span>
                       </div>
                       <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600">
-                        ↑ 8%
+                        {activeData.realization_items?.length || 0} trx
                       </span>
                     </div>
                     <div className="text-[22px] font-black text-emerald-600 tracking-tight mb-3">
-                      {money(data.totals.realization)}
+                      {money(activeData.totals.realization)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                      ✓ Balanced
+                    <span className={`text-xs font-semibold flex items-center gap-1 ${Math.abs(Number(activeData.totals.projection) - Number(activeData.totals.realization)) < 1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {Math.abs(Number(activeData.totals.projection) - Number(activeData.totals.realization)) < 1 ? '✓ Balanced' : '⚠ Piutang Berjalan'}
                     </span>
                     <div className="w-20 h-6">
                       <Sparkline values={chartData.map(m => m.realisasi)} color="#059669" />
@@ -604,11 +699,11 @@ export default function DashboardFinance() {
                         <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">TOTAL PEMASUKAN</span>
                       </div>
                       <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-600">
-                        ↑ 5%
+                        Kas Masuk
                       </span>
                     </div>
                     <div className="text-[22px] font-black text-purple-700 tracking-tight mb-3">
-                      {money(data.totals.income)}
+                      {money(activeData.totals.income)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1">
@@ -630,16 +725,16 @@ export default function DashboardFinance() {
                         <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">TOTAL PENGELUARAN</span>
                       </div>
                       <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600">
-                        ↓ 3%
+                        Kas Keluar
                       </span>
                     </div>
                     <div className="text-[22px] font-black text-rose-600 tracking-tight mb-3">
-                      {money(data.totals.expense)}
+                      {money(activeData.totals.expense)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-xs font-semibold text-rose-600">
-                      Saldo: {Number(data.totals.balance) < 0 ? `- ${money(Math.abs(data.totals.balance))}` : money(data.totals.balance)}
+                      Saldo: {Number(activeData.totals.balance) < 0 ? `- ${money(Math.abs(activeData.totals.balance))}` : money(activeData.totals.balance)}
                     </span>
                     <div className="w-20 h-6">
                       <Sparkline values={chartData.map(m => m.pengeluaran)} color="#e11d48" />

@@ -336,6 +336,65 @@ try {
         }
     }
 
+    // === ENRICH WITH BILLING INVOICES (Student Invoices -> Proyeksi & Realisasi) ===
+    if (ac_table($conn, 'billing_invoices')) {
+        $invStmt = $conn->prepare("
+            SELECT id,
+                   tanggal AS transaction_date,
+                   'income' AS type,
+                   total AS amount,
+                   customer AS party_name,
+                   CONCAT('Tagihan Siswa - ', customer) AS description,
+                   'invoice_billing' AS source_type,
+                   'Pemasukan Pelatihan' AS classification,
+                   'approved' AS approval_status,
+                   status,
+                   'BCA (1832-918-428)' AS cash_account_name,
+                   jatuhTempo,
+                   created_at
+            FROM billing_invoices
+            WHERE YEAR(tanggal) = ?
+            ORDER BY id DESC
+        ");
+        $invStmt->bind_param('i', $year);
+        $invStmt->execute();
+        $invList = $invStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $invStmt->close();
+
+        foreach ($invList as $inv) {
+            $m = (int)date('n', strtotime($inv['transaction_date']));
+            $isPaid = in_array(strtolower($inv['status']), ['paid', 'lunas']);
+
+            // 1. Proyeksi: Semua invoice yang terbit adalah target kas masuk
+            $projInv = $inv;
+            $projInv['number'] = $inv['id'];
+            $projInv['payment_status'] = $isPaid ? 'paid' : 'unpaid';
+            if (isset($months[$m])) {
+                $months[$m]['projection'] = ac_decimal(
+                    ac_cents($months[$m]['projection']) + ac_cents($projInv['amount'])
+                );
+            }
+            $projectionItems[] = $projInv;
+
+            // 2. Realisasi: Jika sudah dibayar (Paid/Lunas), masuk ke Realisasi aktual
+            if ($isPaid) {
+                $realInv = $inv;
+                $realInv['number'] = 'FIN-' . $inv['id'];
+                $realInv['payment_status'] = 'paid';
+                $realInv['paid_at'] = $inv['transaction_date'];
+                if (isset($months[$m])) {
+                    $months[$m]['realization'] = ac_decimal(
+                        ac_cents($months[$m]['realization']) + ac_cents($realInv['amount'])
+                    );
+                    $months[$m]['income'] = ac_decimal(
+                        ac_cents($months[$m]['income']) + ac_cents($realInv['amount'])
+                    );
+                }
+                $realizationItems[] = $realInv;
+            }
+        }
+    }
+
     // === INCOME BY CLASSIFICATION ===
     $incomeByClassification = [];
     $expenseByClassification = [];

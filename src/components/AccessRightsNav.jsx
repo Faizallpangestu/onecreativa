@@ -38,14 +38,6 @@ export default function AccessRightsNav({ activeTab }) {
           );
         })}
       </nav>
-
-      <Link
-        to="/settings"
-        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-sm"
-      >
-        <Settings className="w-3.5 h-3.5 text-slate-400" />
-        <span>Pengaturan Sistem</span>
-      </Link>
     </div>
   );
 }

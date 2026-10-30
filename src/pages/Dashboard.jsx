@@ -71,7 +71,6 @@ export default function Dashboard() {
     {
       category: "SETTING",
       items: [
-        { title: "Pengaturan Sistem", icon: Settings, color: "text-slate-500 bg-slate-50", path: "/settings" },
         { title: "Pengaturan Lokasi", icon: MapPin, color: "text-teal-500 bg-teal-50", path: "/location-settings" },
       ]
     }

@@ -43,3 +43,23 @@
 .rab-selected-image { display: flex; align-items: center; gap: 12px; min-width: 0; }.rab-selected-image img { width: 90px; height: 80px; border-radius: 8px; object-fit: contain; background: white; flex-shrink: 0; }.rab-selected-image > div { min-width: 0; display: grid; gap: 10px; }.rab-selected-image span { font-size: 11px; overflow-wrap: anywhere; color: #516e92; }.rab-selected-image button { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #cc526b; }
 @media (max-width: 1000px) { .rab-page-heading { align-items: flex-start; flex-direction: column; }.rab-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 640px) { .rab-page h1 { font-size: 23px; }.rab-flow { gap: 10px; padding: 14px; font-size: 10px; }.rab-flow i { display: none; }.rab-stats { gap: 10px; }.rab-stat { padding: 15px; }.rab-stat strong { font-size: 17px; }.rab-panel-header { padding: 17px 14px 7px; }.rab-filters { padding-inline: 14px; }.rab-filters > select, .rab-filters > input { flex: 1; min-width: 130px; }.rab-search { flex-basis: 100%; min-width: 0; }.rab-pagination { flex-direction: column; padding: 12px; }.rab-modal-backdrop { padding: 8px; }.rab-modal { max-height: 95dvh; border-radius: 14px; }.rab-modal-heading { padding: 15px; }.rab-modal-heading h2 { font-size: 17px; }.rab-form-body, .rab-detail-body { padding: 15px; }.rab-form-grid { grid-template-columns: 1fr; gap: 10px; }.rab-item-numbers { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }.rab-item { padding: 11px; }.rab-modal-footer { padding: 13px 15px; flex-wrap: wrap; gap: 12px; }.rab-footer-buttons { width: 100%; }.rab-footer-buttons .rab-button { flex: 1; font-size: 11px; padding-inline: 8px; }.rab-table th, .rab-table td { padding-inline: 12px; }.rab-error { flex-wrap: wrap; } }
+
+/* ─── TAB NAVIGATION & REALISASI STYLES ─────────────────────────────────────── */
+.rab-tabs { display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2eaf5; margin-bottom: 20px; }
+.rab-tab-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; font-size: 13px; font-weight: 700; color: #64748b; background: transparent; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: all 0.2s ease; }
+.rab-tab-btn:hover { color: #2563eb; background: #f8faff; border-radius: 8px 8px 0 0; }
+.rab-tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; background: #eff6ff; border-radius: 8px 8px 0 0; }
+.rab-tab-badge { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; background: #e2e8f0; color: #475569; }
+.rab-tab-btn.active .rab-tab-badge { background: #2563eb; color: white; }
+
+.rab-progress-track { width: 100%; height: 7px; background: #f1f5f9; border-radius: 9999px; overflow: hidden; margin-top: 5px; }
+.rab-progress-bar { height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
+.rab-progress-green { background: #10b981; }
+.rab-progress-amber { background: #f59e0b; }
+.rab-progress-rose { background: #ef4444; }
+
+.rab-badge-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+.rab-pill-green { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.rab-pill-amber { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.rab-pill-rose { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+.rab-pill-slate { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }

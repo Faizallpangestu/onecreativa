@@ -34,3 +34,8 @@
 .salary-base-modal .rab-history-title { display: flex; gap: 8px; align-items: center; }
 @media(max-width:640px) { .salary-base-fields { grid-template-columns: 1fr; }.salary-base-help { margin: 14px 16px; }.salary-base-month { flex-wrap: wrap; } }
 @media(max-width:640px) { .salary-policy { padding: 16px; align-items: flex-start; gap: 12px; }.salary-policy strong { font-size: 13px; }.salary-policy p { font-size: 11px; }.salary-breakdown,.salary-bank-fields { grid-template-columns: 1fr; }.salary-breakdown > div { padding: 12px 14px; }.salary-breakdown strong { font-size: 17px; }.salary-tabs button { flex: 1; padding: 11px 8px; font-size: 11px; } }
+.salary-subcard label { display: grid; gap: 4px; }
+.salary-subcard input[type="text"], .salary-subcard input[type="number"], .salary-subcard select { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; font-size: 12px; }
+.salary-subcard select { background: white; }
+.salary-live-sim strong { overflow-wrap: anywhere; }
+

@@ -32,10 +32,17 @@ function install_salary_schema(mysqli $db): void {
     foreach (['base_salary_rate_id'=>'INT UNSIGNED NULL', 'base_salary_effective_month'=>'CHAR(7) NULL'] as $column=>$definition) {
         if (!$db->query("SHOW COLUMNS FROM salary_requests LIKE '$column'")->num_rows) $db->query("ALTER TABLE salary_requests ADD COLUMN $column $definition");
     }
+    foreach (['bpjs_tk_deduction'=>'DECIMAL(15,2) NULL DEFAULT NULL', 'bpjs_kes_deduction'=>'DECIMAL(15,2) NULL DEFAULT NULL',
+        'pph21_deduction'=>'DECIMAL(15,2) NULL DEFAULT NULL', 'kasbon_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0.00',
+        'ptkp_status'=>"VARCHAR(20) NOT NULL DEFAULT 'TK/0'", 'bpjs_tk_number'=>"VARCHAR(50) NOT NULL DEFAULT ''",
+        'bpjs_kes_number'=>"VARCHAR(50) NOT NULL DEFAULT ''", 'npwp'=>"VARCHAR(50) NOT NULL DEFAULT ''"] as $column=>$definition) {
+        if (!$db->query("SHOW COLUMNS FROM salary_base_rates LIKE '$column'")->num_rows) $db->query("ALTER TABLE salary_base_rates ADD COLUMN $column $definition");
+    }
     // Add zero-value manual components without recalculating existing approved payments.
     foreach (['employee_join_date'=>'DATE NULL', 'thr_amount'=>'DECIMAL(15,2) NOT NULL DEFAULT 0',
         'kasbon_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0', 'bpjs_tk_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0',
-        'bpjs_kes_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0', 'leave_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0',
+        'bpjs_kes_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0', 'pph21_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0',
+        'leave_deduction'=>'DECIMAL(15,2) NOT NULL DEFAULT 0',
         'gross_salary'=>'DECIMAL(15,2) NULL', 'total_deductions'=>'DECIMAL(15,2) NOT NULL DEFAULT 0',
         'adjustment_note'=>"VARCHAR(2000) NOT NULL DEFAULT ''"] as $column=>$definition) {
         if (!$db->query("SHOW COLUMNS FROM salary_requests LIKE '$column'")->num_rows) $db->query("ALTER TABLE salary_requests ADD COLUMN $column $definition");

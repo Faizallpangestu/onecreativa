@@ -33,8 +33,19 @@ function salary_slip_logo_uri(): string {
 function salary_slip_html(array $snapshot): string {
     $snapshot=salary_normalize_totals($snapshot);
     $escape=fn($value)=>htmlspecialchars((string)($value ?? ''),ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-    $income=[['GAJI POKOK',$snapshot['base_salary']],['TRANSPORT',$snapshot['transport_allowance']],['UANG MAKAN',$snapshot['meal_allowance']],['THR',$snapshot['thr_amount']]];
-    $deductions=[['KASBON',$snapshot['kasbon_deduction']],['BPJS KETENAGAKERJAAN',$snapshot['bpjs_tk_deduction']],['BPJS KESEHATAN',$snapshot['bpjs_kes_deduction']],['IZIN / SAKIT',$snapshot['leave_deduction']]];
+    $income=[
+        ['GAJI POKOK',$snapshot['base_salary']],
+        ['TRANSPORT',$snapshot['transport_allowance']],
+        ['UANG MAKAN',$snapshot['meal_allowance']],
+        ['THR / BONUS',$snapshot['thr_amount']]
+    ];
+    $deductions=[
+        ['BPJS KETENAGAKERJAAN (3%)',$snapshot['bpjs_tk_deduction']],
+        ['BPJS KESEHATAN (1%)',$snapshot['bpjs_kes_deduction']],
+        ['PPH 21 (PAJAK TER)',$snapshot['pph21_deduction'] ?? '0.00'],
+        ['KASBON / PINJAMAN',$snapshot['kasbon_deduction']],
+        ['IZIN / SAKIT / ABSEN',$snapshot['leave_deduction']]
+    ];
     $paid=($snapshot['payment_status'] ?? '')==='paid';
     $payment=$paid ? 'Transfer dicatat pada '.salary_slip_long_date($snapshot['paid_date']).' · Referensi '.$snapshot['transfer_reference'] : 'Gaji disetujui Admin · Transfer belum dicatat · Jadwal gajian '.salary_slip_long_date($snapshot['payday']);
     ob_start(); ?>
@@ -46,12 +57,30 @@ function salary_slip_html(array $snapshot): string {
 @page{size:A4 portrait;margin:10mm}@media print{body{background:white}.slip{max-width:none;padding:0}.letterhead,.components,.net,.details{break-inside:avoid}}
 </style></head><body><main class="slip">
 <header class="letterhead"><img class="logo" src="<?= salary_slip_logo_uri() ?>" alt="Logo Creativa Bridging International"><div class="company"><h1>CREATIVA BRIDGING INTERNATIONAL</h1><p>PANEMBONG GIRANG, MEKARSARI</p><p>Kp. Panembong Girang No. 23 RT.03/RW.04</p><p>Desa Mekarsari Cianjur - Jawa Barat</p><p>Telp. +628152222672 - email: cbinfo1811@gmail.com</p></div><div class="document-date"><h2>Slip Gaji</h2><p><?= $escape(salary_slip_long_date($snapshot['payday'])) ?></p></div></header>
-<table class="identity"><tr><td>NAMA / NIK</td><td>:</td><td><?= $escape($snapshot['employee_name']) ?> / <?= $escape($snapshot['employee_code']) ?></td></tr><tr><td>JABATAN</td><td>:</td><td><?= $escape($snapshot['position_name']) ?></td></tr><tr><td>TGL MULAI KERJA</td><td>:</td><td><?= $escape(salary_slip_long_date($snapshot['employee_join_date'] ?? null)) ?></td></tr></table>
+<table class="identity">
+  <tr><td>NAMA / NIK</td><td>:</td><td><?= $escape($snapshot['employee_name']) ?> / <?= $escape($snapshot['employee_code']) ?></td></tr>
+  <tr><td>JABATAN</td><td>:</td><td><?= $escape($snapshot['position_name']) ?></td></tr>
+  <tr><td>STATUS / NPWP</td><td>:</td><td><?= $escape(($snapshot['marital_status'] ?? '') ?: 'TK/0') ?> / <?= $escape(($snapshot['npwp'] ?? '') ?: 'Belum Ada NPWP') ?></td></tr>
+  <tr><td>TGL MULAI KERJA</td><td>:</td><td><?= $escape(salary_slip_long_date($snapshot['employee_join_date'] ?? null)) ?></td></tr>
+</table>
 <table class="components"><colgroup><col class="label"><col class="value"><col class="gap"><col class="label"><col class="value"></colgroup><thead><tr><th colspan="2">PENDAPATAN</th><th class="gap"></th><th colspan="2">POTONGAN</th></tr></thead><tbody>
-<?php foreach ($income as $index=>[$label,$amount]): ?><tr><td class="line">- <?= $escape($label) ?></td><td class="value line"><?= salary_slip_amount($amount) ?></td><td class="gap"></td><td class="line">- <?= $escape($deductions[$index][0]) ?></td><td class="value line"><?= salary_slip_amount($deductions[$index][1]) ?></td></tr><?php endforeach ?>
+<?php 
+$maxRows = max(count($income), count($deductions));
+for ($i = 0; $i < $maxRows; $i++): 
+    $incItem = $income[$i] ?? null;
+    $dedItem = $deductions[$i] ?? null;
+?>
+<tr>
+    <td class="line"><?= $incItem ? '- ' . $escape($incItem[0]) : '' ?></td>
+    <td class="value line"><?= $incItem ? salary_slip_amount($incItem[1]) : '' ?></td>
+    <td class="gap"></td>
+    <td class="line"><?= $dedItem ? '- ' . $escape($dedItem[0]) : '' ?></td>
+    <td class="value line"><?= $dedItem ? salary_slip_amount($dedItem[1]) : '' ?></td>
+</tr>
+<?php endfor; ?>
 <tr class="spacer"><td colspan="5"></td></tr><tr class="sum"><td class="sum-label">JUMLAH PENDAPATAN <span class="rp">Rp</span></td><td class="value"><?= salary_slip_amount($snapshot['gross_salary']) ?></td><td class="gap"></td><td class="sum-label">JUMLAH POTONGAN <span class="rp">Rp</span></td><td class="value"><?= salary_slip_amount($snapshot['total_deductions']) ?></td></tr></tbody></table>
-<section class="net"><div class="net-label">GAJI BERSIH</div><div><div class="net-value"><span>Rp</span><span><?= salary_slip_amount($snapshot['total_salary']) ?></span></div><div class="words">( <?= $escape(salary_slip_in_words($snapshot['total_salary'])) ?> )</div></div><div class="signature">Mengetahui,<small><?= $escape($snapshot['reviewed_by_name']) ?></small></div></section>
-<footer class="details"><p class="status"><?= $escape($payment) ?></p><div class="details-grid"><div><p>Periode absensi: <?= $escape($snapshot['month']) ?> · Hadir: <?= $escape($snapshot['work_days']) ?> hari</p><p>Makan: <?= $escape($snapshot['work_days']) ?> × Rp <?= salary_slip_amount($snapshot['meal_rate']) ?> · Transport: <?= $escape($snapshot['work_days']) ?> × Rp <?= salary_slip_amount($snapshot['transport_rate']) ?></p><p>Rekening: <?= $escape($snapshot['bank_name']) ?> · <?= $escape($snapshot['account_number']) ?> · a.n. <?= $escape($snapshot['account_name']) ?></p></div><div><p>BPJS TK (nomor peserta): <?= $escape(($snapshot['bpjs_tk_number'] ?? '') ?: 'Belum diisi') ?></p><p>BPJS Kesehatan (nomor peserta): <?= $escape(($snapshot['bpjs_kes_number'] ?? '') ?: 'Belum diisi') ?></p><p>Email: <?= $escape($snapshot['recipient_email']) ?></p></div></div><?php if ($snapshot['adjustment_note']!==''): ?><p class="meta">Catatan Finance: <?= $escape($snapshot['adjustment_note']) ?></p><?php endif ?><p class="meta">GAJI-<?= str_pad((string)$snapshot['id'],6,'0',STR_PAD_LEFT) ?> · Disetujui <?= $escape($snapshot['reviewed_by_name']) ?> pada <?= $escape($snapshot['reviewed_at']) ?>. Potongan mengikuti nominal manual Finance yang disetujui Admin.</p></footer>
+<section class="net"><div class="net-label">GAJI BERSIH (THP)</div><div><div class="net-value"><span>Rp</span><span><?= salary_slip_amount($snapshot['total_salary']) ?></span></div><div class="words">( <?= $escape(salary_slip_in_words($snapshot['total_salary'])) ?> )</div></div><div class="signature">Mengetahui,<small><?= $escape($snapshot['reviewed_by_name']) ?></small></div></section>
+<footer class="details"><p class="status"><?= $escape($payment) ?></p><div class="details-grid"><div><p>Periode absensi: <?= $escape($snapshot['month']) ?> · Hadir: <?= $escape($snapshot['work_days']) ?> hari</p><p>Makan: <?= $escape($snapshot['work_days']) ?> × Rp <?= salary_slip_amount($snapshot['meal_rate']) ?> · Transport: <?= $escape($snapshot['work_days']) ?> × Rp <?= salary_slip_amount($snapshot['transport_rate']) ?></p><p>Rekening: <?= $escape($snapshot['bank_name']) ?> · <?= $escape($snapshot['account_number']) ?> · a.n. <?= $escape($snapshot['account_name']) ?></p></div><div><p>BPJS TK (nomor): <?= $escape(($snapshot['bpjs_tk_number'] ?? '') ?: 'Belum diisi') ?> (JHT 2% + JP 1%)</p><p>BPJS Kesehatan (nomor): <?= $escape(($snapshot['bpjs_kes_number'] ?? '') ?: 'Belum diisi') ?> (1%)</p><p>Pajak PPh 21: Skema TER PMK 168/2023 · NPWP: <?= $escape(($snapshot['npwp'] ?? '') ?: 'Belum diisi') ?></p><p>Email: <?= $escape(($snapshot['recipient_email'] ?? '') ?: 'Belum diisi') ?></p></div></div><?php if (($snapshot['adjustment_note'] ?? '')!==''): ?><p class="meta">Catatan Finance: <?= $escape($snapshot['adjustment_note']) ?></p><?php endif ?><p class="meta">GAJI-<?= str_pad((string)$snapshot['id'],6,'0',STR_PAD_LEFT) ?> · Disetujui <?= $escape($snapshot['reviewed_by_name'] ?? 'Admin') ?> pada <?= $escape($snapshot['reviewed_at'] ?? '—') ?>. Potongan mengacu standar regulasi nasional & persetujuan manajemen.</p></footer>
 </main></body></html>
 <?php return ob_get_clean();
 }

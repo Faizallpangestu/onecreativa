@@ -89,6 +89,10 @@ function getStoredBankAccounts() {
       if (Array.isArray(parsed) && parsed.length > 0) {
         parsed.filter(r => r.status === "Aktif" && (r.jenis === "Bank" || !r.jenis)).forEach(r => {
           let bName = r.bank ? r.bank.replace(/^bank\s+/i, "") : "BCA";
+          // Sanitize: corporate invoice collection bank is BCA
+          if (bName.toLowerCase().includes("bca") || (r.noRek && r.noRek.includes("1832-918-428"))) {
+            bName = "BCA";
+          }
           let cCode = r.kode || (bName.toLowerCase().includes("bca") ? "1002" : bName.toLowerCase().includes("mandiri") ? "1003" : "1004");
           accounts.push({
             id: `rek-${r.id}`,
@@ -116,10 +120,11 @@ function getStoredBankAccounts() {
             // Cek apakah akun dengan kode atau nama ini sudah ada di accounts
             if (!accounts.some(a => a.kode === c.kode || a.nama.toLowerCase() === c.nama.toLowerCase())) {
               let bankName = "BCA";
-              if (c.nama.toLowerCase().includes("mandiri") || (c.rekeningDetail && c.rekeningDetail.toLowerCase().includes("mandiri"))) bankName = "Mandiri";
-              else if (c.nama.toLowerCase().includes("bni") || (c.rekeningDetail && c.rekeningDetail.toLowerCase().includes("bni"))) bankName = "BNI";
-              else if (c.nama.toLowerCase().includes("bri") || (c.rekeningDetail && c.rekeningDetail.toLowerCase().includes("bri"))) bankName = "BRI";
-              else if (c.nama.toLowerCase().includes("bca") || (c.rekeningDetail && c.rekeningDetail.toLowerCase().includes("bca"))) bankName = "BCA";
+              const textCheck = `${c.nama || ''} ${c.rekeningDetail || ''}`.toLowerCase();
+              if (textCheck.includes('mandiri')) bankName = "Mandiri";
+              else if (textCheck.includes('bni')) bankName = "BNI";
+              else if (/\bbank\s+bri\b/i.test(textCheck) && !textCheck.includes('bridging')) bankName = "BRI";
+              else bankName = "BCA";
 
               let noRek = "1832-918-428";
               const matchNo = (c.rekeningDetail || "").match(/\b[\d-]{7,20}\b/);
@@ -151,6 +156,13 @@ function getStoredBankAccounts() {
       { id: "coa-1003", rawId: 3, kode: "1003", nama: "Bank Mandiri Utama", bank: "Mandiri", noRek: "130-0019283", pemilik: "PT LPK Creativa", saldo: 78500000, jenis: "Bank" },
       { id: "coa-1004", rawId: 4, kode: "1004", nama: "Bank BNI Tabungan", bank: "BNI", noRek: "088-771122", pemilik: "PT LPK Creativa", saldo: 35000000, jenis: "Bank" },
     ];
+  }
+
+  // Pastikan akun utama BCA 1832-918-428 selalu berada di urutan pertama (prioritas tagihan siswa)
+  const bcaIdx = accounts.findIndex(a => a.bank === "BCA" || a.kode === "1002" || String(a.noRek || '').includes("1832-918-428"));
+  if (bcaIdx > 0) {
+    const [bcaAcc] = accounts.splice(bcaIdx, 1);
+    accounts.unshift(bcaAcc);
   }
 
   return accounts;
@@ -582,7 +594,8 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
   const [bankAccounts, setBankAccounts] = useState(() => getStoredBankAccounts());
   const [selectedAccountId, setSelectedAccountId] = useState(() => {
     const list = getStoredBankAccounts();
-    return list[0]?.id || "coa-1002";
+    const bca = list.find(a => a.bank === "BCA" || a.kode === "1002" || String(a.noRek || '').includes("1832-918-428"));
+    return bca?.id || list[0]?.id || "coa-1002";
   });
 
   const selectedAccount = useMemo(() => {
@@ -653,6 +666,63 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
       const saved = JSON.parse(localStorage.getItem("saved_custom_invoices") || "[]");
       saved.unshift(invoicePayload);
       localStorage.setItem("saved_custom_invoices", JSON.stringify(saved));
+
+      // Auto-sync ke saved_custom_terkirim (Invoice Terkirim)
+      try {
+        const savedTerkirim = JSON.parse(localStorage.getItem("saved_custom_terkirim") || "[]");
+        const chosenKanal = activeStudent.phone && activeStudent.phone !== "-" ? "WhatsApp" : "Email";
+        const recipient = chosenKanal === "WhatsApp" ? activeStudent.phone : (activeStudent.email || "-");
+        savedTerkirim.unshift({
+          id: invoiceNumber,
+          noInv: invoiceNumber,
+          customer: activeStudent.nama,
+          tglKirim: tanggalInvoice,
+          kanal: chosenKanal,
+          penerima: recipient,
+          statusKirim: "Terkirim",
+          statusBaca: "Dibaca",
+          nominal: totalTagihan,
+          terbayar: 0,
+          sisa: totalTagihan,
+          statusInvoice: "Unpaid",
+          program: programInfo.program || "Kelas Reguler"
+        });
+        localStorage.setItem("saved_custom_terkirim", JSON.stringify(savedTerkirim));
+      } catch (errSync) {
+        console.warn("Gagal auto-sync saved_custom_terkirim:", errSync);
+      }
+
+      // Auto-sync ke local_only_students_finance (Master Siswa Finance)
+      try {
+        const savedStudents = JSON.parse(localStorage.getItem("local_only_students_finance") || "[]");
+        const stdIdx = savedStudents.findIndex(s => (s.nama || s.name || "").trim().toLowerCase() === (activeStudent.nama || "").trim().toLowerCase());
+        if (stdIdx >= 0) {
+          savedStudents[stdIdx] = {
+            ...savedStudents[stdIdx],
+            jmlInv: (savedStudents[stdIdx].jmlInv || 0) + 1,
+            total: (Number(savedStudents[stdIdx].total) || 0) + totalTagihan,
+            sisa: (Number(savedStudents[stdIdx].sisa) || 0) + totalTagihan,
+            status: "Prioritas"
+          };
+        } else if (activeStudent.nama) {
+          savedStudents.unshift({
+            id: `SIS-${Date.now().toString().slice(-4)}`,
+            nama: activeStudent.nama,
+            pic: "Siswa Mandiri",
+            telp: activeStudent.phone || "0812-7788-9900",
+            email: activeStudent.email || `${activeStudent.nama.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+            status: "Prioritas",
+            program: programInfo.program || "Kelas Reguler",
+            jmlInv: 1,
+            total: totalTagihan,
+            terbayar: 0,
+            sisa: totalTagihan
+          });
+        }
+        localStorage.setItem("local_only_students_finance", JSON.stringify(savedStudents));
+      } catch (errSyncStd) {
+        console.warn("Gagal auto-sync local_only_students_finance:", errSyncStd);
+      }
 
       // 3. Success notification
       await Swal.fire({

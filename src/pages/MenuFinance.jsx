@@ -43,7 +43,6 @@ export default function MenuFinance() {
     {
       category: "SETTING",
       items: [
-        { title: "Pengaturan Sistem", icon: Settings, color: "text-slate-600 bg-slate-100", path: "/settings" },
         { title: "Pengaturan Lokasi", icon: MapPin, color: "text-teal-500 bg-teal-50", path: "/location-settings" },
         { title: "Keluar", icon: LogOut, color: "text-rose-600 bg-rose-50", action: "logout" },
       ]

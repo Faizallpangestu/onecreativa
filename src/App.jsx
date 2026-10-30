@@ -23,6 +23,9 @@ const FaceEnrollment = lazy(() => import("./pages/FaceEnrollment"));
 const FaceClock = lazy(() => import("./pages/FaceClock"));
 const LocationSettings = lazy(() => import("./pages/LocationSettings"));
 const Profit = lazy(() => import("./pages/Profit"));
+const BalanceSheet = lazy(() => import("./pages/BalanceSheet"));
+const FinancialReport = lazy(() => import("./pages/FinancialReport"));
+const LaporanKeuangan = lazy(() => import("./pages/FinancialReport"));
 const FinanceWorkspace = lazy(() => import("./pages/FinanceWorkspace"));
 const Reimbursement = lazy(() => import("./pages/Reimbursement"));
 const DashboardFinance = lazy(() => import("./pages/DashboardFinance"));
@@ -31,6 +34,7 @@ const TransaksiPengeluaran = lazy(() => import("./pages/TransaksiPengeluaran"));
 const HistoryInvoice = lazy(() => import("./pages/HistoryInvoice"));
 const InvoicePenagihan = lazy(() => import("./pages/InvoicePenagihan"));
 const AnggaranBiaya = lazy(() => import("./pages/AnggaranBiaya"));
+const RealisasiAnggaran = lazy(() => import("./pages/RealisasiAnggaran"));
 const SalaryKaryawan = lazy(() => import("./pages/SalaryKaryawan"));
 const PayrollHRD = lazy(() => import("./pages/PayrollHRD"));
 const SlipGajiKaryawan = lazy(() => import("./pages/SlipGajiKaryawan"));
@@ -199,7 +203,9 @@ function App(props) {
               <Route path="/reimbursement"   element={<ProtectedRoute><Reimbursement /></ProtectedRoute>} />
               <Route path="/profit"          element={<ProtectedRoute><Profit /></ProtectedRoute>} />
               <Route path="/buku-transaksi" element={<ProtectedRoute><BukuTransaksiPage /></ProtectedRoute>} />
-              <Route path="/laporan-keuangan" element={<ProtectedRoute><FinanceWorkspace initialTab="reports" title="Laporan Keuangan" /></ProtectedRoute>} />
+              <Route path="/audit-trail" element={<ProtectedRoute><BukuTransaksiPage /></ProtectedRoute>} />
+              <Route path="/laporan-keuangan" element={<ProtectedRoute><FinancialReport /></ProtectedRoute>} />
+              <Route path="/balance-sheet"   element={<ProtectedRoute><BalanceSheet /></ProtectedRoute>} />
               {/* Finance Module Routes */}
               <Route path="/dashboard-finance"       element={<ProtectedRoute><DashboardFinance /></ProtectedRoute>} />
               <Route path="/transaksi-pemasukan"     element={<ProtectedRoute><TransaksiPemasukan /></ProtectedRoute>} />
@@ -216,6 +222,7 @@ function App(props) {
               <Route path="/cashflow"                element={<ProtectedRoute><CashflowPage /></ProtectedRoute>} />
               <Route path="/transfer"                element={<ProtectedRoute><TransferPage /></ProtectedRoute>} />
               <Route path="/anggaran"                element={<ProtectedRoute><AnggaranBiaya /></ProtectedRoute>} />
+              <Route path="/realisasi"               element={<ProtectedRoute><RealisasiAnggaran /></ProtectedRoute>} />
               <Route path="/salary"                  element={<ProtectedRoute><SalaryKaryawan /></ProtectedRoute>} />
               <Route path="/settings"        element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/positions"       element={<ProtectedRoute><Positions /></ProtectedRoute>} />

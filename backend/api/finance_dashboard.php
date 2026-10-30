@@ -288,6 +288,36 @@ try {
                 );
             }
             $projectionItems[] = $sal;
+
+            if ($sal['payment_status'] === 'paid') {
+                $realSal = $sal;
+                $realSal['number'] = 'FIN-' . $sal['number'];
+                $realSal['paid_at'] = $sal['transaction_date'];
+                $realSal['related_proj_id'] = $sal['id'];
+                $realSal['related_proj_number'] = $sal['number'];
+                if (isset($months[$m])) {
+                    $months[$m]['realization'] = ac_decimal(
+                        ac_cents($months[$m]['realization']) + ac_cents($sal['amount'])
+                    );
+                    $months[$m]['expense'] = ac_decimal(
+                        ac_cents($months[$m]['expense']) + ac_cents($sal['amount'])
+                    );
+                }
+                $realizationItems[] = $realSal;
+            } else {
+                $todayIso = date('Y-m-d');
+                $isOverdue = $todayIso > $sal['transaction_date'];
+                $pendingSal = $sal;
+                $pendingSal['id'] = 'PENDING-' . $sal['number'];
+                $pendingSal['number'] = 'MENUNGGU-' . $sal['number'];
+                $pendingSal['amount'] = '0';
+                $pendingSal['expected_amount'] = $sal['amount'];
+                $pendingSal['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
+                $pendingSal['is_pending_realization'] = true;
+                $pendingSal['related_proj_id'] = $sal['id'];
+                $pendingSal['related_proj_number'] = $sal['number'];
+                $realizationItems[] = $pendingSal;
+            }
         }
     }
 
@@ -316,11 +346,24 @@ try {
         ");
         $legacyReal->bind_param('i', $year);
         $legacyReal->execute();
-        $realizationItems = $legacyReal->get_result()->fetch_all(MYSQLI_ASSOC);
+        $legacyRows = $legacyReal->get_result()->fetch_all(MYSQLI_ASSOC);
         $legacyReal->close();
 
-        // Also if we didn't have projection items for non-salary finance records, pair them as projections too!
-        foreach ($realizationItems as $ri) {
+        foreach ($legacyRows as $ri) {
+            // Only add if not already in realization items (e.g. from salaryList)
+            if (!empty($ri['salary_request_id'])) {
+                $exists = false;
+                foreach ($realizationItems as $cur) {
+                    if (!empty($cur['salary_request_id']) && (int)$cur['salary_request_id'] === (int)$ri['salary_request_id']) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if ($exists) continue;
+            }
+            $realizationItems[] = $ri;
+
+            // Also pair non-salary finance records as projections
             if (empty($ri['salary_request_id'])) {
                 $projItem = $ri;
                 $projItem['number'] = 'PROJ-' . substr($ri['number'], 4);
@@ -382,6 +425,8 @@ try {
                 $realInv['number'] = 'FIN-' . $inv['id'];
                 $realInv['payment_status'] = 'paid';
                 $realInv['paid_at'] = $inv['transaction_date'];
+                $realInv['related_proj_id'] = $inv['id'];
+                $realInv['related_proj_number'] = $inv['id'];
                 if (isset($months[$m])) {
                     $months[$m]['realization'] = ac_decimal(
                         ac_cents($months[$m]['realization']) + ac_cents($realInv['amount'])
@@ -391,6 +436,20 @@ try {
                     );
                 }
                 $realizationItems[] = $realInv;
+            } else {
+                // Baris pasangan di Realisasi (Unpaid / Overdue) dengan nominal 0 agar kas riil bank tidak menggelembung
+                $todayIso = date('Y-m-d');
+                $isOverdue = (!empty($inv['jatuhTempo']) && $todayIso > $inv['jatuhTempo']);
+                $pendingInv = $inv;
+                $pendingInv['id'] = 'PENDING-' . $inv['id'];
+                $pendingInv['number'] = 'MENUNGGU-' . $inv['id'];
+                $pendingInv['amount'] = '0';
+                $pendingInv['expected_amount'] = $inv['amount'];
+                $pendingInv['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
+                $pendingInv['is_pending_realization'] = true;
+                $pendingInv['related_proj_id'] = $inv['id'];
+                $pendingInv['related_proj_number'] = $inv['id'];
+                $realizationItems[] = $pendingInv;
             }
         }
     }
@@ -464,15 +523,120 @@ try {
     }
 
     // === TOTALS ===
-    $totalProjection = '0';
-    $totalRealization = '0';
-    $totalIncome = '0';
-    $totalExpense = '0';
+    $totalProjCents = 0;
+    $totalRealCents = 0;
+    $totalIncCents  = 0;
+    $totalExpCents  = 0;
     foreach ($months as $m) {
-        $totalProjection = ac_decimal(ac_cents($totalProjection) + ac_cents($m['projection']));
-        $totalRealization = ac_decimal(ac_cents($totalRealization) + ac_cents($m['realization']));
-        $totalIncome = ac_decimal(ac_cents($totalIncome) + ac_cents($m['income']));
-        $totalExpense = ac_decimal(ac_cents($totalExpense) + ac_cents($m['expense']));
+        $totalProjCents += ac_cents((string)($m['projection'] ?? '0'));
+        $totalRealCents += ac_cents((string)($m['realization'] ?? '0'));
+        $totalIncCents  += ac_cents((string)($m['income'] ?? '0'));
+        $totalExpCents  += ac_cents((string)($m['expense'] ?? '0'));
+    }
+    $totalProjection  = ac_decimal($totalProjCents);
+    $totalRealization = ac_decimal($totalRealCents);
+    $totalIncome      = ac_decimal($totalIncCents);
+    $totalExpense     = ac_decimal($totalExpCents);
+
+    // === P1: CFO ALERTS & INDICATORS ===
+    $alerts = [];
+
+    // Alert 1: Unposted payments (paid/verified but not journaled)
+    $unpostedCount = 0;
+    if (ac_table($conn, 'accounting_transactions')) {
+        $upRow = $conn->query("SELECT COUNT(*) AS c FROM accounting_transactions WHERE journal_status='unposted' AND payment_status IN ('paid','verified')");
+        $unpostedCount = (int)($upRow?->fetch_assoc()['c'] ?? 0);
+    }
+    if ($unpostedCount > 0) {
+        $alerts[] = ['type' => 'warning', 'code' => 'UNPOSTED', 'message' => "$unpostedCount transaksi sudah dibayar tapi belum diposting ke jurnal", 'count' => $unpostedCount];
+    }
+
+    // Alert 2: Budget overspend (>80% realized)
+    $budgetAlerts = [];
+    if (ac_table($conn, 'budget_requests') && ac_table($conn, 'budget_realizations')) {
+        $budgetRes = $conn->query("
+            SELECT b.id, b.title, b.approved_amount,
+                   COALESCE((SELECT SUM(r.amount) FROM budget_realizations r WHERE r.budget_request_id=b.id AND r.status='recorded'),0) AS realized
+            FROM budget_requests b
+            WHERE b.status='approved' AND b.approved_amount > 0
+              AND YEAR(b.period) = $year
+        ");
+        if ($budgetRes) {
+            while ($br = $budgetRes->fetch_assoc()) {
+                $pct = (float)$br['approved_amount'] > 0 ? ((float)$br['realized'] / (float)$br['approved_amount']) * 100 : 0;
+                if ($pct >= 80) {
+                    $budgetAlerts[] = ['title' => $br['title'], 'approved' => (float)$br['approved_amount'], 'realized' => (float)$br['realized'], 'pct' => round($pct, 1)];
+                    if ($pct >= 100) {
+                        $alerts[] = ['type' => 'danger',  'code' => 'BUDGET_EXCEEDED', 'message' => 'Anggaran "'.$br['title'].'" SUDAH MELEBIHI batas ('.round($pct,1).'%)', 'budget_id' => (int)$br['id']];
+                    } else {
+                        $alerts[] = ['type' => 'warning', 'code' => 'BUDGET_80PCT',    'message' => 'Anggaran "'.$br['title'].'" sudah '.round($pct,1).'% terpakai', 'budget_id' => (int)$br['id']];
+                    }
+                }
+            }
+        }
+    }
+
+    // Alert 3: Aging piutang > 30 hari
+    $overdueReceivables = [];
+    $totalOverdue = 0;
+    if (ac_table($conn, 'accounting_source_documents')) {
+        $agingRes = $conn->query("
+            SELECT d.source_type, d.source_id, d.due_date,
+                   DATEDIFF(CURDATE(), d.due_date) AS days_overdue,
+                   CAST(d.amount - COALESCE((SELECT SUM(p.amount) FROM payment_allocations p WHERE p.source_document_id=d.id AND p.is_reversed=0),0) AS DECIMAL(15,2)) AS outstanding
+            FROM accounting_source_documents d
+            WHERE d.due_date < CURDATE()
+              AND d.amount > COALESCE((SELECT SUM(p.amount) FROM payment_allocations p WHERE p.source_document_id=d.id AND p.is_reversed=0),0)
+            ORDER BY days_overdue DESC
+            LIMIT 20
+        ");
+        if ($agingRes) {
+            while ($ag = $agingRes->fetch_assoc()) {
+                if ((float)$ag['outstanding'] > 0 && (int)$ag['days_overdue'] > 0) {
+                    $overdueReceivables[] = $ag;
+                    $totalOverdue += (float)$ag['outstanding'];
+                }
+            }
+        }
+        if ($totalOverdue > 0) {
+            $alerts[] = ['type' => 'danger', 'code' => 'OVERDUE_AR', 'message' => count($overdueReceivables).' piutang jatuh tempo belum dibayar (total: Rp '.number_format($totalOverdue,0,',','.') . ')', 'total_overdue' => $totalOverdue];
+        }
+    }
+
+    // Alert 4: Cash burn rate (avg monthly expense last 3 months)
+    $cashBurnRate = 0;
+    $cashBalance  = 0;
+    $monthsLeft   = null;
+    if (ac_table($conn, 'journal_lines')) {
+        $burnRes = $conn->query("
+            SELECT AVG(monthly_exp) AS avg_monthly_expense
+            FROM (
+                SELECT MONTH(j.entry_date) AS m, SUM(l.debit - l.credit) AS monthly_exp
+                FROM journal_lines l
+                JOIN journal_entries j ON j.id = l.journal_entry_id
+                JOIN accounts a ON a.id = l.account_id
+                WHERE j.status = 'posted'
+                  AND a.account_group = 5
+                  AND j.entry_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+                GROUP BY MONTH(j.entry_date)
+            ) t
+        ");
+        $cashBurnRate = (float)($burnRes?->fetch_assoc()['avg_monthly_expense'] ?? 0);
+
+        $cashRes = $conn->query("
+            SELECT SUM(l.debit - l.credit) AS total
+            FROM journal_lines l
+            JOIN journal_entries j ON j.id = l.journal_entry_id
+            JOIN accounts a ON a.id = l.account_id
+            WHERE j.status='posted' AND a.report_class='cash'
+        ");
+        $cashBalance = (float)($cashRes?->fetch_assoc()['total'] ?? 0);
+        if ($cashBurnRate > 0 && $cashBalance > 0) {
+            $monthsLeft = round($cashBalance / $cashBurnRate, 1);
+            if ($monthsLeft < 3) {
+                $alerts[] = ['type' => 'danger', 'code' => 'LOW_CASH', 'message' => 'Saldo kas hanya cukup untuk '.number_format($monthsLeft, 1).' bulan berdasarkan burn rate saat ini'];
+            }
+        }
     }
 
     echo json_encode([
@@ -481,19 +645,27 @@ try {
             'year' => $year,
             'months' => array_values($months),
             'totals' => [
-                'projection' => $totalProjection,
+                'projection'  => $totalProjection,
                 'realization' => $totalRealization,
-                'income' => $totalIncome,
-                'expense' => $totalExpense,
-                'balance' => ac_decimal(ac_cents($totalIncome) - ac_cents($totalExpense)),
-                'selisih' => ac_decimal(ac_cents($totalProjection) - ac_cents($totalRealization)),
+                'income'      => $totalIncome,
+                'expense'     => $totalExpense,
+                'balance'     => ac_decimal(ac_cents($totalIncome) - ac_cents($totalExpense)),
+                'selisih'     => ac_decimal(ac_cents($totalProjection) - ac_cents($totalRealization)),
             ],
-            'income_by_source' => $incomeBySource,
-            'expense_by_source' => $expenseBySource,
-            'income_by_classification' => $incomeByClassification,
+            'income_by_source'          => $incomeBySource,
+            'expense_by_source'         => $expenseBySource,
+            'income_by_classification'  => $incomeByClassification,
             'expense_by_classification' => $expenseByClassification,
-            'projection_items' => $projectionItems,
-            'realization_items' => $realizationItems,
+            'projection_items'          => $projectionItems,
+            'realization_items'         => $realizationItems,
+            // P1 CFO alerts
+            'alerts'                    => $alerts,
+            'unposted_count'            => $unpostedCount,
+            'budget_alerts'             => $budgetAlerts,
+            'overdue_receivables'       => $overdueReceivables,
+            'cash_burn_rate'            => $cashBurnRate,
+            'cash_balance'              => $cashBalance,
+            'cash_months_remaining'     => $monthsLeft,
         ]
     ], JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
 

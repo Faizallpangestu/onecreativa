@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, RefreshCw, Send, Check, FileText } from "lucide-react";
 import { formatBudgetMonth, formatBudgetDate } from "../utils/budgetApi";
-import { SALARY_STATUS, SALARY_ACTION, SALARY_MANUAL_FIELDS, salaryDate, salaryReference } from "../utils/salaryApi";
+import { SALARY_STATUS, SALARY_ACTION, SALARY_MANUAL_FIELDS, salaryDate, salaryReference, calculateNationalStandardDeductions } from "../utils/salaryApi";
 import SalaryBreakdown from "./SalaryBreakdown";
 
 function AttendanceTable({ attendance }) {
@@ -13,13 +13,45 @@ export default function SalaryRequestDetail({ request, permissions, busy, today,
   const bankChanged = Object.entries(bank).some(([key, value]) => value !== request[key]);
   const manualChanged = Object.entries(manual).some(([key, value]) => key === "adjustment_note" ? value !== (request[key] || "") : value.trim() === "" || Number(value) !== Number(request[key] || 0));
   const saveDraft = event => { event.preventDefault(); onRefresh({ ...bank, ...manual }); };
-  const status = SALARY_STATUS[request.status]; const draft = request.status === "draft" && permissions.can_prepare;
+  const handleAutoCalculateNational = () => {
+    const gross = (Number(request.base_salary) || 0) + (Number(request.meal_allowance) || 0) + (Number(request.transport_allowance) || 0) + (Number(manual.thr_amount) || 0);
+    const standard = calculateNationalStandardDeductions({
+      baseSalary: request.base_salary,
+      grossSalary: gross,
+      maritalStatus: request.marital_status || "TK/0",
+    });
+    setManual(prev => ({
+      ...prev,
+      bpjs_tk_deduction: standard.bpjs_tk_deduction,
+      bpjs_kes_deduction: standard.bpjs_kes_deduction,
+      pph21_deduction: standard.pph21_deduction,
+      adjustment_note: prev.adjustment_note ? prev.adjustment_note : "Dihitung otomatis standar regulasi nasional: BPJS TK 3% (JHT 2% + JP 1%), BPJS Kes 1%, PPh 21 TER (PMK 168/2023).",
+    }));
+  };
+
   return <div className="rab-modal-backdrop"><section className="rab-modal" role="dialog" aria-modal="true" aria-labelledby="salary-detail-title">
     <div className="rab-modal-heading"><div><p>{salaryReference(request.id)} · Absensi {formatBudgetMonth(request.month)}</p><h2 id="salary-detail-title">{request.employee_name}</h2><p>{request.employee_code} · {request.position_name}</p></div><button disabled={busy} onClick={onClose} aria-label="Tutup rincian"><X size={20} /></button></div>
     <div className="rab-detail-body"><div className="rab-detail-meta"><span className={`rab-status ${status.className}`}>{status.label}</span><span>Jadwal Gajian: <strong>{salaryDate(request.payday)}</strong></span></div>{error && <div role="alert" className="rab-error">{error}</div>}
       <SalaryBreakdown request={request} explainZeroAttendance />
       {["draft", "rejected"].includes(request.status) && onBaseSettings && <button className="rab-button" disabled={busy} onClick={onBaseSettings}>Atur Gaji Pokok Karyawan</button>}
-      {draft ? <form className="salary-draft-form" onSubmit={saveDraft}><div className="salary-bank"><h3>Pendapatan & Potongan Manual</h3><p>Isi nominal rupiah per periode. Nomor BPJS dari profil berbeda dari nominal potongan BPJS. Admin akan memeriksa seluruh rincian ini.</p><div className="salary-manual-fields">{SALARY_MANUAL_FIELDS.map(field => <label key={field.key} htmlFor={`salary-${field.key}`}>{field.label} (Rp)<input id={`salary-${field.key}`} type="number" min="0" max="9999999999999.99" step="0.01" required disabled={busy} value={manual[field.key]} onChange={event => setManual({ ...manual, [field.key]: event.target.value })} /></label>)}</div><label className="salary-manual-note" htmlFor="salary-adjustment-note">Catatan Pendapatan / Potongan<textarea id="salary-adjustment-note" rows={2} maxLength={2000} disabled={busy} value={manual.adjustment_note} onChange={event => setManual({ ...manual, adjustment_note: event.target.value })} placeholder="Contoh: BPJS periode ini dan potongan izin 1 hari" /></label></div><div className="salary-bank"><h3>Rekening Tujuan Transfer</h3><div className="salary-bank-fields">{[{ key: "bank_name", label: "Nama Bank", max: 100 }, { key: "account_name", label: "Nama Pemilik Rekening", max: 150 }, { key: "account_number", label: "Nomor Rekening", max: 100 }].map(field => <label key={field.key}>{field.label}<input disabled={busy} maxLength={field.max} value={bank[field.key]} onChange={event => setBank({ ...bank, [field.key]: event.target.value })} /></label>)}</div><button type="submit" disabled={busy} className="rab-button"><RefreshCw size={15} />Simpan & Hitung Ulang</button><p>Simpan untuk memperbarui gaji bersih dari pendapatan dan potongan. Gaji pokok dan tunjangan memakai pengaturan serta absensi terbaru.{(bankChanged || manualChanged) && " Ada perubahan belum disimpan. Simpan sebelum mengajukan."}</p></div></form> : <div className="salary-bank"><h3>Rekening Tujuan Transfer</h3><strong>{request.bank_name || "Belum diisi"} · {request.account_number || "—"}</strong><p>a.n. {request.account_name || "—"}</p></div>}
+      {draft ? <form className="salary-draft-form" onSubmit={saveDraft}><div className="salary-bank">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
+          <div>
+            <h3>Pendapatan & Potongan Standar Nasional</h3>
+            <p>Sesuai standar ketenagakerjaan dan perpajakan (PP 44/2015, PP 45/2015, Perpres 64/2020, dan PMK 168/2023 skema TER).</p>
+          </div>
+          <button type="button" className="rab-button" disabled={busy} onClick={handleAutoCalculateNational} title="Kalkulasi otomatis BPJS TK 3%, BPJS Kes 1%, dan PPh 21 TER">
+            <RefreshCw size={14} style={{ marginRight: "4px" }} />
+            Hitung Otomatis Standar BPJS &amp; Pajak
+          </button>
+        </div>
+        <div className="salary-manual-fields">{SALARY_MANUAL_FIELDS.map(field => <label key={field.key} htmlFor={`salary-${field.key}`}>
+          <span>{field.label} (Rp)</span>
+          {field.hint && <small style={{ display: "block", color: "#64748b", fontSize: "11px", marginBottom: "2px" }}>{field.hint}</small>}
+          <input id={`salary-${field.key}`} type="number" min="0" max="9999999999999.99" step="0.01" required disabled={busy} value={manual[field.key]} onChange={event => setManual({ ...manual, [field.key]: event.target.value })} />
+        </label>)}</div>
+        <label className="salary-manual-note" htmlFor="salary-adjustment-note">Catatan Pendapatan / Potongan<textarea id="salary-adjustment-note" rows={2} maxLength={2000} disabled={busy} value={manual.adjustment_note} onChange={event => setManual({ ...manual, adjustment_note: event.target.value })} placeholder="Contoh: BPJS periode ini dan potongan izin 1 hari" /></label>
+      </div><div className="salary-bank"><h3>Rekening Tujuan Transfer</h3><div className="salary-bank-fields">{[{ key: "bank_name", label: "Nama Bank", max: 100 }, { key: "account_name", label: "Nama Pemilik Rekening", max: 150 }, { key: "account_number", label: "Nomor Rekening", max: 100 }].map(field => <label key={field.key}>{field.label}<input disabled={busy} maxLength={field.max} value={bank[field.key]} onChange={event => setBank({ ...bank, [field.key]: event.target.value })} /></label>)}</div><button type="submit" disabled={busy} className="rab-button"><RefreshCw size={15} />Simpan & Hitung Ulang</button><p>Simpan untuk memperbarui gaji bersih dari pendapatan dan potongan. Gaji pokok dan tunjangan memakai pengaturan serta absensi terbaru.{(bankChanged || manualChanged) && " Ada perubahan belum disimpan. Simpan sebelum mengajukan."}</p></div></form> : <div className="salary-bank"><h3>Rekening Tujuan Transfer</h3><strong>{request.bank_name || "Belum diisi"} · {request.account_number || "—"}</strong><p>a.n. {request.account_name || "—"}</p></div>}
       {request.reviewed_at && ["approved", "rejected", "paid"].includes(request.status) && <div className={`rab-decision-note ${request.status !== "rejected" ? "is-approved" : ""}`}><strong>{request.status === "rejected" ? "Ditolak" : "Disetujui"} oleh {request.reviewed_by_name}</strong><span>{formatBudgetDate(request.reviewed_at)}</span>{request.review_note && <p>{request.review_note}</p>}</div>}
       {request.status === "approved" && <p className="salary-payment-note">Menunggu transfer Finance{today < request.payday ? ` mulai ${salaryDate(request.payday)}` : ""}. Persetujuan belum menandakan uang telah ditransfer.</p>}
       {request.paid_date && <div className="salary-payment-note"><strong>Transfer {salaryDate(request.paid_date)}</strong><p>Referensi: {request.transfer_reference} · Dicatat {request.paid_by_name}</p></div>}

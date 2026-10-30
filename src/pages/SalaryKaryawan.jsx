@@ -45,6 +45,83 @@ export default function SalaryKaryawan() {
     try {
       const saved = await mutateSalary({ action, id: request?.id, version: request?.version, ...values }, csrfToken);
       setDetail(saved); setDecision(null);
+
+      // Sinkronisasi Realisasi ke COA & Pengeluaran Kas ketika Gaji dibayarkan
+      if (action === "pay") {
+        const totalGaji = Number(saved?.total_salary || request?.total_salary || 0);
+        const payDate = values.paid_date || new Date().toISOString().slice(0, 10);
+        const refNo = values.transfer_reference || `PAY-${saved?.id || request?.id || Date.now()}`;
+
+        // 1. Potong Saldo Rekening Bank di COA (finance_rekening_data & finance_coa_data)
+        try {
+          const rekRaw = localStorage.getItem("finance_rekening_data");
+          if (rekRaw) {
+            const rekList = JSON.parse(rekRaw);
+            if (Array.isArray(rekList) && totalGaji > 0) {
+              const updatedRekenings = rekList.map(rek => {
+                const rekStr = `${rek.nama} ${rek.bank} ${rek.noRek}`.toLowerCase();
+                const isPetty = rekStr.includes('petty') || rekStr.includes('kas kecil');
+                const isBca = !isPetty && (
+                  (rek.bank && rek.bank.toLowerCase().includes('bca')) ||
+                  (rek.nama && rek.nama.toLowerCase().includes('bca')) ||
+                  (rek.noRek && (rek.noRek.includes('1832-918-428') || rek.noRek.includes('1234567890')))
+                );
+                if (isBca) {
+                  const currentSaldo = Number(rek.saldo) || 0;
+                  return { ...rek, saldo: Math.max(0, currentSaldo - totalGaji) };
+                }
+                return rek;
+              });
+              localStorage.setItem("finance_rekening_data", JSON.stringify(updatedRekenings));
+            }
+          }
+
+          // Sinkronkan pemotongan ke akun COA (finance_coa_data)
+          const coaRaw = localStorage.getItem("finance_coa_data");
+          if (coaRaw) {
+            const coaList = JSON.parse(coaRaw);
+            if (Array.isArray(coaList) && totalGaji > 0) {
+              let bcaCoaFound = false;
+              const updatedCoa = coaList.map(coa => {
+                const coaStr = `${coa.kode} ${coa.nama} ${coa.rekeningDetail || ''}`.toLowerCase();
+                const isPetty = coaStr.includes('petty') || coaStr.includes('kas kecil');
+                if (!bcaCoaFound && !isPetty && (coaStr.includes('bca') || coaStr.includes('1832') || coa.kode === '1002')) {
+                  bcaCoaFound = true;
+                  const currentSaldo = Number(coa.saldo) || 0;
+                  return { ...coa, saldo: Math.max(0, currentSaldo - totalGaji) };
+                }
+                return coa;
+              });
+              localStorage.setItem("finance_coa_data", JSON.stringify(updatedCoa));
+            }
+          }
+        } catch (e) {
+          console.warn("Gagal update saldo rekening & COA penggajian:", e);
+        }
+
+        // 2. Simpan ke Riwayat Transaksi Pengeluaran (finance_expense_data)
+        try {
+          const expRaw = localStorage.getItem("finance_expense_data");
+          const expList = expRaw ? JSON.parse(expRaw) : [];
+          const newExp = {
+            id: `PAYROLL-${saved?.id || request?.id || Date.now()}`,
+            nomor: `PAYROLL-${saved?.id || request?.id || 1}`,
+            tanggal: payDate,
+            kategori: "Gaji Karyawan",
+            deskripsi: `Gaji ${saved?.month || request?.month} — ${saved?.employee_name || request?.employee_name} (${refNo})`,
+            sumberDana: "BCA",
+            nominal: totalGaji,
+            status: "Paid",
+            vendor: saved?.employee_name || request?.employee_name || "Karyawan LPK",
+            salary_request_id: saved?.id || request?.id
+          };
+          const filteredExp = expList.filter(x => x.id !== newExp.id && x.nomor !== newExp.nomor);
+          localStorage.setItem("finance_expense_data", JSON.stringify([newExp, ...filteredExp]));
+        } catch (e) {
+          console.warn("Gagal sync ke finance_expense_data:", e);
+        }
+      }
+
       setNotice(action === "approve" ? `Gaji disetujui. Jadwal transfer ${salaryDate(saved.payday)}.` : action === "pay" ? "Transfer dicatat dan pengeluaran penggajian tersimpan." : "Penggajian berhasil diperbarui.");
       void refresh();
     } catch (err) { setActionError(err.response?.data?.message || "Penggajian gagal diproses."); }
@@ -57,13 +134,13 @@ export default function SalaryKaryawan() {
   const openDecision = action => { setActionError(""); setDecision(action); setNote(""); setReference(""); setPaidDate(data.today >= detail.payday ? data.today : detail.payday); };
   const exportData = () => {
     const sheet = XLSX.utils.json_to_sheet(filtered.map(row => ({ "Periode Absensi": row.month, "Tanggal Gajian": row.payday, "NIK": row.employee_code, "Karyawan": row.employee_name,
-      "Gaji Pokok": Number(row.base_salary), "Hari Hadir": Number(row.work_days), "Uang Makan": Number(row.meal_allowance), "Uang Transport": Number(row.transport_allowance), "THR": Number(row.thr_amount || 0), "Jumlah Pendapatan": Number(row.gross_salary), "Kasbon": Number(row.kasbon_deduction || 0), "BPJS Ketenagakerjaan": Number(row.bpjs_tk_deduction || 0), "BPJS Kesehatan": Number(row.bpjs_kes_deduction || 0), "Izin / Sakit": Number(row.leave_deduction || 0), "Jumlah Potongan": Number(row.total_deductions || 0), "Gaji Bersih": Number(row.total_salary), "Catatan Finance": row.adjustment_note || "",
+      "Gaji Pokok": Number(row.base_salary), "Hari Hadir": Number(row.work_days), "Uang Makan": Number(row.meal_allowance), "Uang Transport": Number(row.transport_allowance), "THR / Bonus": Number(row.thr_amount || 0), "Jumlah Pendapatan": Number(row.gross_salary), "BPJS Ketenagakerjaan (3%)": Number(row.bpjs_tk_deduction || 0), "BPJS Kesehatan (1%)": Number(row.bpjs_kes_deduction || 0), "PPh 21 (Pajak TER)": Number(row.pph21_deduction || 0), "Kasbon": Number(row.kasbon_deduction || 0), "Izin / Sakit": Number(row.leave_deduction || 0), "Jumlah Potongan": Number(row.total_deductions || 0), "Gaji Bersih (THP)": Number(row.total_salary), "Catatan Finance": row.adjustment_note || "",
       "Status": SALARY_STATUS[row.status]?.label || "Belum Disiapkan", "Tanggal Transfer": row.paid_date || "", "Referensi Transfer": row.transfer_reference || "" })));
     const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, "Penggajian"); XLSX.writeFile(book, `Penggajian_${all ? "Semua" : month}.xlsx`);
   };
   return <Layout appearance="finance"><div className="rab-page salary-page">
-    <div className="rab-page-heading"><div><p className="rab-eyebrow">KEUANGAN CREATIVA</p><h1>Penggajian Karyawan</h1><p>Hitung gaji dari absensi, ajukan ke Admin, dan kelola transfer setiap tanggal 4.</p></div><div className="rab-heading-actions"><button className="rab-button" onClick={() => { setBaseRefresh(value => value + 1); void refresh(); }} disabled={loading}><RefreshCw size={16} />Perbarui</button>{!baseSettings && <button className="rab-button" disabled={!filtered.length} onClick={exportData}><FileDown size={16} />Export</button>}</div></div>
-    <div className="salary-policy"><Banknote size={24} /><div><strong>Pendapatan − potongan = gaji bersih</strong><p>Gaji pokok per karyawan + (makan Rp30.000 + transport Rp20.000) × hari hadir. Tambahkan THR dan isi potongan BPJS, kasbon, serta izin/sakit secara manual pada rincian draft. Atur gaji pokok di tab Gaji Pokok. Absensi bulan sebelumnya, transfer tanggal 4 bulan berikutnya.</p></div></div>
+    <div className="rab-page-heading"><div><p className="rab-eyebrow">KEUANGAN CREATIVA</p><h1>Penggajian Karyawan</h1><p>Hitung gaji dari absensi, terapkan potongan standar nasional (BPJS &amp; PPh 21), ajukan ke Admin, dan transfer via Bank BCA.</p></div><div className="rab-heading-actions"><button className="rab-button" onClick={() => { setBaseRefresh(value => value + 1); void refresh(); }} disabled={loading}><RefreshCw size={16} />Perbarui</button>{!baseSettings && <button className="rab-button" disabled={!filtered.length} onClick={exportData}><FileDown size={16} />Export</button>}</div></div>
+    <div className="salary-policy"><Banknote size={24} /><div><strong>Standar Finansial Nasional: Pendapatan Bruto − Potongan Wajib (BPJS &amp; PPh 21) = Gaji Bersih (THP)</strong><p>Gaji pokok per karyawan + tunjangan makan (Rp30.000/hari) &amp; transport (Rp20.000/hari). Potongan otomatis: BPJS TK 3% (JHT 2% + JP 1% cap Rp10.042.300 sesuai PP 44 &amp; 45/2015), BPJS Kesehatan 1% (cap Rp12.000.000 sesuai Perpres 64/2020), dan PPh 21 TER bulanan (PP 58/2023 &amp; PMK 168/2023), serta kasbon &amp; ketidakhadiran.</p></div></div>
     {(error || actionError) && <div className="rab-error" role="alert">{error || actionError}{needsLogin && <button className="rab-button" onClick={() => { logoutUser(); navigate("/login"); }}>Masuk Kembali</button>}</div>}
     {notice && !baseSettings && <div className="rab-notice" role="status">{notice}</div>}
     {!baseSettings && <div className="rab-stats">

@@ -49,7 +49,8 @@ try {
             $row=salary_normalize_totals($row);
             $row['potongan']=$row['leave_deduction']; $row['total_potongan']=$row['total_deductions'];
             $row['bpjs_tk']=$row['bpjs_tk_deduction']; $row['bpjs_kes']=$row['bpjs_kes_deduction'];
-            foreach (['lembur','bpjs_jp','pph21','late_minutes','overtime_minutes'] as $field) $row[$field]=0;
+            $row['pph21']=$row['pph21_deduction'] ?? 0;
+            foreach (['lembur','bpjs_jp','late_minutes','overtime_minutes'] as $field) $row[$field]=0;
             $row['status']='published'; $row['published_at']=$row['slip_published_at'];
         } unset($row);
         $data = array_merge($current,$legacy);

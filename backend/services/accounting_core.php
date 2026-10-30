@@ -50,9 +50,19 @@ function ac_can(mysqli $db, array $actor, string $permission): bool {
 function ac_require(mysqli $db, array $actor, string $permission): void { if (!ac_can($db,$actor,$permission)) ac_fail('Anda tidak berhak melakukan aksi ini.',403); }
 function ac_audit(mysqli $db,array $actor,string $entity,string $id,string $action,array $details=[]):void {
     $actorName = (string)($actor['name'] ?? $actor['full_name'] ?? $actor['email'] ?? $actor['username'] ?? 'System');
-    $actorId = (int)($actor['id'] ?? 0);
-    ac_query($db,'INSERT INTO accounting_audit_logs(entity_type,entity_id,action,actor_id,actor_name,details_json) VALUES(?,?,?,?,?,?)',
-        [$entity,$id,$action,$actorId,$actorName,json_encode($details,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)]);
+    $actorId   = (int)($actor['id'] ?? 0);
+    // Real IP (handles Cloudflare, nginx proxy)
+    $ip  = trim(explode(',', ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'))[0]);
+    // Hash chain: fetch last hash_self
+    $prevRow  = ac_one($db, 'SELECT hash_self FROM accounting_audit_logs ORDER BY id DESC LIMIT 1');
+    $prevHash = $prevRow['hash_self'] ?? '';
+    $detailsJson = json_encode($details, JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    ac_query($db,'INSERT INTO accounting_audit_logs(entity_type,entity_id,action,actor_id,actor_name,details_json,ip_address,hash_prev) VALUES(?,?,?,?,?,?,?,?)',
+        [$entity,$id,$action,$actorId,$actorName,$detailsJson,$ip,$prevHash]);
+    $logId    = (int)$db->insert_id;
+    $ts       = date('Y-m-d H:i:s');
+    $selfHash = hash('sha256', $prevHash.$logId.$entity.$id.$action.$actorId.$ts);
+    $db->query("UPDATE accounting_audit_logs SET hash_self='$selfHash' WHERE id=$logId");
 }
 function ac_atomic(mysqli $db, callable $call) { $db->begin_transaction(); try { $result=$call(); $db->commit(); return $result; } catch(Throwable $error) { $db->rollback(); throw $error; } }
 function ac_key($value): string { $key=ac_text($value,'Idempotency key',100); if (!preg_match('/^[a-zA-Z0-9_-]{8,100}$/D',str_replace('-','_',$key))) ac_fail('Idempotency key tidak valid.'); return $key; }

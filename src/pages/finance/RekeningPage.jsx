@@ -14,17 +14,92 @@ import { Landmark, CheckCircle2, XCircle, Plus, Eye, Pencil, Trash2 } from "luci
 import axios from "axios";
 
 const INITIAL_REKENING = [
-  { id: 1, nama: "Rekening PT LPK Creativa", jenis: "Bank", bank: "Bank BCA", noRek: "1234567890", saldo: 120000000, status: "Aktif" },
-  { id: 2, nama: "E-Wallet (Petty Cash)", jenis: "E-Wallet", bank: "DANA Bisnis", noRek: "0812xxxxxx", saldo: 5000000, status: "Aktif" },
-  { id: 3, nama: "Kas Operasional Kantor", jenis: "Tunai", bank: "Kas Brankas", noRek: "CASH-01", saldo: 15000000, status: "Aktif" },
-  { id: 4, nama: "Rekening Cadangan Mandiri", jenis: "Bank", bank: "Bank Mandiri", noRek: "1320098765432", saldo: 25000000, status: "Aktif" },
+  { id: 1, nama: "Rekening BCA Creativa Bridging Intern", jenis: "Bank", bank: "Bank BCA", noRek: "1832-918-428", saldo: 120000000, status: "Aktif" },
+  { id: 2, nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", jenis: "Tunai", bank: "Kas Tunai Kasir", noRek: "CASH-01", saldo: 5000000, status: "Aktif" },
+  { id: 3, nama: "Rekening Cadangan Mandiri", jenis: "Bank", bank: "Bank Mandiri", noRek: "130-0019283", saldo: 25000000, status: "Aktif" },
+  { id: 4, nama: "E-Wallet Bisnis (DANA / Flip)", jenis: "E-Wallet", bank: "DANA Bisnis", noRek: "0812-9988-7766", saldo: 12500000, status: "Aktif" },
 ];
 
 export default function RekeningPage() {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_rekening_data");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        let parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Auto-heal penamaan akun BCA dan Petty Cash
+          parsed = parsed.map(r => {
+            const rStr = `${r.nama} ${r.bank} ${r.noRek}`.toLowerCase();
+            if (r.id === 1 || (rStr.includes('bca') && !rStr.includes('petty'))) {
+              return {
+                ...r,
+                nama: "Rekening BCA Creativa Bridging Intern",
+                bank: "Bank BCA",
+                noRek: r.noRek && r.noRek.includes('1832') ? r.noRek : "1832-918-428"
+              };
+            }
+            if (r.id === 2 || rStr.includes('petty')) {
+              return {
+                ...r,
+                nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)",
+                jenis: "Tunai",
+                bank: "Kas Tunai Kasir",
+                noRek: "CASH-01"
+              };
+            }
+            return r;
+          });
+
+          // Pastikan 4 akun standar kas & bank selalu tersedia
+          const hasBca = parsed.some(r => r.id === 1 || r.nama.toLowerCase().includes('bca'));
+          if (!hasBca) {
+            parsed.unshift({ id: 1, nama: "Rekening BCA Creativa Bridging Intern", jenis: "Bank", bank: "Bank BCA", noRek: "1832-918-428", saldo: 120000000, status: "Aktif" });
+          }
+
+          const hasPetty = parsed.some(r => r.id === 2 || r.nama.toLowerCase().includes('petty') || r.nama.toLowerCase().includes('kas kecil'));
+          if (!hasPetty) {
+            parsed.push({ id: 2, nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", jenis: "Tunai", bank: "Kas Tunai Kasir", noRek: "CASH-01", saldo: 5000000, status: "Aktif" });
+          }
+
+          const hasMandiri = parsed.some(r => r.nama.toLowerCase().includes('mandiri'));
+          if (!hasMandiri) {
+            parsed.push({ id: 3, nama: "Rekening Cadangan Mandiri", jenis: "Bank", bank: "Bank Mandiri", noRek: "130-0019283", saldo: 25000000, status: "Aktif" });
+          }
+
+          const hasWallet = parsed.some(r => r.nama.toLowerCase().includes('wallet') || r.nama.toLowerCase().includes('dana') || r.nama.toLowerCase().includes('flip'));
+          if (!hasWallet) {
+            parsed.push({ id: 4, nama: "E-Wallet Bisnis (DANA / Flip)", jenis: "E-Wallet", bank: "DANA Bisnis", noRek: "0812-9988-7766", saldo: 12500000, status: "Aktif" });
+          }
+
+          // Sinkronkan live saldo dari finance_coa_data jika tersedia
+          try {
+            const coaRaw = localStorage.getItem("finance_coa_data");
+            if (coaRaw) {
+              const coaList = JSON.parse(coaRaw);
+              if (Array.isArray(coaList)) {
+                parsed = parsed.map(r => {
+                  const rStr = `${r.nama} ${r.bank}`.toLowerCase();
+                  if (rStr.includes('bca')) {
+                    const bcaCoa = coaList.find(c => String(c.kode) === '1002' || (c.nama && c.nama.toLowerCase().includes('bca') && !c.nama.toLowerCase().includes('petty')));
+                    if (bcaCoa && Number(bcaCoa.saldo) > 0) {
+                      return { ...r, saldo: Number(bcaCoa.saldo) };
+                    }
+                  }
+                  if (rStr.includes('petty') || rStr.includes('kas kecil')) {
+                    const pettyCoa = coaList.find(c => String(c.kode) === '1001' || (c.nama && (c.nama.toLowerCase().includes('petty') || c.nama.toLowerCase().includes('kas kecil'))));
+                    if (pettyCoa && Number(pettyCoa.saldo) > 0) {
+                      return { ...r, saldo: Number(pettyCoa.saldo) };
+                    }
+                  }
+                  return r;
+                });
+              }
+            }
+          } catch (e) {}
+
+          return parsed;
+        }
+      }
     } catch (e) {}
     return INITIAL_REKENING;
   });
@@ -115,7 +190,9 @@ export default function RekeningPage() {
 
   const totalRekening = data.length;
   const rekeningAktif = data.filter(d => d.status === "Aktif").length;
-  const rekeningNonaktif = totalRekening - rekeningAktif;
+  const totalSaldo = data.filter(d => d.status === "Aktif").reduce((acc, curr) => acc + (Number(curr.saldo) || 0), 0);
+  const bcaAccount = data.find(d => d.nama.toLowerCase().includes('bca') || d.bank.toLowerCase().includes('bca'));
+  const pettyAccount = data.find(d => d.nama.toLowerCase().includes('petty') || d.nama.toLowerCase().includes('kas kecil'));
 
   const filteredData = data.filter(item => {
     if (jenis !== "all" && item.jenis.toLowerCase() !== jenis.toLowerCase()) return false;
@@ -232,28 +309,35 @@ export default function RekeningPage() {
           onSecondaryClick={handleExport}
         />
 
-        {/* 3 Summary KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {/* 4 Treasury KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <FinanceKpiCard
-            title="Total Rekening"
-            value={totalRekening}
-            subtitle="Kas, Bank & E-Wallet"
+            title="Total Saldo Kas & Bank"
+            value={formatRupiah(totalSaldo)}
+            subtitle="Konsolidasi Seluruh Rekening"
             icon={Landmark}
             color="blue"
           />
           <FinanceKpiCard
-            title="Rekening Aktif"
-            value={rekeningAktif}
-            subtitle="Dapat digunakan transaksi"
+            title="Rekening BCA Utama"
+            value={formatRupiah(bcaAccount?.saldo || 0)}
+            subtitle="Penerimaan Siswa & Payroll"
             icon={CheckCircle2}
             color="emerald"
           />
           <FinanceKpiCard
-            title="Rekening Nonaktif"
-            value={rekeningNonaktif}
-            subtitle="Rekening ditutup/arsip"
-            icon={XCircle}
-            color="rose"
+            title="Petty Cash Operasional"
+            value={formatRupiah(pettyAccount?.saldo || 0)}
+            subtitle="Kas Kecil Tunai & Vendor"
+            icon={Landmark}
+            color="amber"
+          />
+          <FinanceKpiCard
+            title="Rekening Aktif"
+            value={`${rekeningAktif} / ${totalRekening}`}
+            subtitle="Rekening Siap Transaksi"
+            icon={CheckCircle2}
+            color="indigo"
           />
         </div>
 

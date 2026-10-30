@@ -4,20 +4,22 @@ require_once __DIR__.'/salary_mail.php';
 require_once __DIR__.'/salary_slip_document.php';
 
 function salary_slip_profile(mysqli $db, int $employeeId, bool $lock = false): array {
-    $profile = salary_query($db,'SELECT e.user_id,u.email AS recipient_email,e.bank_name,e.bank_account,e.full_name AS account_name,e.join_date,e.bpjs_tk,e.bpjs_kes,u.is_active
+    $profile = salary_query($db,'SELECT e.user_id,u.email AS recipient_email,e.bank_name,e.bank_account,e.full_name AS account_name,e.join_date,e.bpjs_tk,e.bpjs_kes,e.npwp,e.marital_status,u.is_active
         FROM employees e JOIN users u ON u.id=e.user_id WHERE e.id=?'.($lock?' FOR UPDATE':''),'i',[$employeeId])->get_result()->fetch_assoc();
     if (!$profile) salary_fail('Profil karyawan tidak ditemukan. Hubungi HRD.',409);
     return $profile;
 }
 function salary_slip_snapshot(array $request, array $profile): array {
     $request=salary_normalize_totals($request);
-    $keys=['id','employee_id','month','employee_code','employee_name','position_name','employee_join_date','period_start','period_end','payday','base_salary','salary_source','base_salary_effective_month','work_days','meal_rate','transport_rate','meal_allowance','transport_allowance','thr_amount','kasbon_deduction','bpjs_tk_deduction','bpjs_kes_deduction','leave_deduction','gross_salary','total_deductions','adjustment_note','total_salary','bank_name','account_name','account_number','reviewed_by_name','reviewed_at'];
+    $keys=['id','employee_id','month','employee_code','employee_name','position_name','employee_join_date','period_start','period_end','payday','base_salary','salary_source','base_salary_effective_month','work_days','meal_rate','transport_rate','meal_allowance','transport_allowance','thr_amount','kasbon_deduction','bpjs_tk_deduction','bpjs_kes_deduction','pph21_deduction','leave_deduction','gross_salary','total_deductions','adjustment_note','total_salary','bank_name','account_name','account_number','reviewed_by_name','reviewed_at'];
     $snapshot=array_intersect_key($request,array_flip($keys));
     $snapshot['employee_join_date']=$request['employee_join_date'] ?? $profile['join_date'];
     $snapshot['user_id']=(int)$profile['user_id'];
     $snapshot['recipient_email']=trim($profile['recipient_email']);
     $snapshot['bpjs_tk_number']=trim($profile['bpjs_tk'] ?? '');
     $snapshot['bpjs_kes_number']=trim($profile['bpjs_kes'] ?? '');
+    $snapshot['npwp']=trim($profile['npwp'] ?? '');
+    $snapshot['marital_status']=trim($profile['marital_status'] ?? '');
     return salary_slip_payment($snapshot,$request);
 }
 function salary_slip_payment(array $snapshot, array $request): array {

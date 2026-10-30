@@ -14,8 +14,8 @@ import { Plus, Landmark, Wallet, CreditCard, ChevronRight, MoreHorizontal, Penci
 
 const INITIAL_COA = [
   // Assets -> Cash and Bank
-  { id: 1, kode: "1001", nama: "Petty Cash", subtype: "AST-CB", rekeningDetail: "Kas Kecil Tunai Kantor / Kasir", tipe: "Assets", kategori: "Cash and Bank", saldo: 5000000, status: "Aktif" },
-  { id: 2, kode: "1002", nama: "Bank BCA Operasional", subtype: "AST-CB", rekeningDetail: "BCA a/n PT LPK Creativa 883-131-8732", tipe: "Assets", kategori: "Cash and Bank", saldo: 145200000, status: "Aktif" },
+  { id: 1, kode: "1001", nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", subtype: "AST-CB", rekeningDetail: "Kasir & Kas Kecil Tunai Kantor", tipe: "Assets", kategori: "Cash and Bank", saldo: 5000000, status: "Aktif" },
+  { id: 2, kode: "1002", nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)", subtype: "AST-CB", rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428", tipe: "Assets", kategori: "Cash and Bank", saldo: 145200000, status: "Aktif" },
   { id: 3, kode: "1003", nama: "Bank Mandiri Utama", subtype: "AST-CB", rekeningDetail: "Mandiri a/n PT LPK Creativa 130-0019283", tipe: "Assets", kategori: "Cash and Bank", saldo: 78500000, status: "Aktif" },
   { id: 4, kode: "1004", nama: "Bank BNI Tabungan", subtype: "AST-CB", rekeningDetail: "BNI a/n PT LPK Creativa 088-771122", tipe: "Assets", kategori: "Cash and Bank", saldo: 35000000, status: "Aktif" },
   { id: 5, kode: "1005", nama: "Flip / E-Wallet Perusahaan", subtype: "AST-CB", rekeningDetail: "DANA & Flip Bisnis 0812-9988-7766", tipe: "Assets", kategori: "Cash and Bank", saldo: 12500000, status: "Aktif" },
@@ -55,7 +55,32 @@ export default function CoaPage() {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_coa_data");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        let parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Auto-heal jika ada 1002 yang keliru bernama Petty Cash
+          parsed = parsed.map(c => {
+            const nameLower = (c.nama || "").toLowerCase();
+            const isPetty = nameLower.includes("petty") || nameLower.includes("kas kecil");
+            if (c.kode === "1002" && isPetty) {
+              return {
+                ...c,
+                nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)",
+                rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428"
+              };
+            }
+            if (c.kode === "1001" && !isPetty) {
+              return {
+                ...c,
+                nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)",
+                rekeningDetail: "Kasir & Kas Kecil Tunai Kantor"
+              };
+            }
+            return c;
+          });
+          return parsed;
+        }
+      }
     } catch (e) {}
     return INITIAL_COA;
   });

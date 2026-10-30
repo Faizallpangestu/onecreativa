@@ -15,9 +15,37 @@ export default function BudgetRequestForm({ initial, saving, error, onSave, onCl
     attachment_link: initial?.attachment_link || "", attachment_action: "keep", attachment_file: null,
     copy_attachment_from: !initial?.id ? initial?.copy_attachment_from : undefined,
   }));
-  const [departments,setDepartments]=useState([]);
-  const [departmentError,setDepartmentError]=useState("");
-  useEffect(()=>{let active=true;accountingGet("lookups").then(r=>{if(active)setDepartments(r.data.departments);}).catch(e=>{if(active)setDepartmentError(accountingError(e));});return()=>{active=false;};},[]);
+  const DEFAULT_DEPARTMENTS = [
+    { id: 1, name: "Operasional & Umum" },
+    { id: 2, name: "Pendidikan & Sensei LPK" },
+    { id: 3, name: "Pemasaran & Rekrutmen Siswa" },
+    { id: 4, name: "Fasilitas & Asrama" },
+    { id: 5, name: "Keuangan & Akuntansi" },
+    { id: 6, name: "Bridging & Penyaluran Jepang" }
+  ];
+  const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
+  const [departmentError, setDepartmentError] = useState("");
+  useEffect(() => {
+    let active = true;
+    accountingGet("lookups")
+      .then(r => {
+        if (active && Array.isArray(r.data?.departments) && r.data.departments.length > 0) {
+          setDepartments(r.data.departments);
+        }
+      })
+      .catch(() => {
+        // Fallback to fetch from /api/departments.php
+        fetch("/api/departments.php")
+          .then(res => res.json())
+          .then(data => {
+            if (active && Array.isArray(data?.data) && data.data.length > 0) {
+              setDepartments(data.data);
+            }
+          })
+          .catch(() => {});
+      });
+    return () => { active = false; };
+  }, []);
   const [imagePreview, setImagePreview] = useState("");
   const [attachmentError, setAttachmentError] = useState("");
   const fileInput = useRef(null);
@@ -66,7 +94,31 @@ export default function BudgetRequestForm({ initial, saving, error, onSave, onCl
               <label>Link Referensi<input type="url" maxLength={2048} pattern="[hH][tT][tT][pP][sS]?://.*" placeholder="https://contoh.com/produk-atau-penawaran" value={form.attachment_link} disabled={saving} onChange={event => setForm({ ...form, attachment_link: event.target.value })} /></label>
             </div>
           </div>
-          <div className="rab-modal-footer"><div className="rab-form-total"><span>Total Pengajuan</span><strong>{formatBudgetMoney(total)}</strong></div><div className="rab-footer-buttons"><button type="button" disabled={saving} onClick={onClose} className="rab-button">Batal</button><button type="submit" value="draft" disabled={saving} className="rab-button">{saving ? "Menyimpan…" : "Simpan Draft"}</button>{!initial?.id && <button type="submit" value="submit" disabled={saving} className="rab-button rab-button-primary">Ajukan RAB</button>}</div></div>
+          <div className="rab-modal-footer">
+            <div className="rab-form-total">
+              <span>Total Pagu Anggaran</span>
+              <strong>{formatBudgetMoney(total)}</strong>
+            </div>
+            <div className="rab-footer-buttons">
+              <button type="button" disabled={saving} onClick={onClose} className="rab-button">
+                Batal
+              </button>
+              {initial?.id ? (
+                <button type="submit" value="save" disabled={saving} className="rab-button rab-button-primary">
+                  {saving ? "Menyimpan Perubahan…" : "Simpan Perubahan"}
+                </button>
+              ) : (
+                <>
+                  <button type="submit" value="draft" disabled={saving} className="rab-button">
+                    {saving ? "Menyimpan…" : "Simpan Draft"}
+                  </button>
+                  <button type="submit" value="submit" disabled={saving} className="rab-button rab-button-primary">
+                    Ajukan RAB
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </form>
       </section>
     </div>

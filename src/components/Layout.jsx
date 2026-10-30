@@ -17,7 +17,7 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
   const profileRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const financePath = /^\/(dashboard-finance|menu-finance|buku-transaksi|laporan-keuangan|profit|transaksi-pemasukan|transaksi-pengeluaran|history-invoice|invoice-penagihan|anggaran|salary|reimbursement|finance|bills|vendors|coa|journal|general-ledger|reconciliation|rekening|cashflow|transfer)(\/|$)/;
+  const financePath = /^\/(dashboard-finance|menu-finance|buku-transaksi|laporan-keuangan|profit|balance-sheet|transaksi-pemasukan|transaksi-pengeluaran|history-invoice|invoice-penagihan|anggaran|realisasi|salary|reimbursement|finance|bills|vendors|coa|journal|general-ledger|reconciliation|rekening|cashflow|transfer)(\/|$)/;
   const isFinancePage = appearance === "finance" || financePath.test(location.pathname);
 
   useEffect(() => {
@@ -142,12 +142,13 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
       "/assets/maintenance": "Maintenance",
       "/assets/scan": "Scan QR Asset",
       "/profit": "Finance & Profit",
+      "/balance-sheet": "Balance Sheet (Neraca)",
       "/transaksi-pemasukan": "Income Transactions",
       "/transaksi-pengeluaran": "Expense Transactions",
       "/invoice-penagihan": "Invoice",
       "/bills": "Bills (Tagihan Vendor)",
-      "/vendors": "Data Vendor",
-      "/buku-transaksi": "Buku Transaksi",
+      "/buku-transaksi": "Audit Trail & Rekam Jejak Forensik",
+      "/audit-trail": "Audit Trail & Rekam Jejak Forensik",
       "/coa": "Chart of Accounts (COA)",
       "/journal": "Journal Akuntansi",
       "/general-ledger": "General Ledger",
@@ -213,13 +214,15 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                   {({
                     "/dashboard-finance": "Dashboard",
                     "/invoice-penagihan": "Invoice",
-                    "/finance/student-billing": "Students",
-                    "/buku-transaksi": "Buku Transaksi & Audit",
+                    "/buku-transaksi": "Audit Trail Forensik",
+                    "/audit-trail": "Audit Trail Forensik",
                     "/laporan-keuangan": "Laporan Keuangan",
-                    "/profit": "Keuangan & Laba",
+                    "/profit": "Profit & Loss",
+                    "/balance-sheet": "Balance Sheet",
                     "/transaksi-pemasukan": "Transaksi Pemasukan",
                     "/transaksi-pengeluaran": "Transaksi Pengeluaran",
                     "/anggaran": "Anggaran",
+                    "/realisasi": "Realisasi Anggaran",
                     "/salary": "Penggajian Karyawan",
                     "/reimbursement": "Reimbursement",
                     "/settings": "Pengaturan Sistem",
@@ -230,12 +233,15 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                     "/dashboard-finance": "Dashboard",
                     "/invoice-penagihan": "Invoice",
                     "/finance/student-billing": "Students",
-                    "/buku-transaksi": "Buku Transaksi & Audit",
+                    "/buku-transaksi": "Audit Trail Forensik",
+                    "/audit-trail": "Audit Trail Forensik",
                     "/laporan-keuangan": "Laporan Keuangan",
-                    "/profit": "Keuangan & Laba",
+                    "/profit": "Profit & Loss",
+                    "/balance-sheet": "Balance Sheet",
                     "/transaksi-pemasukan": "Transaksi Pemasukan",
                     "/transaksi-pengeluaran": "Transaksi Pengeluaran",
                     "/anggaran": "Anggaran",
+                    "/realisasi": "Realisasi Anggaran",
                     "/salary": "Penggajian Karyawan",
                     "/reimbursement": "Reimbursement",
                     "/settings": "Pengaturan Sistem",

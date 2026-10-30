@@ -10,22 +10,89 @@ import {
   exportToExcel 
 } from "./FinancePageComponents";
 import { accountingGet, accountingMutate } from "../../utils/accountingApi";
-import { Eye, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Eye, Plus, Pencil, Trash2, AlertTriangle, Building2, UserCheck, Clock } from "lucide-react";
+
+function getNowDateTimeLocal() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function formatWaktuIndo(dtString, fallbackDate) {
+  if (!dtString && !fallbackDate) return "—";
+  try {
+    const raw = dtString || fallbackDate;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    const datePart = d.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+    if (raw.includes("T") || raw.includes(":") || raw.includes(" ")) {
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${datePart}, ${hours}:${minutes} WIB`;
+    }
+    return `${datePart}, 10:00 WIB`;
+  } catch (e) {
+    return dtString || fallbackDate || "—";
+  }
+}
 
 const INITIAL_EXPENSE_DATA = [
-  { id: 1, tanggal: "2026-10-01", kategori: "Pembelian", deskripsi: "Laptop Admin", sumberDana: "BCA", nominal: 7500000, status: "Pending", vendor: "Toko Office Equipment" },
-  { id: 2, tanggal: "2026-09-29", kategori: "Operasional", deskripsi: "Listrik Kantor", sumberDana: "E-Wallet", nominal: 1200000, status: "Approved", vendor: "PLN Persero" },
-  { id: 3, tanggal: "2026-09-25", kategori: "Reimbursement", deskripsi: "Transport Dinas", sumberDana: "BCA", nominal: 500000, status: "Pending", vendor: "Staff Admin" },
-  { id: 4, tanggal: "2026-09-20", kategori: "Gaji Karyawan", deskripsi: "Gaji Bulanan", sumberDana: "BCA", nominal: 25000000, status: "Paid", vendor: "Karyawan LPK" },
-  { id: 5, tanggal: "2026-09-18", kategori: "Operasional", deskripsi: "Langganan Internet Dedicated", sumberDana: "BCA", nominal: 850000, status: "Approved", vendor: "PT Maju Internet" },
-  { id: 6, tanggal: "2026-09-14", kategori: "Pembelian", deskripsi: "Buku Pelajaran & Modul N5", sumberDana: "Kas", nominal: 3200000, status: "Paid", vendor: "Percetakan Mitra" },
+  { id: 1, tanggal: "2026-10-01", waktuPelunasan: "2026-10-01T14:30", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Pembelian", deskripsi: "Laptop Admin", sumberDana: "Bank BCA Operasional", nominal: 7500000, status: "Paid", vendor: "Toko Office Equipment" },
+  { id: 2, tanggal: "2026-09-29", waktuPelunasan: "2026-09-29T10:15", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Operasional", deskripsi: "Listrik Kantor Gedung LPK", sumberDana: "Petty Cash (Kasir)", nominal: 1200000, status: "Paid", vendor: "CV Sukses Listrik" },
+  { id: 3, tanggal: "2026-09-25", waktuPelunasan: "2026-09-25T16:00", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Reimbursement", deskripsi: "Transport Dinas", sumberDana: "Petty Cash (Kasir)", nominal: 500000, status: "Paid", vendor: "Staff Admin" },
+  { id: 4, tanggal: "2026-09-20", waktuPelunasan: "2026-09-20T09:00", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Gaji Karyawan", deskripsi: "Gaji Bulanan", sumberDana: "Bank BCA Operasional", nominal: 25000000, status: "Paid", vendor: "Karyawan LPK" },
+  { id: 5, tanggal: "2026-09-18", waktuPelunasan: "2026-09-18T11:45", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Operasional", deskripsi: "Langganan Internet Dedicated Fiber", sumberDana: "Bank BCA Operasional", nominal: 850000, status: "Paid", vendor: "PT Maju Internet" },
+  { id: 6, tanggal: "2026-09-14", waktuPelunasan: "2026-09-14T13:20", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Pembelian", deskripsi: "Buku Pelajaran & Modul N5", sumberDana: "Petty Cash (Kasir)", nominal: 3200000, status: "Paid", vendor: "Percetakan Mitra" },
 ];
 
 export default function ExpenseTransactionsPage() {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_expense_data");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item, idx) => {
+            const desk = item.deskripsi || item.keterangan || item.uraian || item.description || (item.vendor ? `Pengadaan ${item.vendor}` : "Beban Operasional LPK");
+            const sumber = item.sumberDana || item.akun || item.rekening || item.source || item.bank || (Number(item.nominal || item.amount || 0) > 5000000 ? "Bank BCA Operasional" : "Petty Cash (Kasir)");
+            let vendorName = item.vendor || item.pihak;
+            if (!vendorName || vendorName === "—" || vendorName === "Staff/Vendor") {
+              if (desk.includes("CV Sukses Listrik")) vendorName = "CV Sukses Listrik";
+              else if (desk.includes("PT Maju Internet")) vendorName = "PT Maju Internet";
+              else if (desk.includes("Toko Office") || desk.includes("Office Equipment")) vendorName = "Toko Office Equipment";
+              else if (desk.includes("Percetakan Mitra")) vendorName = "Percetakan Mitra";
+              else if (desk.includes("Toko ATK Sentosa") || desk.includes("ATK Sentosa")) vendorName = "Toko ATK Sentosa";
+              else if (desk.includes("Klinik Medika")) vendorName = "Klinik Medika Pratama";
+              else if (desk.includes("PLN")) vendorName = "PLN Persero";
+              else vendorName = item.vendor || "CV Sukses Listrik";
+            }
+            const waktu = item.waktuPelunasan || item.paid_at || (item.tanggal ? `${item.tanggal}T10:30` : getNowDateTimeLocal());
+            const petugas = item.petugasPelunasan || item.dilunasiOleh || "FINANCE LPK CREATIVA";
+            return {
+              ...item,
+              id: item.id || idx + 1,
+              deskripsi: desk,
+              keterangan: desk,
+              sumberDana: sumber,
+              akun: sumber,
+              vendor: vendorName,
+              pihak: vendorName,
+              waktuPelunasan: waktu,
+              petugasPelunasan: petugas,
+              nominal: Number(item.nominal || item.amount || 0),
+              status: item.status || "Lunas",
+            };
+          });
+        }
+      }
     } catch (e) {}
     return INITIAL_EXPENSE_DATA;
   });
@@ -49,27 +116,83 @@ export default function ExpenseTransactionsPage() {
     } catch (e) {}
   }, [data]);
 
+  // Master vendor list untuk autocomplete agar nama vendor selalu sama & sinkron
+  const [vendorList, setVendorList] = useState(() => {
+    try {
+      const vRaw = localStorage.getItem("finance_vendors_data");
+      if (vRaw) {
+        const parsed = JSON.parse(vRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(v => v.nama || v.name).filter(Boolean);
+        }
+      }
+    } catch (e) {}
+    return [
+      "CV Sukses Listrik",
+      "PT Maju Internet",
+      "Toko Office Equipment",
+      "Percetakan Mitra",
+      "Toko ATK Sentosa",
+      "Klinik Medika Pratama",
+      "PLN Persero",
+    ];
+  });
+
+  useEffect(() => {
+    const updateVendors = () => {
+      try {
+        const vRaw = localStorage.getItem("finance_vendors_data");
+        if (vRaw) {
+          const parsed = JSON.parse(vRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setVendorList(parsed.map(v => v.nama || v.name).filter(Boolean));
+          }
+        }
+      } catch (e) {}
+    };
+    window.addEventListener("storage", updateVendors);
+    window.addEventListener("finance_vendors_updated", updateVendors);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      bc = new BroadcastChannel("finance_vendors_channel");
+      bc.onmessage = () => {
+        updateVendors();
+      };
+    }
+
+    return () => {
+      window.removeEventListener("storage", updateVendors);
+      window.removeEventListener("finance_vendors_updated", updateVendors);
+      if (bc) bc.close();
+    };
+  }, []);
+
   // Form State
   const [form, setForm] = useState({
     tanggal: new Date().toISOString().slice(0, 10),
-    kategori: "Operasional",
+    waktuPelunasan: getNowDateTimeLocal(),
+    petugasPelunasan: "FINANCE LPK CREATIVA",
+    kategori: "Operasional Kantor",
     deskripsi: "",
-    sumberDana: "BCA",
+    sumberDana: "Petty Cash (Kasir)",
     nominal: "",
-    status: "Pending",
-    vendor: "",
+    status: "Paid",
+    vendor: "CV Sukses Listrik",
   });
 
   const handleOpenCreate = () => {
     setEditingItem(null);
     setForm({
       tanggal: new Date().toISOString().slice(0, 10),
-      kategori: "Operasional",
+      waktuPelunasan: getNowDateTimeLocal(),
+      petugasPelunasan: "FINANCE LPK CREATIVA",
+      kategori: "Operasional Kantor",
       deskripsi: "",
-      sumberDana: "BCA",
+      sumberDana: "Petty Cash (Kasir)",
       nominal: "",
-      status: "Pending",
-      vendor: "",
+      status: "Paid",
+      vendor: "CV Sukses Listrik",
     });
     setIsModalOpen(true);
   };
@@ -78,12 +201,14 @@ export default function ExpenseTransactionsPage() {
     setEditingItem(item);
     setForm({
       tanggal: item.tanggal,
+      waktuPelunasan: item.waktuPelunasan || (item.tanggal ? `${item.tanggal}T10:30` : getNowDateTimeLocal()),
+      petugasPelunasan: item.petugasPelunasan || "FINANCE LPK CREATIVA",
       kategori: item.kategori,
-      deskripsi: item.deskripsi,
-      sumberDana: item.sumberDana,
+      deskripsi: item.deskripsi || item.keterangan || "",
+      sumberDana: item.sumberDana || item.akun || "Petty Cash (Kasir)",
       nominal: item.nominal,
       status: item.status,
-      vendor: item.vendor || "",
+      vendor: item.vendor || item.pihak || "",
     });
     setIsModalOpen(true);
   };
@@ -192,20 +317,25 @@ export default function ExpenseTransactionsPage() {
     if (editingItem) {
       setData(data.map(d => d.id === editingItem.id ? {
         ...d,
-        tanggal: form.tanggal,
+        tanggal: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
+        waktuPelunasan: form.waktuPelunasan || getNowDateTimeLocal(),
+        petugasPelunasan: form.petugasPelunasan || "FINANCE LPK CREATIVA",
         kategori: form.kategori,
         deskripsi: form.deskripsi,
+        keterangan: form.deskripsi,
         sumberDana: form.sumberDana,
+        akun: form.sumberDana,
         nominal: Number(form.nominal),
         status: form.status,
         vendor: form.vendor || "Staff/Vendor",
+        pihak: form.vendor || "Staff/Vendor",
       } : d));
       try {
         await accountingMutate({
           action: "update",
           id: editingItem.id,
           type: "expense",
-          transaction_date: form.tanggal,
+          transaction_date: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
           description: form.deskripsi,
           category: form.kategori,
           amount: Number(form.nominal),
@@ -215,19 +345,24 @@ export default function ExpenseTransactionsPage() {
     } else {
       const newItem = {
         id: Date.now(),
-        tanggal: form.tanggal,
+        tanggal: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
+        waktuPelunasan: form.waktuPelunasan || getNowDateTimeLocal(),
+        petugasPelunasan: form.petugasPelunasan || "FINANCE LPK CREATIVA",
         kategori: form.kategori,
         deskripsi: form.deskripsi,
+        keterangan: form.deskripsi,
         sumberDana: form.sumberDana,
+        akun: form.sumberDana,
         nominal: Number(form.nominal),
         status: form.status,
         vendor: form.vendor || "Staff/Vendor",
+        pihak: form.vendor || "Staff/Vendor",
       };
       try {
         await accountingMutate({
           action: "create",
           type: "expense",
-          transaction_date: form.tanggal,
+          transaction_date: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
           description: form.deskripsi,
           category: form.kategori,
           amount: Number(form.nominal),
@@ -236,6 +371,33 @@ export default function ExpenseTransactionsPage() {
       } catch {
         // Local state update ensures immediate UX response
       }
+
+      // Potong saldo rekening di COA (finance_rekening_data) jika pengeluaran langsung Paid
+      if (newItem.status === "Paid") {
+        try {
+          const rekRaw = localStorage.getItem("finance_rekening_data");
+          if (rekRaw) {
+            const rekList = JSON.parse(rekRaw);
+            const amt = Number(newItem.nominal) || 0;
+            if (Array.isArray(rekList) && amt > 0) {
+              const updated = rekList.map(r => {
+                const sDana = (newItem.sumberDana || "").toLowerCase();
+                const match = (r.bank && r.bank.toLowerCase().includes(sDana)) ||
+                              (r.nama && r.nama.toLowerCase().includes(sDana)) ||
+                              (sDana.includes("bca") && (r.noRek?.includes("1832-918-428") || r.noRek?.includes("1234567890")));
+                if (match) {
+                  return { ...r, saldo: Math.max(0, (Number(r.saldo) || 0) - amt) };
+                }
+                return r;
+              });
+              localStorage.setItem("finance_rekening_data", JSON.stringify(updated));
+            }
+          }
+        } catch (e) {
+          console.warn("Gagal update saldo rekening pengeluaran:", e);
+        }
+      }
+
       setData([newItem, ...data]);
     }
 
@@ -244,23 +406,61 @@ export default function ExpenseTransactionsPage() {
     setEditingItem(null);
     setForm({
       tanggal: new Date().toISOString().slice(0, 10),
-      kategori: "Operasional",
+      waktuPelunasan: getNowDateTimeLocal(),
+      petugasPelunasan: "FINANCE LPK CREATIVA",
+      kategori: "Operasional Kantor",
       deskripsi: "",
-      sumberDana: "BCA",
+      sumberDana: "Petty Cash (Kasir)",
       nominal: "",
-      status: "Pending",
-      vendor: "",
+      status: "Paid",
+      vendor: "CV Sukses Listrik",
     });
   };
 
   const columns = [
     { header: "No", accessor: "no", align: "center", className: "w-12 text-slate-400 font-medium", render: (_, i) => (page - 1) * perPage + i + 1 },
-    { header: "Tanggal", accessor: "tanggal", className: "whitespace-nowrap font-medium" },
-    { header: "Kategori", accessor: "kategori", className: "font-semibold text-slate-900" },
-    { header: "Deskripsi", accessor: "deskripsi", className: "max-w-xs truncate" },
-    { header: "Sumber Dana", accessor: "sumberDana" },
-    { header: "Nominal", accessor: "nominal", align: "right", className: "font-bold text-slate-900", render: (r) => formatRupiah(r.nominal) },
-    { header: "Status", accessor: "status", align: "center", render: (r) => <FinanceBadge status={r.status} /> },
+    { 
+      header: "Tanggal & Jam", 
+      accessor: "waktuPelunasan", 
+      className: "whitespace-nowrap font-medium text-slate-700 text-xs",
+      render: (r) => formatWaktuIndo(r.waktuPelunasan, r.tanggal)
+    },
+    { 
+      header: "Pihak / Vendor", 
+      accessor: "vendor", 
+      className: "font-semibold text-slate-900",
+      render: (r) => (
+        <span className="inline-flex items-center gap-1.5 font-bold text-slate-800">
+          <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+          {r.vendor || r.pihak || "—"}
+        </span>
+      )
+    },
+    { header: "Kategori", accessor: "kategori", className: "text-slate-600 font-medium text-xs" },
+    { 
+      header: "Deskripsi Pengeluaran", 
+      accessor: "deskripsi", 
+      className: "max-w-xs truncate text-xs text-slate-600",
+      render: (r) => r.deskripsi || r.keterangan || r.uraian || r.description || (r.vendor ? `Pengadaan ${r.vendor}` : "Beban Operasional LPK")
+    },
+    { 
+      header: "Sumber Dana", 
+      accessor: "sumberDana",
+      className: "text-xs font-semibold text-slate-700",
+      render: (r) => r.sumberDana || r.akun || r.rekening || r.bank || (Number(r.nominal) > 5000000 ? "Bank BCA Operasional" : "Petty Cash (Kasir)")
+    },
+    { header: "Nominal", accessor: "nominal", align: "right", className: "font-bold text-slate-900 font-mono text-xs", render: (r) => formatRupiah(r.nominal) },
+    { 
+      header: "Petugas Pelunasan", 
+      accessor: "petugasPelunasan",
+      render: (r) => (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 whitespace-nowrap">
+          <UserCheck className="w-3 h-3 text-blue-600" />
+          {r.petugasPelunasan || "FINANCE LPK CREATIVA"}
+        </span>
+      )
+    },
+    { header: "Status", accessor: "status", align: "center", render: (r) => <FinanceBadge status={r.status || "Lunas"} /> },
     { 
       header: "Aksi", 
       accessor: "aksi", 
@@ -373,14 +573,48 @@ export default function ExpenseTransactionsPage() {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-blue-500" /> Tanggal & Jam Pelunasan
+              </label>
               <input
-                type="date"
+                type="datetime-local"
                 required
-                value={form.tanggal}
-                onChange={e => setForm({ ...form, tanggal: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                value={form.waktuPelunasan}
+                onChange={e => setForm({ ...form, waktuPelunasan: e.target.value, tanggal: e.target.value ? e.target.value.slice(0, 10) : form.tanggal })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> Petugas Pelunasan (Nama User)
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Contoh: FINANCE LPK CREATIVA"
+                value={form.petugasPelunasan}
+                onChange={e => setForm({ ...form, petugasPelunasan: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold text-slate-800"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5 text-purple-500" /> Pihak / Vendor Penerima
+              </label>
+              <input
+                type="text"
+                required
+                list="expenseVendorListOptions"
+                placeholder="Contoh: CV Sukses Listrik"
+                value={form.vendor}
+                onChange={e => setForm({ ...form, vendor: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold text-slate-800"
+              />
+              <datalist id="expenseVendorListOptions">
+                {vendorList.map((v, i) => (
+                  <option key={i} value={v} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Kategori Pengeluaran</label>
@@ -389,7 +623,7 @@ export default function ExpenseTransactionsPage() {
                 onChange={e => setForm({ ...form, kategori: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               >
-                <option value="Operasional">Operasional Kantor</option>
+                <option value="Operasional Kantor">Operasional Kantor</option>
                 <option value="Pembelian">Pembelian Peralatan / Aset</option>
                 <option value="Reimbursement">Reimbursement Staff</option>
                 <option value="Gaji Karyawan">Penggajian</option>
@@ -404,7 +638,7 @@ export default function ExpenseTransactionsPage() {
                 placeholder="Contoh: Pembelian Laptop Admin atau Tagihan Listrik"
                 value={form.deskripsi}
                 onChange={e => setForm({ ...form, deskripsi: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
               />
             </div>
             <div>
@@ -412,12 +646,12 @@ export default function ExpenseTransactionsPage() {
               <select
                 value={form.sumberDana}
                 onChange={e => setForm({ ...form, sumberDana: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-slate-800"
               >
-                <option value="BCA">Rekening BCA</option>
-                <option value="Bank Mandiri">Rekening Bank Mandiri</option>
-                <option value="E-Wallet">E-Wallet (Petty Cash)</option>
-                <option value="Kas">Kas Tunai Kantor</option>
+                <option value="Petty Cash (Kasir)">Petty Cash (Kas Kecil Tunai & Vendor Kecil)</option>
+                <option value="Bank BCA Operasional">Bank BCA Operasional (LPK Creativa Bridging Intern)</option>
+                <option value="Rekening Cadangan Mandiri">Rekening Cadangan Mandiri</option>
+                <option value="E-Wallet Bisnis">E-Wallet Bisnis (DANA / Flip)</option>
               </select>
             </div>
             <div>
@@ -432,25 +666,15 @@ export default function ExpenseTransactionsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Pihak / Vendor Penerima</label>
-              <input
-                type="text"
-                placeholder="Contoh: CV Sukses Listrik / Toko IT"
-                value={form.vendor}
-                onChange={e => setForm({ ...form, vendor: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Status Awal</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pelunasan</label>
               <select
                 value={form.status}
                 onChange={e => setForm({ ...form, status: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
               >
-                <option value="Pending">Pending (Diajukan)</option>
+                <option value="Paid">Lunas (Paid - Sudah Ditransfer)</option>
                 <option value="Approved">Approved (Disetujui)</option>
-                <option value="Paid">Paid (Sudah Ditransfer)</option>
+                <option value="Pending">Pending (Diajukan)</option>
               </select>
             </div>
           </div>
@@ -497,10 +721,11 @@ export default function ExpenseTransactionsPage() {
               <p className="text-xs text-slate-400 mb-4">Informasi pengajuan biaya pengeluaran operasional</p>
 
               <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
-                <div className="flex justify-between"><span className="text-slate-500">Tanggal:</span><span className="font-semibold text-slate-800">{selectedItem.tanggal}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Tanggal & Jam:</span><span className="font-semibold text-slate-800">{formatWaktuIndo(selectedItem.waktuPelunasan, selectedItem.tanggal)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Petugas Pelunasan:</span><span className="font-semibold text-blue-700">{selectedItem.petugasPelunasan || "FINANCE LPK CREATIVA"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Pihak / Vendor:</span><span className="font-bold text-slate-900">{selectedItem.vendor || selectedItem.pihak || "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Kategori:</span><span className="font-semibold text-slate-800">{selectedItem.kategori}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Deskripsi:</span><span className="font-semibold text-slate-800">{selectedItem.deskripsi}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Pihak / Vendor:</span><span className="font-semibold text-slate-800">{selectedItem.vendor || "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Sumber Dana:</span><span className="font-semibold text-slate-800">{selectedItem.sumberDana}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Nominal:</span><span className="font-bold text-rose-600 text-sm">{formatRupiah(selectedItem.nominal)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Status:</span><FinanceBadge status={selectedItem.status} /></div>

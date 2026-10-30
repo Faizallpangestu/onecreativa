@@ -13,8 +13,10 @@ function budget_query(mysqli $db, string $sql, string $types = '', array $params
 }
 
 function budget_permissions(array $actor, ?mysqli $db = null): array {
-    return ['can_submit' => $db ? ac_can($db,$actor,'prepare') : $actor['role'] === 'finance',
-        'can_approve' => $db ? ac_can($db,$actor,'approve') : in_array($actor['role'], ['admin', 'super_admin','director','direktur'], true),
+    $canSubmit = $db ? (ac_can($db,$actor,'prepare') || in_array($actor['role'], ['finance', 'admin', 'super_admin', 'director', 'direktur'], true)) : in_array($actor['role'], ['finance', 'admin', 'super_admin', 'director', 'direktur'], true);
+    $canApprove = $db ? (ac_can($db,$actor,'approve') || in_array($actor['role'], ['admin', 'super_admin','director','direktur'], true)) : in_array($actor['role'], ['admin', 'super_admin','director','direktur'], true);
+    return ['can_submit' => $canSubmit,
+        'can_approve' => $canApprove,
         'actor_id' => (int)$actor['id'], 'actor_name' => $actor['name']];
 }
 

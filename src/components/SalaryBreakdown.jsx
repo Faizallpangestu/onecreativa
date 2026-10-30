@@ -2,16 +2,50 @@ import { formatBudgetMoney, formatBudgetMonth } from "../utils/budgetApi";
 import { SALARY_MANUAL_FIELDS, salarySourceLabel } from "../utils/salaryApi";
 
 export default function SalaryBreakdown({ request, explainZeroAttendance = false }) {
+  const mandatoryFields = SALARY_MANUAL_FIELDS.filter(f => !f.income && (f.key.startsWith('bpjs') || f.key.startsWith('pph')));
+  const internalFields = SALARY_MANUAL_FIELDS.filter(f => !f.income && !f.key.startsWith('bpjs') && !f.key.startsWith('pph'));
+
   return <>
     <div className="salary-breakdown">
       <div><span>Gaji Pokok</span><strong>{formatBudgetMoney(request.base_salary)}</strong><small>{salarySourceLabel(request.salary_source)}{request.base_salary_effective_month && ` · sejak ${formatBudgetMonth(request.base_salary_effective_month)}`}</small></div>
       <div><span>Uang Makan</span><strong>{formatBudgetMoney(request.meal_allowance)}</strong><small>{request.work_days} hari × {formatBudgetMoney(request.meal_rate)}</small></div>
       <div><span>Uang Transport</span><strong>{formatBudgetMoney(request.transport_allowance)}</strong><small>{request.work_days} hari × {formatBudgetMoney(request.transport_rate)}</small></div>
     </div>
-    <div className="salary-component-summary"><div><h3>Pendapatan Tambahan</h3><p><span>THR</span><strong>{formatBudgetMoney(request.thr_amount || 0)}</strong></p></div><div><h3>Potongan Manual Finance</h3>{SALARY_MANUAL_FIELDS.filter(field => !field.income).map(field => <p key={field.key}><span>{field.label}</span><strong>{formatBudgetMoney(request[field.key] || 0)}</strong></p>)}</div></div>
-    <div className="salary-component-totals"><p><span>Jumlah Pendapatan</span><strong>{formatBudgetMoney(request.gross_salary ?? (Number(request.base_salary) + Number(request.meal_allowance) + Number(request.transport_allowance) + Number(request.thr_amount || 0)))}</strong></p><p><span>Jumlah Potongan</span><strong>{formatBudgetMoney(request.total_deductions || 0)}</strong></p></div>
-    <div className="rab-detail-total"><span>Gaji Bersih (Pendapatan − Potongan)</span><strong>{formatBudgetMoney(request.total_salary)}</strong></div>
-    {request.adjustment_note && <p className="salary-help">Catatan Finance: {request.adjustment_note}</p>}
+    <div className="salary-component-summary">
+      <div>
+        <h3>Pendapatan Tambahan</h3>
+        <p><span>THR / Bonus</span><strong>{formatBudgetMoney(request.thr_amount || 0)}</strong></p>
+      </div>
+      <div>
+        <h3>Potongan Wajib Nasional (BPJS & Pajak)</h3>
+        {mandatoryFields.map(field => (
+          <p key={field.key}>
+            <span>{field.label}</span>
+            <strong>{formatBudgetMoney(request[field.key] || 0)}</strong>
+          </p>
+        ))}
+        {internalFields.some(field => Number(request[field.key] || 0) > 0) && (
+          <>
+            <h3 style={{ marginTop: "12px", borderTop: "1px dashed var(--border-color, #e2e8f0)", paddingTop: "8px" }}>Potongan Internal</h3>
+            {internalFields.map(field => (
+              <p key={field.key}>
+                <span>{field.label}</span>
+                <strong>{formatBudgetMoney(request[field.key] || 0)}</strong>
+              </p>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+    <div className="salary-component-totals">
+      <p><span>Jumlah Pendapatan Bruto</span><strong>{formatBudgetMoney(request.gross_salary ?? (Number(request.base_salary) + Number(request.meal_allowance) + Number(request.transport_allowance) + Number(request.thr_amount || 0)))}</strong></p>
+      <p><span>Total Potongan</span><strong>{formatBudgetMoney(request.total_deductions || 0)}</strong></p>
+    </div>
+    <div className="rab-detail-total">
+      <span>Gaji Bersih / Take Home Pay (THP)</span>
+      <strong>{formatBudgetMoney(request.total_salary)}</strong>
+    </div>
+    {request.adjustment_note && <p className="salary-help">Catatan Penggajian: {request.adjustment_note}</p>}
     {explainZeroAttendance && Number(request.work_days) === 0 && <div className="salary-attendance-note" role="note">
       <strong>Tunjangan Rp0 karena perhitungan memakai 0 hari hadir</strong>
       <p>Periode absensi {formatBudgetMonth(request.month)}. Uang makan dan transport mengikuti jumlah hari hadir yang tercatat pada perhitungan ini.</p>

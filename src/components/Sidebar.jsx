@@ -802,17 +802,6 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
       category: "SETTINGS",
       items: [
         {
-          label: "Pengaturan Sistem",
-          path: "/settings",
-          hidden: !(isAdmin || isFinance),
-          icon: (
-            <SidebarIcon>
-              <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
           label: "Pengaturan Lokasi",
           path: "/location-settings",
           hidden: !(isAdmin || isFinance),
@@ -911,7 +900,7 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
           icon: <Target className="h-5 w-5" strokeWidth={1.8} />,
           subItems: [
             { label: "Anggaran", path: "/anggaran" },
-            { label: "Realisasi", path: "/anggaran?tab=realisasi" },
+            { label: "Realisasi", path: "/realisasi" },
           ],
         },
         {
@@ -919,7 +908,7 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
           icon: <PieChart className="h-5 w-5" strokeWidth={1.8} />,
           subItems: [
             { label: "Profit & Loss", path: "/profit" },
-            { label: "Balance Sheet", path: "/laporan-keuangan?report=balance_sheet" },
+            { label: "Balance Sheet", path: "/balance-sheet" },
             { label: "Cash Flow", path: "/cashflow" },
             { label: "Financial Report", path: "/laporan-keuangan" },
           ],
@@ -931,16 +920,6 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
             { label: "Audit Trail", path: "/buku-transaksi" },
             { label: "Proyeksi vs Realisasi", path: "/dashboard-finance#analitik" },
           ],
-        },
-      ],
-    },
-    {
-      category: "PENGATURAN",
-      items: [
-        {
-          label: "Pengaturan Sistem",
-          path: "/settings",
-          icon: <Settings className="h-5 w-5" strokeWidth={1.8} />,
         },
       ],
     },

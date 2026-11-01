@@ -31,7 +31,7 @@ try{
                 'reimbursement'=>['reimbursements',"SELECT r.id,CONCAT('REIMB-',r.id) AS number,r.amount,COALESCE(e.full_name,u.email) AS party_name,r.status FROM reimbursements r LEFT JOIN users u ON u.id=r.user_id LEFT JOIN employees e ON e.user_id=u.id WHERE r.status='approved' ORDER BY r.id DESC"],
                 'vendor_bill'=>['vendor_bills',"SELECT b.id,b.number,b.amount,v.name AS party_name,b.status FROM vendor_bills b JOIN vendors v ON v.id=b.vendor_id WHERE b.status='approved' ORDER BY b.id DESC"],
                 'asset'=>['assets','SELECT id,asset_code AS number,purchase_price AS amount,name AS party_name FROM assets ORDER BY id DESC'],
-                'legacy_finance'=>['finance_records',"SELECT f.id,CONCAT('FIN-',f.id) AS number,f.amount,f.description AS party_name,f.transaction_date FROM finance_records f LEFT JOIN accounting_transactions t ON t.legacy_finance_id=f.id WHERE t.id IS NULL AND f.budget_request_id IS NULL ORDER BY f.id DESC"]
+                'legacy_finance'=>['finance_records',"SELECT f.id,CONCAT('FIN-',f.id) AS number,f.amount,f.description AS party_name,f.transaction_date FROM finance_records f LEFT JOIN accounting_transactions t ON t.legacy_finance_id=f.id WHERE t.id IS NULL ORDER BY f.id DESC"]
             ];
             foreach($sourceQueries as $type=>[$table,$sql])if(ac_table($conn,$table))$data['sources'][$type]=ac_rows($conn,$sql);
         }elseif($view==='detail')$data=ac_transaction_detail($conn,(string)($_GET['id']??''));

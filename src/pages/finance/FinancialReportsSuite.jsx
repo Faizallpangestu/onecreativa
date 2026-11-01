@@ -39,6 +39,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
   const [period, setPeriod] = useState("2026-10");
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState(null);
+  const [reportError, setReportError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Modal State for CRUD Adjustments
@@ -65,140 +66,19 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
   // Fetch report data from PHP API
   const fetchReports = async () => {
     setLoading(true);
+    setReportError("");
     try {
-      const res = await axios.get(`/backend/api/financial_reports.php?period=${period}`);
+      const res = await axios.get(`/api/financial_reports.php?period=${period}`);
       if (res.data?.status === "success") {
         setReportData(res.data);
+      } else {
+        setReportData(null);
+        setReportError(res.data?.message || "Laporan jurnal tidak tersedia.");
       }
     } catch (err) {
-      console.warn("Using fallback financial reports data:", err);
-      // Fallback baseline data if API is inaccessible
-      const fallbackPnl = {
-        total_revenue: 143800000,
-        total_cogs: 37500000,
-        gross_profit: 106300000,
-        total_opex: 51700000,
-        operating_profit: 54600000,
-        total_other: 200000,
-        net_profit: 54800000,
-        operating_revenue: [
-          { code: "4-101", name: "Biaya Pelatihan Bahasa Jepang Reguler (N5 & N4)", amount: 58000000 },
-          { code: "4-102", name: "Program Intensif Tokutei Ginou (SSW) Pemagangan", amount: 74500000 },
-          { code: "4-103", name: "Uang Pendaftaran & Seleksi Siswa Baru", amount: 4500000 },
-          { code: "4-104", name: "Pengadaan Modul Minna no Nihongo & Kotoba", amount: 6800000 }
-        ],
-        cost_of_services: [
-          { code: "5-101", name: "Honor & Insentif Sensei Bahasa Jepang", amount: 22000000 },
-          { code: "5-102", name: "Biaya Ujian Sertifikasi (JFT-Basic & Prometric SSW)", amount: 9000000 },
-          { code: "5-103", name: "Biaya Cetak & Penggandaan Modul Siswa", amount: 6500000 }
-        ],
-        operating_expenses: [
-          { code: "6-101", name: "Beban Utilitas Kantor (Listrik PLN, WiFi Biznet & Air)", amount: 8500000 },
-          { code: "6-102", name: "Beban Fasilitas & Pemeliharaan Asrama Siswa", amount: 14000000 },
-          { code: "6-103", name: "Gaji & Tunjangan Staf Administrasi & Manajemen", amount: 18500000 },
-          { code: "6-104", name: "Beban Pemasaran, Sosialisasi & Publikasi Sosmed", amount: 7500000 },
-          { code: "6-105", name: "Beban Perlengkapan & Pemeliharaan Lab Komputer", amount: 3200000 }
-        ],
-        other_income_expenses: [
-          { code: "7-101", name: "Pendapatan Bunga Rekening Giro Bank", amount: 450000 },
-          { code: "8-101", name: "Beban Administrasi Bank & Pajak Bunga", amount: -250000 }
-        ]
-      };
-
-      const fallbackBs = {
-        total_assets: 304600000,
-        total_current_assets: 177600000,
-        total_fixed_assets: 127000000,
-        total_liabilities: 61600000,
-        total_current_liabilities: 36600000,
-        total_long_term_liabilities: 25000000,
-        total_equity: 243000000,
-        total_liabilities_equity: 304600000,
-        is_balanced: true,
-        balance_diff: 0,
-        current_assets: [
-          { code: "1-101", name: "Kas Kecil (Petty Cash Finance & Kasir)", amount: 7500000 },
-          { code: "1-102", name: "Bank BCA - Rekening Utama Operasional", amount: 84200000 },
-          { code: "1-103", name: "Bank BNI - Rekening Penerimaan Siswa", amount: 52800000 },
-          { code: "1-104", name: "Piutang Siswa (Cicilan Pelatihan Berjalan)", amount: 24500000 },
-          { code: "1-105", name: "Persediaan Buku Modul & Perlengkapan Belajar", amount: 8600000 }
-        ],
-        fixed_assets: [
-          { code: "1-201", name: "Peralatan Lab Komputer & Audio Bahasa", amount: 45000000 },
-          { code: "1-202", name: "Fasilitas & Ranjang Bertingkat Asrama Siswa", amount: 38000000 },
-          { code: "1-203", name: "Kendaraan Operasional Antar Jemput", amount: 65000000 },
-          { code: "1-299", name: "Akumulasi Penyusutan Aset Tetap", amount: -21000000 }
-        ],
-        current_liabilities: [
-          { code: "2-101", name: "Utang Usaha (Vendor Modul & Percetakan)", amount: 6500000 },
-          { code: "2-102", name: "Biaya Akrual yang Masih Harus Dibayar (Honor Sensei)", amount: 8200000 },
-          { code: "2-103", name: "Pendapatan Diterima di Muka (DP Siswa Batch Baru)", amount: 19500000 },
-          { code: "2-104", name: "Utang Pajak PPh 21 / 23 Karyawan & Sensei", amount: 2400000 }
-        ],
-        long_term_liabilities: [
-          { code: "2-201", name: "Utang Pembiayaan Fasilitas Jangka Panjang", amount: 25000000 }
-        ],
-        equity: [
-          { code: "3-101", name: "Modal Awal Disetor LPK Creativa", amount: 150000000 },
-          { code: "3-102", name: "Laba Ditahan Periode Sebelumnya (Retained Earnings)", amount: 38200000 },
-          { code: "3-103", name: "Laba Bersih Periode Berjalan (Current Net Profit)", amount: 54800000 }
-        ]
-      };
-
-      const fallbackCf = {
-        operating: [
-          { title: "Penerimaan Kas dari Pelunasan Siswa & Invoice", amount: 139300000 },
-          { title: "Penerimaan Uang Muka Registrasi Siswa Baru", amount: 19500000 },
-          { title: "Pembayaran Honor Sensei & Pengajar Native", amount: -22000000 },
-          { title: "Pembayaran Utilitas Kantor (Listrik, WiFi, Air)", amount: -8500000 },
-          { title: "Pembayaran Fasilitas & Pemeliharaan Asrama", amount: -14000000 },
-          { title: "Pembayaran Gaji Staf Administrasi & Manajemen", amount: -18500000 },
-          { title: "Pembayaran Pengadaan Cetak Modul & Kamus", amount: -6500000 },
-          { title: "Pembayaran Pemasaran & Operasional Lainnya", amount: -13100000 }
-        ],
-        investing: [
-          { title: "Pengadaan Komputer & Peralatan Lab Bahasa", amount: -4500000 },
-          { title: "Renovasi & Perlengkapan Fasilitas Asrama", amount: -3000000 }
-        ],
-        financing: [
-          { title: "Pembayaran Pokok Angsuran Pinjaman Fasilitas", amount: -5000000 }
-        ],
-        summary: {
-          beginning_cash: 104500000,
-          net_operating: 52500000,
-          net_investing: -7500000,
-          net_financing: -5000000,
-          net_change: 40000000,
-          ending_cash: 144500000,
-          verified_cash_bank: 144500000
-        }
-      };
-
-      setReportData({
-        status: "success",
-        period: "2026-10",
-        kpis: {
-          total_revenue: 143800000,
-          total_cogs: 37500000,
-          gross_profit: 106300000,
-          total_opex: 51700000,
-          net_profit: 54800000,
-          total_assets: 304600000,
-          total_liabilities: 61600000,
-          total_equity: 243000000,
-          total_cash_and_bank: 144500000,
-          gross_margin: 73.9,
-          net_margin: 38.1,
-          current_ratio: 4.85,
-          cash_ratio: 3.95,
-          is_balanced: true,
-          balance_diff: 0
-        },
-        profit_loss: fallbackPnl,
-        balance_sheet: fallbackBs,
-        cash_flow: fallbackCf,
-        adjustments: []
-      });
+      console.error("Laporan jurnal gagal dimuat:", err);
+      setReportData(null);
+      setReportError("Laporan tidak dapat dimuat dari jurnal database. Angka dummy tidak digunakan.");
     } finally {
       setLoading(false);
     }
@@ -260,7 +140,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
         notes: formData.notes
       };
 
-      const res = await axios.post("/backend/api/financial_reports.php", payload);
+      const res = await axios.post("/api/financial_reports.php", payload);
       if (res.data?.status === "success") {
         Swal.fire({
           icon: "success",
@@ -275,9 +155,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
         Swal.fire("Gagal", res.data?.message || "Gagal memproses penyesuaian.", "error");
       }
     } catch (err) {
-      Swal.fire("Peringatan", "Penyesuaian tersimpan secara offline.", "info");
-      setIsModalOpen(false);
-      setRefreshKey((k) => k + 1);
+      Swal.fire("Gagal", "Penyesuaian wajib tersimpan di database jurnal dan tidak disimpan offline.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -298,7 +176,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
 
     if (result.isConfirmed) {
       try {
-        const res = await axios.post("/backend/api/financial_reports.php", {
+        const res = await axios.post("/api/financial_reports.php", {
           action: "delete",
           id: id
         });
@@ -440,7 +318,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
                   <option value="2026-10">Oktober 2026</option>
                   <option value="2026-09">September 2026</option>
                   <option value="2026-08">Agustus 2026</option>
-                  <option value="2026-all">Tahun Berjalan 2026</option>
+                  <option value="all">Semua Periode sampai Hari Ini</option>
                 </select>
               </div>
 
@@ -467,16 +345,25 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
               {/* Action: Add Adjustment CRUD */}
               <button
                 type="button"
-                onClick={handleOpenCreateModal}
+                onClick={() => { window.location.href = "/finance/journal"; }}
                 className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Penyesuaian</span>
+                <span>Adjustment via Jurnal</span>
               </button>
             </div>
           </div>
 
           {/* ── PRINT LETTERHEAD (Only Visible when Printing) ── */}
+          {(reportError || reportData?.data_source !== "live_journal" || reportData?.unposted_adjustments > 0) && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <strong>Perhatian CFO:</strong>{" "}
+              {reportError || (reportData?.unposted_adjustments > 0
+                ? `${reportData.unposted_adjustments} penyesuaian lama belum menjadi jurnal double-entry dan tidak dimasukkan ke laporan resmi.`
+                : "Belum ada jurnal posted pada periode ini. Laporan ditampilkan nol sampai transaksi diposting; tidak menggunakan data dummy.")}
+            </div>
+          )}
+
           <div className="hidden print:block mb-8 text-center border-b pb-4">
             <h2 className="text-xl font-bold uppercase tracking-wider text-slate-900">LPK CREATIVA BRIDGING INTERNATIONAL</h2>
             <p className="text-xs text-slate-600">Lembaga Pelatihan Kerja & Pengiriman Tenaga Kerja Jepang Berkualitas</p>

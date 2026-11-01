@@ -12,36 +12,7 @@ import {
 import { accountingGet, accountingMutate } from "../../utils/accountingApi";
 import { Plus, Landmark, Wallet, CreditCard, ChevronRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
-const INITIAL_COA = [
-  // Assets -> Cash and Bank
-  { id: 1, kode: "1001", nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", subtype: "AST-CB", rekeningDetail: "Kasir & Kas Kecil Tunai Kantor", tipe: "Assets", kategori: "Cash and Bank", saldo: 5000000, status: "Aktif" },
-  { id: 2, kode: "1002", nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)", subtype: "AST-CB", rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428", tipe: "Assets", kategori: "Cash and Bank", saldo: 145200000, status: "Aktif" },
-  { id: 3, kode: "1003", nama: "Bank Mandiri Utama", subtype: "AST-CB", rekeningDetail: "Mandiri a/n PT LPK Creativa 130-0019283", tipe: "Assets", kategori: "Cash and Bank", saldo: 78500000, status: "Aktif" },
-  { id: 4, kode: "1004", nama: "Bank BNI Tabungan", subtype: "AST-CB", rekeningDetail: "BNI a/n PT LPK Creativa 088-771122", tipe: "Assets", kategori: "Cash and Bank", saldo: 35000000, status: "Aktif" },
-  { id: 5, kode: "1005", nama: "Flip / E-Wallet Perusahaan", subtype: "AST-CB", rekeningDetail: "DANA & Flip Bisnis 0812-9988-7766", tipe: "Assets", kategori: "Cash and Bank", saldo: 12500000, status: "Aktif" },
-  { id: 6, kode: "1101", nama: "Piutang SPP Siswa", subtype: "AST-AR", rekeningDetail: "Tagihan Belum Lunas Siswa Intensif", tipe: "Assets", kategori: "Accounts Receivable", saldo: 45000000, status: "Aktif" },
-  { id: 7, kode: "1201", nama: "Peralatan Komputer & Lab", subtype: "AST-FA", rekeningDetail: "Aset Tetap PC & Server", tipe: "Assets", kategori: "Fixed Assets", saldo: 65000000, status: "Aktif" },
-
-  // Liabilities
-  { id: 8, kode: "2001", nama: "Utang Usaha / Vendor", subtype: "LIA-AP", rekeningDetail: "Tagihan Supplier Buku & ATK", tipe: "Liabilities & Credit Cards", kategori: "Accounts Payable", saldo: 18500000, status: "Aktif" },
-  { id: 9, kode: "2002", nama: "Kartu Kredit Corporate BCA", subtype: "LIA-CC", rekeningDetail: "Limit CC BCA 50jt", tipe: "Liabilities & Credit Cards", kategori: "Credit Cards", saldo: 6200000, status: "Aktif" },
-  { id: 10, kode: "2101", nama: "Utang Gaji Instruktur", subtype: "LIA-AC", rekeningDetail: "Accrued Payroll Sensei", tipe: "Liabilities & Credit Cards", kategori: "Current Liabilities", saldo: 0, status: "Aktif" },
-
-  // Income
-  { id: 11, kode: "4001", nama: "Pendapatan Kursus Bahasa Jepang", subtype: "INC-OP", rekeningDetail: "SPP Bulanan Peserta Intensif", tipe: "Income", kategori: "Operating Revenue", saldo: 215000000, status: "Aktif" },
-  { id: 12, kode: "4002", nama: "Pendapatan Pendaftaran Siswa Baru", subtype: "INC-OP", rekeningDetail: "Biaya Registrasi & Formulir", tipe: "Income", kategori: "Operating Revenue", saldo: 30000000, status: "Aktif" },
-  { id: 13, kode: "4003", nama: "Pendapatan Program Matching Job", subtype: "INC-OTH", rekeningDetail: "Biaya Penempatan Tokutei Ginou", tipe: "Income", kategori: "Other Revenue", saldo: 85000000, status: "Aktif" },
-
-  // Expenses
-  { id: 14, kode: "5001", nama: "Beban Gaji Sensei & Karyawan", subtype: "EXP-OP", rekeningDetail: "Payroll Bulanan", tipe: "Expenses", kategori: "Operating Expenses", saldo: 85000000, status: "Aktif" },
-  { id: 15, kode: "5002", nama: "Beban Sewa Gedung Kampus", subtype: "EXP-OP", rekeningDetail: "Sewa Tempat LPK", tipe: "Expenses", kategori: "Operating Expenses", saldo: 25000000, status: "Aktif" },
-  { id: 16, kode: "5003", nama: "Beban Listrik, Internet & Air", subtype: "EXP-OP", rekeningDetail: "PLN, Indihome, PDAM", tipe: "Expenses", kategori: "Operating Expenses", saldo: 6500000, status: "Aktif" },
-  { id: 17, kode: "5004", nama: "Beban Pengadaan Modul & Seragam", subtype: "EXP-OP", rekeningDetail: "Buku Minna no Nihongo & Seragam", tipe: "Expenses", kategori: "Course Material", saldo: 14000000, status: "Aktif" },
-
-  // Equity
-  { id: 18, kode: "3001", nama: "Modal Disetor Pemilik", subtype: "EQ-CAP", rekeningDetail: "Modal Saham Awal Perusahaan", tipe: "Equity", kategori: "Owner's Equity", saldo: 300000000, status: "Aktif" },
-  { id: 19, kode: "3002", nama: "Laba Ditahan (Retained Earnings)", subtype: "EQ-RE", rekeningDetail: "Akumulasi Laba Bersih Periode Lalu", tipe: "Equity", kategori: "Retained Earnings", saldo: 86500000, status: "Aktif" },
-];
+const INITIAL_COA = [];
 
 const TABS = [
   { key: "Assets", label: "Assets" },
@@ -58,31 +29,12 @@ export default function CoaPage() {
       if (saved) {
         let parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Auto-heal jika ada 1002 yang keliru bernama Petty Cash
-          parsed = parsed.map(c => {
-            const nameLower = (c.nama || "").toLowerCase();
-            const isPetty = nameLower.includes("petty") || nameLower.includes("kas kecil");
-            if (c.kode === "1002" && isPetty) {
-              return {
-                ...c,
-                nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)",
-                rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428"
-              };
-            }
-            if (c.kode === "1001" && !isPetty) {
-              return {
-                ...c,
-                nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)",
-                rekeningDetail: "Kasir & Kas Kecil Tunai Kantor"
-              };
-            }
-            return c;
-          });
-          return parsed;
+          const hasMock = parsed.some(c => c.saldo === 145200000 || c.saldo === 215000000);
+          if (!hasMock) return parsed;
         }
       }
     } catch (e) {}
-    return INITIAL_COA;
+    return [];
   });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("Assets");
@@ -98,6 +50,51 @@ export default function CoaPage() {
       localStorage.setItem("finance_coa_data", JSON.stringify(data));
     } catch (e) {}
   }, [data]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    axios.get("/api/accounting.php?view=lookups")
+      .then(res => {
+        if (!active) return;
+        const raw = res.data?.data?.accounts || res.data?.accounts || [];
+        const typeMap = {
+          1: "Assets",
+          2: "Liabilities & Credit Cards",
+          3: "Equity",
+          4: "Income",
+          5: "Expenses"
+        };
+        const catMap = {
+          cash: "Cash and Bank",
+          receivable: "Accounts Receivable",
+          payable: "Accounts Payable",
+          revenue: "Operating Revenue",
+          expense: "Operating Expenses"
+        };
+        const apiCoa = raw.map(a => ({
+          id: a.id,
+          kode: a.code,
+          nama: a.name,
+          tipe: typeMap[a.account_group] || "Assets",
+          kategori: catMap[a.report_class] || a.report_class || "General",
+          rekeningDetail: a.report_class === 'cash' ? "Akun Kas & Bank Riil" : `Klasifikasi: ${a.report_class}`,
+          saldo: Number(a.balance || 0),
+          status: Number(a.is_active) === 0 ? "Nonaktif" : "Aktif"
+        }));
+        if (apiCoa.length > 0) {
+          setData(apiCoa);
+          try {
+            localStorage.setItem("finance_coa_data", JSON.stringify(apiCoa));
+          } catch (e) {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   const [form, setForm] = useState({
     kode: "",

@@ -13,14 +13,7 @@ import { Building2, CheckCircle2, XCircle, Eye, Plus, Phone, Mail, Trash2 } from
 import axios from "axios";
 import Swal from "sweetalert2";
 
-const INITIAL_VENDORS = [
-  { id: 1, nama: "CV Sukses Listrik", kategori: "Operasional", kontak: "0812-xxxx-1234", email: "sukseslistrik@gmail.com", alamat: "Jl. Raya Cianjur No. 45", status: "Aktif" },
-  { id: 2, nama: "PT Maju Internet", kategori: "Operasional", kontak: "0813-xxxx-5678", email: "sales@majuinternet.net", alamat: "Gedung Cyber Lt. 3, Jakarta", status: "Aktif" },
-  { id: 3, nama: "Toko Office Equipment", kategori: "Peralatan", kontak: "0817-xxxx-9012", email: "office.eq@toko.com", alamat: "Jl. Pasirhayam, Cianjur", status: "Aktif" },
-  { id: 4, nama: "Percetakan Mitra", kategori: "Modul & Bahan", kontak: "0852-xxxx-3456", email: "mitraprint@gmail.com", alamat: "Jl. Siliwangi No. 12", status: "Aktif" },
-  { id: 5, nama: "Cianjur Catering Service", kategori: "Konsumsi", kontak: "0877-xxxx-7890", email: "catering.cjr@gmail.com", alamat: "Komplek BLK Cianjur", status: "Nonaktif" },
-  { id: 6, nama: "Klinik Medika Pratama", kategori: "Medical Checkup", kontak: "0811-xxxx-4433", email: "info@medikapratama.id", alamat: "Jl. Dr. Muwardi, Cianjur", status: "Aktif" },
-];
+const INITIAL_VENDORS = [];
 
 export default function VendorsPage() {
   const [data, setData] = useState(() => {
@@ -30,12 +23,12 @@ export default function VendorsPage() {
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter(v => !deletedIds.includes(String(v.id)) && !deletedIds.includes(v.nama));
+          const dummyNames = ["CV Sukses Listrik", "PT Maju Internet", "Toko Office Equipment", "Percetakan Mitra", "Cianjur Catering Service", "Klinik Medika Pratama"];
+          return parsed.filter(v => !dummyNames.includes(v.nama) && !deletedIds.includes(String(v.id)));
         }
       }
-      return INITIAL_VENDORS.filter(v => !deletedIds.includes(String(v.id)) && !deletedIds.includes(v.nama));
     } catch (e) {}
-    return INITIAL_VENDORS;
+    return [];
   });
 
   const [loading, setLoading] = useState(false);
@@ -61,6 +54,36 @@ export default function VendorsPage() {
       localStorage.setItem("finance_vendors_data", JSON.stringify(data));
     } catch (e) {}
   }, [data]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    axios.get("/api/accounting.php?view=lookups")
+      .then(res => {
+        if (!active) return;
+        const raw = res.data?.data?.vendors || res.data?.vendors || [];
+        const apiVendors = raw.map((v, i) => ({
+          id: v.id || i + 1,
+          nama: v.name || v.nama,
+          kategori: v.category || "Operasional Kantor",
+          kontak: v.phone || v.contact || "—",
+          email: v.email || "—",
+          alamat: v.address || "—",
+          status: Number(v.is_active) === 0 ? "Nonaktif" : "Aktif"
+        }));
+        if (apiVendors.length > 0) {
+          setData(apiVendors);
+          try {
+            localStorage.setItem("finance_vendors_data", JSON.stringify(apiVendors));
+          } catch (e) {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   // Broadcast dan listener antar tab
   const notifyVendorChange = (updatedList) => {

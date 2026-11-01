@@ -26,12 +26,14 @@ export default defineConfig({
 
       // Workbox config — cache strategy
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 10485760, // Naikkan limit ke 10MB (default 2MB)
         // Cache the small shell at installation; cache feature assets when used.
         globPatterns: ['index.html', 'manifest.webmanifest', 'icons/*.png'],
         // Jangan cache model face-api (terlalu besar, gunakan cache terpisah)
         globIgnores: ['**/models/**'],
-        cleanupOutdatedCaches: true,
         // Keep repeat visits on the lightweight public login, not the SPA fallback.
         navigateFallbackDenylist: [/^\/login(?:[./?]|$)/, /^\/(?:\?.*)?$/, /^\/api\//],
         runtimeCaching: [
@@ -44,10 +46,10 @@ export default defineConfig({
             urlPattern: ({url, sameOrigin}) => sameOrigin && url.pathname.startsWith('/assets/'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'creativa-assets-v2',
+              cacheName: 'creativa-assets-v3',
               expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 tahun
+                maxEntries: 150,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 hari
               },
               cacheableResponse: {
                 statuses: [0, 200]

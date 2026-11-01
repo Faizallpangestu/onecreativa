@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import {
@@ -36,7 +36,7 @@ import {
   Area
 } from "recharts";
 import * as XLSX from "xlsx-js-style";
-import { getRealFinancialData } from "../services/realFinancialService";
+import { fetchRealFinancialData } from "../services/realFinancialApi";
 
 // Helper format angka akuntansi Rupiah
 const formatNum = (val, withPrefix = false) => {
@@ -57,6 +57,8 @@ export default function FinancialReportPage() {
   const [activeTab, setActiveTab] = useState("ringkasan");
   const [activeModal, setActiveModal] = useState(null); // 'calk', 'perubahan_modal', 'arus_kas_langsung'
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [realReport, setRealReport] = useState(null);
+  const [loadError, setLoadError] = useState("");
 
   // Dengarkan event storage agar jika user menambah/mengedit transaksi atau invoice di tab lain, laporan langsung sinkron
   useEffect(() => {
@@ -66,39 +68,25 @@ export default function FinancialReportPage() {
   }, []);
 
   // ── KALKULASI DATA KEUANGAN 100% DARI TRANSAKSI RIIL SISTEM ──
-  const realReport = useMemo(() => {
-    return getRealFinancialData(selectedPeriod, comparePeriod);
+  useEffect(() => {
+    let active = true;
+    fetchRealFinancialData(selectedPeriod, comparePeriod)
+      .then(report => { if (active) setRealReport(report); })
+      .catch(error => { if (active) { setRealReport(null); setLoadError(error.message || "Laporan gagal dimuat."); } });
+    return () => { active = false; };
   }, [selectedPeriod, comparePeriod, refreshTrigger]);
+
+  if (!realReport) {
+    return <Layout><div className="p-8 text-center text-slate-500">{loadError || "Memuat laporan dari database production..."}</div></Layout>;
+  }
 
   const { kpis, balanceSheet, pnl, ratios, compositions, cashflow } = realReport;
 
   // ── DATA CHART 1: PENDAPATAN VS BEBAN (BULANAN) DENGAN DATA RIIL AGREGAT ──
-  const monthlyPnLData = [
-    { bulan: "Jan", pendapatan: 110, beban: 85, laba: 25 },
-    { bulan: "Feb", pendapatan: 130, beban: 95, laba: 35 },
-    { bulan: "Mar", pendapatan: 145, beban: 105, laba: 40 },
-    { bulan: "Apr", pendapatan: 165, beban: 115, laba: 50 },
-    { bulan: "Mei", pendapatan: 180, beban: 125, laba: 55 },
-    { bulan: "Jun", pendapatan: 195, beban: 135, laba: 60 },
-    { bulan: "Jul", pendapatan: 210, beban: 150, laba: 60 },
-    { bulan: "Agu", pendapatan: 220, beban: 160, laba: 60 },
-    { bulan: "Sep", pendapatan: Number((pnl.totRevSep / 1000000).toFixed(1)), beban: Number((kpis.totalExpensesSep / 1000000).toFixed(1)), laba: Number((pnl.netProfitSep / 1000000).toFixed(1)) },
-    { bulan: "Okt", pendapatan: Number((pnl.totRevOkt / 1000000).toFixed(1)), beban: Number((kpis.totalExpenses / 1000000).toFixed(1)), laba: Number((pnl.netProfitOkt / 1000000).toFixed(1)) },
-  ];
+  const monthlyPnLData = realReport.monthlyPnLData;
 
   // ── DATA CHART 2: ARUS KAS (BULANAN) DENGAN DATA RIIL AGREGAT ──
-  const monthlyCashflowData = [
-    { bulan: "Jan", kasMasuk: 100, kasKeluar: 80, saldoKas: 40 },
-    { bulan: "Feb", kasMasuk: 110, kasKeluar: 85, saldoKas: 45 },
-    { bulan: "Mar", kasMasuk: 125, kasKeluar: 95, saldoKas: 55 },
-    { bulan: "Apr", kasMasuk: 140, kasKeluar: 105, saldoKas: 68 },
-    { bulan: "Mei", kasMasuk: 130, kasKeluar: 110, saldoKas: 65 },
-    { bulan: "Jun", kasMasuk: 135, kasKeluar: 115, saldoKas: 70 },
-    { bulan: "Jul", kasMasuk: 165, kasKeluar: 135, saldoKas: 85 },
-    { bulan: "Agu", kasMasuk: 145, kasKeluar: 130, saldoKas: 90 },
-    { bulan: "Sep", kasMasuk: Number((pnl.totRevSep / 1000000 * 0.8).toFixed(1)), kasKeluar: Number((kpis.totalExpensesSep / 1000000 * 0.8).toFixed(1)), saldoKas: Number((kpis.cashAndBankSep / 1000000).toFixed(1)) },
-    { bulan: "Okt", kasMasuk: Number((pnl.totRevOkt / 1000000 * 0.85).toFixed(1)), kasKeluar: Number((kpis.totalExpenses / 1000000 * 0.85).toFixed(1)), saldoKas: Number((kpis.cashAndBank / 1000000).toFixed(1)) },
-  ];
+  const monthlyCashflowData = realReport.monthlyCashflowData;
 
   // ── EXPORT EXCEL DARI DATA RIIL ──
   const handleExport = () => {

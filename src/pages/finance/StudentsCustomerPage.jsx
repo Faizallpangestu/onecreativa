@@ -29,17 +29,10 @@ import {
 import axios from "axios";
 import Swal from "sweetalert2";
 
-const INITIAL_STUDENTS = [
-  { id: 1, nama: "Andi Saputra", nis: "S-001", program: "Program Pelatihan Jepang", batch: "Batch 2", kontak: "0812-3456-1122", email: "andi.saputra@gmail.com", affiliator: "Yayasan Bina Insan", alamat: "Jl. Raya Cianjur - Bandung No. 45", kota: "Kab. Cianjur", provinsi: "Jawa Barat", negara: "Indonesia", kode_pos: "43211", status: "Aktif" },
-  { id: 2, nama: "MUHAMMAD FAIZAL", nis: "S-002", program: "Program Pelatihan Jepang", batch: "Batch 2", kontak: "0812-7788-9900", email: "faizal@creativabridging.com", affiliator: "Mitra LPK Bandung", alamat: "Jl. Ir. H. Juanda No. 12", kota: "Kab. Cianjur", provinsi: "Jawa Barat", negara: "Indonesia", kode_pos: "43211", status: "Aktif" },
-  { id: 3, nama: "RAMSYAWALLY", nis: "S-003", program: "Program Pelatihan Jepang", batch: "Batch 2", kontak: "0813-8899-0011", email: "ramsyawally@gmail.com", affiliator: "LC24 - Yayasan LC", alamat: "Ruko Business Park B1", kota: "Kab. Cianjur", provinsi: "Jawa Barat", negara: "Indonesia", kode_pos: "43211", status: "Aktif" },
-  { id: 4, nama: "APRIANTO", nis: "S-004", program: "Program Pelatihan Jepang", batch: "Batch 2", kontak: "0815-2233-4455", email: "aprianto@gmail.com", affiliator: "SMK Mitra Sukabumi", alamat: "Panembong Girang No. 23", kota: "Kab. Cianjur", provinsi: "Jawa Barat", negara: "Indonesia", kode_pos: "43211", status: "Aktif" },
-  { id: 8, nama: "Riky", nis: "S-008", program: "Program Pelatihan Jepang", batch: "Batch 2", kontak: "0819-4455-6677", email: "riky@gmail.com", affiliator: "-", alamat: "Jl. Pasir Hayam", kota: "Kab. Cianjur", provinsi: "Jawa Barat", negara: "Indonesia", kode_pos: "43211", status: "Aktif" },
-];
-
 export default function StudentsCustomerPage() {
-  const [data, setData] = useState(INITIAL_STUDENTS);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -68,9 +61,13 @@ export default function StudentsCustomerPage() {
 
   const fetchStudents = async (active = true) => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await axios.get("/api/accounting.php?view=lookups");
-      if (active && res.data?.data?.students) {
+      if (!Array.isArray(res.data?.data?.students)) {
+        throw new Error(res.data?.message || "Respons API siswa tidak valid.");
+      }
+      if (active) {
         // Read deleted IDs from localStorage
         const deletedIds = JSON.parse(localStorage.getItem("deleted_students_finance") || "[]");
         // Read custom updated/added students from localStorage
@@ -102,14 +99,14 @@ export default function StudentsCustomerPage() {
             };
           });
 
-        // Also check if any new students were added locally
-        const localOnlyStudents = JSON.parse(localStorage.getItem("local_only_students_finance") || "[]");
-        const activeLocal = localOnlyStudents.filter(s => !deletedIds.includes(Number(s.id)) && !deletedIds.includes(String(s.id)));
-
-        setData([...activeLocal, ...apiStudents]);
+        setData(apiStudents);
       }
     } catch (err) {
       console.error("Gagal mengambil data siswa:", err);
+      if (active) {
+        setData([]);
+        setLoadError(err?.response?.data?.message || err?.message || "Data siswa gagal dimuat dari API pendaftaran.");
+      }
     } finally {
       if (active) setLoading(false);
     }
@@ -578,6 +575,12 @@ export default function StudentsCustomerPage() {
             setSearch("");
           }}
         />
+
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <strong>Data siswa gagal dimuat.</strong> {loadError} Silakan cek API pendaftaran dan konfigurasi production.
+          </div>
+        )}
 
         <FinanceTable
           columns={columns}

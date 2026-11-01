@@ -855,7 +855,6 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
           icon: <TrendingUp className="h-5 w-5" strokeWidth={1.8} />,
           subItems: [
             { label: "Transaksi Pemasukan", path: "/transaksi-pemasukan" },
-            { label: "Invoice", path: "/invoice-penagihan" },
             { label: "Students", path: "/finance/student-billing" },
           ],
         },

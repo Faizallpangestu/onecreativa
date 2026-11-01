@@ -2940,14 +2940,6 @@ function Pager({ page, totalPages, setPage, total, perPage }) {
 }
 
 
-const DEFAULT_BLUEPRINT_INVOICES = [
-  { id: "TGCJ2608001", tanggal: "21/08/2026", customer: "Hany Agesti", program: "Kelas Intensif Offline", total: 15000000, terbayar: 15000000, sisa: 0, status: "Paid", jatuhTempo: "23/08/2026" },
-  { id: "TGCJ2608002", tanggal: "21/08/2026", customer: "Radian Hidayat", program: "Kelas Intensif Offline", total: 18000000, terbayar: 0, sisa: 18000000, status: "Unpaid", jatuhTempo: "23/08/2026" },
-  { id: "TGCJ2608003", tanggal: "20/08/2026", customer: "Andi Saputra", program: "Program SSW", total: 12000000, terbayar: 0, sisa: 12000000, status: "Unpaid", jatuhTempo: "22/08/2026" },
-  { id: "TGCJ2608004", tanggal: "19/08/2026", customer: "Siti Aminah", program: "Kursus Reguler", total: 8000000, terbayar: 4000000, sisa: 4000000, status: "Partially Paid", jatuhTempo: "21/08/2026" },
-  { id: "TGCJ2608005", tanggal: "15/08/2026", customer: "Budi Santoso", program: "Kelas Intensif Offline", total: 20000000, terbayar: 0, sisa: 20000000, status: "Overdue", jatuhTempo: "18/08/2026" },
-];
-
 // ─── TAB 0: Daftar Invoice (MATCHING BLUEPRINT PANEL 1) ───────────────────────
 function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onApprovePayment }) {
   const [statusFilter, setStatusFilter] = useState("Semua Status");
@@ -2976,10 +2968,8 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
     previewReceiptPDF(latestPayment, inv);
   };
 
-  // Normalize data with default fallback
-  const deletedIds = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('deleted_invoice_ids') || '[]') : [];
-  const validDefaults = DEFAULT_BLUEPRINT_INVOICES.filter(i => !deletedIds.includes(i.id));
-  const allInvoices = (data && data.length > 0) ? data.filter(i => !deletedIds.includes(i.id)) : validDefaults;
+  // Invoice state is owned by the production API/database; never render demo defaults.
+  const allInvoices = Array.isArray(data) ? data : [];
 
   // Calculate dynamic totals for KPI cards
   const totalNominal = allInvoices.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
@@ -4109,16 +4099,10 @@ function syncPembayaranWithInvoices(currentInvoices, existingPayments = []) {
 function syncSiswaWithInvoices(currentInvoices, baseSiswaList = []) {
   if (!Array.isArray(currentInvoices)) return baseSiswaList || [];
 
-  let localStudents = [];
-  try {
-    const rawLocal = localStorage.getItem("local_only_students_finance");
-    if (rawLocal) localStudents = JSON.parse(rawLocal);
-  } catch (e) {}
-
   const combinedMap = new Map();
 
-  // 1. Masukkan base siswa default/API
-  (Array.isArray(baseSiswaList) ? baseSiswaList : []).concat(localStudents).forEach((s, idx) => {
+  // Only use students returned by the production API/database.
+  (Array.isArray(baseSiswaList) ? baseSiswaList : []).forEach((s, idx) => {
     const nameKey = (s.nama || s.name || '').trim().toLowerCase();
     if (nameKey) {
       combinedMap.set(nameKey, {
@@ -4216,20 +4200,8 @@ export default function InvoicePenagihan() {
     try {
       const res = await axios.get('/api/billing.php');
       if (res.data.status === 'success' && ['invoices','terkirim','pembayaran','siswa'].every(k => Array.isArray(res.data.data?.[k]))) {
-        const deletedIds = JSON.parse(localStorage.getItem('deleted_invoice_ids') || '[]');
-        const savedCustom = JSON.parse(localStorage.getItem('saved_custom_invoices') || '[]');
-        const savedPayments = JSON.parse(localStorage.getItem('billing_pembayaran_custom') || '[]');
         const serverInvs = res.data.data.invoices || [];
-        const mergedInvs = [
-          ...savedCustom,
-          ...serverInvs.filter(s => !savedCustom.some(b => b.id === s.id))
-        ].filter(inv => !deletedIds.includes(inv.id));
-        const validDefaults = DEFAULT_BLUEPRINT_INVOICES.map(def => {
-          const found = savedCustom.find(s => s.id === def.id);
-          return found || def;
-        }).filter(i => !deletedIds.includes(i.id));
-        
-        const finalInvoices = mergedInvs.length > 0 ? mergedInvs : validDefaults;
+        const finalInvoices = serverInvs;
         setInvoices(finalInvoices);
 
         // 1. SINKRONISASI INVOICE TERKIRIM
@@ -4238,11 +4210,7 @@ export default function InvoicePenagihan() {
         
         // 2. SINKRONISASI PEMBAYARAN
         const serverPayments = res.data.data.pembayaran || [];
-        const mergedPayments = [
-          ...savedPayments,
-          ...serverPayments.filter(sp => !savedPayments.some(cp => cp.id === sp.id || cp.noInv === sp.noInv))
-        ];
-        const syncedPayments = syncPembayaranWithInvoices(finalInvoices, mergedPayments);
+        const syncedPayments = syncPembayaranWithInvoices(finalInvoices, serverPayments);
         setPembayaran(syncedPayments);
 
         // 3. SINKRONISASI SISWA
@@ -4259,20 +4227,8 @@ export default function InvoicePenagihan() {
     axios.get('/api/billing.php').then(({data}) => {
       if (!active) return;
       if (data.status !== 'success' || !['invoices','terkirim','pembayaran','siswa'].every(k => Array.isArray(data.data?.[k]))) throw new Error('Respons billing tidak valid.');
-      const deletedIds = JSON.parse(localStorage.getItem('deleted_invoice_ids') || '[]');
-      const savedCustom = JSON.parse(localStorage.getItem('saved_custom_invoices') || '[]');
-      const savedPayments = JSON.parse(localStorage.getItem('billing_pembayaran_custom') || '[]');
       const serverInvs = data.data.invoices || [];
-      const mergedInvs = [
-        ...savedCustom,
-        ...serverInvs.filter(s => !savedCustom.some(b => b.id === s.id))
-      ].filter(inv => !deletedIds.includes(inv.id));
-      const validDefaults = DEFAULT_BLUEPRINT_INVOICES.map(def => {
-        const found = savedCustom.find(s => s.id === def.id);
-        return found || def;
-      }).filter(i => !deletedIds.includes(i.id));
-      
-      const finalInvoices = mergedInvs.length > 0 ? mergedInvs : validDefaults;
+      const finalInvoices = serverInvs;
       setInvoices(finalInvoices);
 
       // 1. SINKRONISASI INVOICE TERKIRIM
@@ -4281,11 +4237,7 @@ export default function InvoicePenagihan() {
       
       // 2. SINKRONISASI PEMBAYARAN
       const serverPayments = data.data.pembayaran || [];
-      const mergedPayments = [
-        ...savedPayments,
-        ...serverPayments.filter(sp => !savedPayments.some(cp => cp.id === sp.id || cp.noInv === sp.noInv))
-      ];
-      const syncedPayments = syncPembayaranWithInvoices(finalInvoices, mergedPayments);
+      const syncedPayments = syncPembayaranWithInvoices(finalInvoices, serverPayments);
       setPembayaran(syncedPayments);
 
       // 3. SINKRONISASI SISWA

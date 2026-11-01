@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import Layout from "../../components/Layout";
 import { 
   FinancePageHeader, 
@@ -18,24 +19,51 @@ import {
 // Sample Receipt SVG data URI
 const SAMPLE_RECEIPT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='500' viewBox='0 0 400 500'><rect width='400' height='500' fill='%23f8fafc'/><rect x='20' y='20' width='360' height='460' rx='16' fill='%23ffffff' stroke='%23e2e8f0' stroke-width='2'/><circle cx='200' cy='80' r='30' fill='%2310b981'/><path d='M188 80l8 8 16-16' stroke='%23ffffff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/><text x='200' y='140' font-family='sans-serif' font-size='16' font-weight='bold' fill='%231e293b' text-anchor='middle'>TRANSFER BERHASIL</text><text x='200' y='175' font-family='sans-serif' font-size='24' font-weight='bold' fill='%230f172a' text-anchor='middle'>Rp 2.500.000</text><line x1='50' y1='210' x2='350' y2='210' stroke='%23e2e8f0' stroke-dasharray='6 6'/><text x='50' y='245' font-family='sans-serif' font-size='12' fill='%2364748b'>Penerima:</text><text x='350' y='245' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>PT LPK Creativa</text><text x='50' y='280' font-family='sans-serif' font-size='12' fill='%2364748b'>Bank Tujuan:</text><text x='350' y='280' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>Bank BCA (002-998811)</text><text x='50' y='315' font-family='sans-serif' font-size='12' fill='%2364748b'>Pengirim:</text><text x='350' y='315' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>Andi Saputra</text><text x='50' y='350' font-family='sans-serif' font-size='12' fill='%2364748b'>Tanggal:</text><text x='350' y='350' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>01/10/2026 10:24 WIB</text><rect x='50' y='390' width='300' height='50' rx='8' fill='%23f1f5f9'/><text x='200' y='420' font-family='sans-serif' font-size='11' fill='%2364748b' text-anchor='middle'>Nomor Referensi: TRX-20261001-9981</text></svg>";
 
-const INITIAL_INCOME_DATA = [
-  { id: 1, tanggal: "2026-10-01", siswa: "Andi Saputra", kategori: "Biaya Kursus", sumberDana: "BCA", nominal: 2500000, status: "Lunas", deskripsi: "Pembayaran Kursus Bahasa Jepang Bulan Oktober", buktiFoto: SAMPLE_RECEIPT, buktiNama: "bukti-transfer-andi.png" },
-  { id: 2, tanggal: "2026-10-01", siswa: "Siti Aminah", kategori: "Pendaftaran", sumberDana: "E-Wallet", nominal: 1500000, status: "Lunas", deskripsi: "Biaya pendaftaran dan seragam", buktiLink: "https://drive.google.com/file/d/bukti-siti-aminah/view" },
-  { id: 3, tanggal: "2026-09-25", siswa: "Budi Santoso", kategori: "Biaya Kursus", sumberDana: "BCA", nominal: 3000000, status: "Pending", deskripsi: "Cicilan 1 Kursus Intensif", buktiFoto: "", buktiLink: "" },
-  { id: 4, tanggal: "2026-09-20", siswa: "Rina Putri", kategori: "Penempatan", sumberDana: "BCA", nominal: 10000000, status: "Lunas", deskripsi: "Pelunasan Program Tokutei Ginou", buktiLink: "https://drive.google.com/file/d/bukti-rina-putri/view" },
-  { id: 5, tanggal: "2026-09-18", siswa: "Fajar Pratama", kategori: "Biaya Kursus", sumberDana: "Bank Mandiri", nominal: 2500000, status: "Lunas", deskripsi: "Pembayaran Kelas Malam", buktiFoto: SAMPLE_RECEIPT, buktiNama: "struk_mandiri_fajar.jpg" },
-  { id: 6, tanggal: "2026-09-15", siswa: "Dewi Lestari", kategori: "Pendaftaran", sumberDana: "BCA", nominal: 1500000, status: "Pending", deskripsi: "Biaya Administrasi Ujian JFT", buktiFoto: "", buktiLink: "" },
-];
+const INITIAL_INCOME_DATA = [];
+
+function dataUrlToFile(dataUrl, filename = "bukti-transaksi.jpg") {
+  if (!String(dataUrl || "").startsWith("data:")) return null;
+  const [meta, body] = dataUrl.split(",");
+  const mime = meta.match(/data:([^;]+)/)?.[1] || "image/jpeg";
+  const bytes = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+  return new File([bytes], filename, { type: mime });
+}
+
+async function saveLegacyProof(itemId, form) {
+  const rawId = String(itemId || "").replace(/^legacy:/, "");
+  if (!/^\d+$/.test(rawId)) return;
+  const body = new FormData();
+  body.append("action", "attach_proof");
+  body.append("id", rawId);
+  if (form.buktiType === "link") {
+    body.append("link", form.buktiLink || "");
+  } else {
+    const file = dataUrlToFile(form.buktiFoto, form.buktiNama || "bukti-pemasukan.jpg");
+    if (file) body.append("proof", file);
+  }
+  if (form.buktiType === "link" || form.buktiFoto) {
+    const session = await axios.get("/api/session.php");
+    await axios.post("/api/finance.php", body, { headers: { "X-CSRF-Token": session.data?.csrf_token || "" } });
+  }
+}
 
 export default function IncomeTransactionsPage() {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_income_data");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return INITIAL_INCOME_DATA;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(item => !["Andi Saputra", "Siti Aminah", "Budi Santoso", "Rina Putri", "Fajar Pratama", "Dewi Lestari"].includes(item.siswa));
+        }
+      }
+    } catch {
+      // Ignore malformed historical local storage.
+    }
+    return [];
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-12-31");
   const [sumber, setSumber] = useState("all");
@@ -53,7 +81,9 @@ export default function IncomeTransactionsPage() {
   useEffect(() => {
     try {
       localStorage.setItem("finance_income_data", JSON.stringify(data));
-    } catch (e) {}
+    } catch {
+      // Local persistence is best effort.
+    }
   }, [data]);
 
   // Form State
@@ -136,7 +166,9 @@ export default function IncomeTransactionsPage() {
         deletedIds.push(targetId);
         localStorage.setItem("finance_income_deleted_ids", JSON.stringify(deletedIds));
       }
-    } catch (e) {}
+    } catch {
+      // Local persistence is best effort.
+    }
 
     try {
       await accountingMutate({
@@ -153,34 +185,50 @@ export default function IncomeTransactionsPage() {
 
   useEffect(() => {
     let active = true;
-    accountingGet("ledger", { type: "income" })
-      .then(res => {
-        if (active && res.data?.rows?.length > 0) {
-          const deletedIds = JSON.parse(localStorage.getItem("finance_income_deleted_ids") || "[]");
-          const apiRows = res.data.rows
-            .map((r, i) => ({
-              id: r.ledger_id || r.id || i + 1,
-              tanggal: r.transaction_date || r.date,
-              siswa: r.party_name || r.student_name || "Peserta Didik",
-              kategori: r.category || "Pemasukan",
-              sumberDana: r.cash_account_name || "Kas/Bank",
-              nominal: Number(r.incoming_amount || r.amount || 0),
-              status: r.payment_status === "paid" || r.approval_status === "approved" ? "Lunas" : "Pending",
-              deskripsi: r.description || "",
-              buktiFoto: r.proof_url || r.attachment_url || "",
-              buktiLink: r.reference_link || "",
-            }))
-            .filter(r => !deletedIds.includes(String(r.id)));
-
-          // Hanya set dari API jika user belum punya data tersimpan di localStorage
-          const hasSaved = localStorage.getItem("finance_income_data");
-          if (!hasSaved && apiRows.length > 0) {
-            setData(apiRows);
-          }
+    Promise.all([
+      accountingGet("ledger", { type: "income" }).catch(() => ({ data: { rows: [] } })),
+      axios.get("/api/finance.php", { params: { type: "income", _t: Date.now() } }).catch(() => ({ data: { data: [] } })),
+    ])
+      .then(([res, legacyRes]) => {
+        if (!active) return;
+        const apiRows = (res.data?.rows || [])
+          .map((r, i) => ({
+            id: r.ledger_id || r.id || i + 1,
+            tanggal: r.transaction_date || r.date,
+            siswa: r.party_name || r.student_name || "Peserta Didik",
+            kategori: r.category || "Pemasukan",
+            sumberDana: r.cash_account_name || "Kas/Bank",
+            nominal: Number(r.incoming_amount || r.amount || 0),
+            status: r.payment_status === "paid" || r.approval_status === "approved" ? "Lunas" : "Pending",
+            deskripsi: r.description || "",
+            buktiFoto: r.proof_url || r.attachment_url || (r.source_type === "legacy_finance" && r.source_id ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.source_id)}` : ""),
+            buktiLink: r.reference_link || "",
+          }))
+          ;
+        const legacyRows = (legacyRes.data?.data || []).map((r, i) => ({
+          id: `legacy:${r.id || i + 1}`,
+          tanggal: r.transaction_date,
+          siswa: r.account_name || r.source || "Transaksi historis",
+          kategori: r.category || "Pemasukan",
+          sumberDana: r.bank_name || r.metode || "Kas/Bank",
+          nominal: Number(r.amount || 0),
+          status: "Lunas",
+          deskripsi: r.description || "",
+          buktiFoto: r.photo_path ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.id)}` : "",
+          buktiLink: r.drive_link || "",
+        }));
+        const rowsById = new Map([...apiRows, ...legacyRows].map(row => [String(row.id), row]));
+        const rows = [...rowsById.values()];
+        setData(rows);
+        try {
+          localStorage.setItem("finance_income_data", JSON.stringify(rows));
+        } catch {
+          // Local persistence is best effort.
         }
       })
-      .catch(() => {
-        // Fallback to initial starter data
+      .catch(error => { if (active) setLoadError(error.message || "Transaksi pemasukan gagal dimuat."); })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => { active = false; };
   }, []);
@@ -255,6 +303,7 @@ export default function IncomeTransactionsPage() {
       } catch {
         // Local state updated
       }
+      try { await saveLegacyProof(editingItem.id, form); } catch (proofError) { console.warn("Bukti pemasukan gagal disimpan", proofError); }
     } else {
       const newItem = {
         id: Date.now(),
@@ -424,6 +473,12 @@ export default function IncomeTransactionsPage() {
             setEndDate("2026-12-31");
           }}
         />
+
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            Data pemasukan gagal dimuat dari database: {loadError}
+          </div>
+        )}
 
         <FinanceTable
           columns={columns}

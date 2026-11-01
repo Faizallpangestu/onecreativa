@@ -102,6 +102,12 @@ if ($method === 'GET') {
         }
     }
 
+    // Adjustments stored in this legacy table are not accounting journals.
+    // Keep them visible for migration review, but never include them in an
+    // official report until Finance posts an equal debit/credit journal.
+    $unposted_adjustment_count = count($adjustments);
+    $adjustments = [];
+
     // ── 4. Build P&L from real COA journal data ──
     $pnl_from_journal  = $reportData ? $reportData['profit_loss'] : null;
     $bs_from_journal   = $reportData ? $reportData['balance_sheet'] : null;
@@ -264,7 +270,9 @@ if ($method === 'GET') {
         }
     }
 
-    // Cash beginning = sum of all cash accounts before this period
+    // Cash beginning = sum of all cash accounts before this period.
+    // Cash must be calculated from accounts classified as `cash` only;
+    // receivables, inventory and other current assets are not cash.
     $beginning_cash  = 0.0;
     if ($from && ac_table($conn, 'journal_lines')) {
         $bcRow = $conn->query("
@@ -278,9 +286,20 @@ if ($method === 'GET') {
         ")?->fetch_assoc();
         $beginning_cash = (float)($bcRow['net'] ?? 0);
     }
-    $total_cash_bank  = $total_current_assets; // approximate; filtered by cash accounts in balance sheet
+    $total_cash_bank = 0.0;
+    if ($reportData && !empty($reportData['trial_balance']['rows'])) {
+        foreach ($reportData['trial_balance']['rows'] as $row) {
+            if (($row['report_class'] ?? '') !== 'cash') continue;
+            $normal = $row['normal_balance'] ?? 'debit';
+            $debit = (float)($row['debit'] ?? 0);
+            $credit = (float)($row['credit'] ?? 0);
+            $total_cash_bank += $normal === 'credit' ? $credit - $debit : $debit - $credit;
+        }
+    }
     $net_cash_change  = $net_operating + $net_investing + $net_financing;
-    $ending_cash      = $beginning_cash + $net_cash_change;
+    $cash_flow_ending = $beginning_cash + $net_cash_change;
+    $ending_cash      = $total_cash_bank;
+    $cash_reconciliation_difference = $total_cash_bank - $cash_flow_ending;
 
     // ── 8. KPIs ──
     $gross_margin   = $total_revenue > 0 ? round(($gross_profit / $total_revenue) * 100, 1) : 0;
@@ -373,7 +392,8 @@ if ($method === 'GET') {
                 'net_financing'   => $net_financing,
                 'net_change'      => $net_cash_change,
                 'ending_cash'     => $ending_cash,
-                'verified_cash_bank' => $total_cash_bank,
+            'verified_cash_bank' => $total_cash_bank,
+            'cash_reconciliation_difference' => $cash_reconciliation_difference,
             ],
         ],
         'trial_balance'    => $trial_balance,
@@ -387,6 +407,7 @@ if ($method === 'GET') {
             'unrecognized_documents'=> (int)($coverage['unrecognized_documents'] ?? 0),
             'needs_review'          => (int)($coverage['legacy_needs_review']    ?? 0),
         ],
+        'unposted_adjustments' => $unposted_adjustment_count,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -404,6 +425,15 @@ if ($method === 'POST') {
 
     $action  = $input['action'] ?? '';
     $creator = $actor ? ($actor['name'] ?? 'CFO Finance') : 'CFO Finance';
+
+    if (in_array($action, ['create', 'add', 'update', 'edit', 'delete'], true)) {
+        http_response_code(409);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Penyesuaian laporan langsung dinonaktifkan. Gunakan Accounting > Adjustment agar koreksi dibuat sebagai jurnal double-entry yang seimbang.'
+        ]);
+        exit;
+    }
 
     if (in_array($action, ['create', 'add'], true)) {
         $title    = trim($input['title']           ?? '');

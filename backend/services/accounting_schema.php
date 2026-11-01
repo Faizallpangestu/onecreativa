@@ -9,7 +9,7 @@ function install_accounting_schema(mysqli $db): void {
       "CREATE TABLE IF NOT EXISTS accounting_periods(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,month CHAR(7) NOT NULL UNIQUE,status ENUM('open','closed') NOT NULL DEFAULT 'open',closed_by INT UNSIGNED NULL,closed_at DATETIME NULL) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS journal_entries(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,number VARCHAR(40) NULL UNIQUE,entry_date DATE NOT NULL,period_id INT UNSIGNED NOT NULL,source_type VARCHAR(40) NOT NULL,source_id VARCHAR(100) NOT NULL,event VARCHAR(40) NOT NULL,description TEXT NOT NULL,status ENUM('draft','posted') NOT NULL DEFAULT 'draft',created_by INT UNSIGNED NOT NULL,posted_at DATETIME NULL,reversal_of BIGINT UNSIGNED NULL UNIQUE,UNIQUE KEY uq_journal_source(source_type,source_id,event),FOREIGN KEY(period_id) REFERENCES accounting_periods(id),FOREIGN KEY(reversal_of) REFERENCES journal_entries(id),INDEX(entry_date,status)) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS journal_lines(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,journal_entry_id BIGINT UNSIGNED NOT NULL,account_id INT UNSIGNED NOT NULL,debit DECIMAL(15,2) NOT NULL DEFAULT 0,credit DECIMAL(15,2) NOT NULL DEFAULT 0,department_id INT UNSIGNED NULL,batch VARCHAR(100) NULL,student_id INT NULL,vendor_id INT UNSIGNED NULL,party_name VARCHAR(255) NULL,document_type VARCHAR(40) NULL,document_id VARCHAR(100) NULL,cash_flow_class ENUM('operating','investing','financing','transfer','noncash') NOT NULL DEFAULT 'noncash',FOREIGN KEY(journal_entry_id) REFERENCES journal_entries(id),FOREIGN KEY(account_id) REFERENCES accounts(id),CHECK((debit>0 AND credit=0) OR (credit>0 AND debit=0)),INDEX(account_id,journal_entry_id),INDEX(document_type,document_id)) ENGINE=InnoDB",
-      "CREATE TABLE IF NOT EXISTS accounting_audit_logs(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,entity_type VARCHAR(40) NOT NULL,entity_id VARCHAR(100) NOT NULL,action VARCHAR(40) NOT NULL,actor_id INT UNSIGNED NOT NULL,actor_name VARCHAR(255) NOT NULL,details_json LONGTEXT NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,INDEX(entity_type,entity_id,id)) ENGINE=InnoDB",
+      "CREATE TABLE IF NOT EXISTS accounting_audit_logs(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,entity_type VARCHAR(40) NOT NULL,entity_id VARCHAR(100) NOT NULL,action VARCHAR(40) NOT NULL,actor_id INT UNSIGNED NOT NULL,actor_name VARCHAR(255) NOT NULL,details_json LONGTEXT NOT NULL,ip_address VARCHAR(45) NULL,hash_prev VARCHAR(64) NULL,hash_self VARCHAR(64) NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,INDEX(entity_type,entity_id,id)) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS accounting_idempotency(request_key VARCHAR(100) PRIMARY KEY,actor_id INT UNSIGNED NOT NULL,operation VARCHAR(50) NOT NULL,payload_hash CHAR(64) NOT NULL,result_json LONGTEXT NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS vendors(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,is_active TINYINT NOT NULL DEFAULT 1) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS vendor_bills(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,number VARCHAR(50) NOT NULL UNIQUE,vendor_id INT UNSIGNED NOT NULL,bill_date DATE NOT NULL,due_date DATE NOT NULL,amount DECIMAL(15,2) NOT NULL,account_id INT UNSIGNED NOT NULL,liability_account_id INT UNSIGNED NOT NULL,status ENUM('draft','approved','cancelled') NOT NULL DEFAULT 'draft',created_by INT UNSIGNED NOT NULL,FOREIGN KEY(vendor_id) REFERENCES vendors(id),FOREIGN KEY(account_id) REFERENCES accounts(id),FOREIGN KEY(liability_account_id) REFERENCES accounts(id)) ENGINE=InnoDB",
@@ -34,6 +34,47 @@ function install_accounting_schema(mysqli $db): void {
     // Template accounts are configurable master data, never fake transaction/KPI data.
     $template=[['1100','Kas / Bank',1,'debit','cash'],['1200','Piutang Usaha',1,'debit','receivable'],['1300','Persediaan',1,'debit','inventory'],['1400','Aset Tetap',1,'debit','fixed_asset'],['1500','Uang Muka',1,'debit','prepayment'],['2100','Utang Usaha',2,'credit','payable'],['2200','Utang Gaji',2,'credit','payroll_payable'],['2300','Utang Pinjaman',2,'credit','loan'],['2400','Pendapatan Diterima di Muka',2,'credit','deferred_revenue'],['2500','Utang Reimbursement',2,'credit','reimbursement_payable'],['2600','Utang Pajak / Potongan',2,'credit','tax_payable'],['3100','Modal Disetor',3,'credit','capital'],['3200','Laba Ditahan',3,'credit','retained_earnings'],['4100','Pendapatan Pelatihan',4,'credit','revenue'],['4200','Pendapatan Lain',4,'credit','other_income'],['5100','Biaya Layanan',5,'debit','cost_of_services'],['5200','Beban Operasional',5,'debit','operating_expense'],['5300','Beban Gaji',5,'debit','operating_expense'],['5400','Beban Bunga',5,'debit','other_expense'],['5500','Beban Pajak Penghasilan',5,'debit','income_tax']];
     foreach($template as $row) ac_query($db,'INSERT IGNORE INTO accounts(code,name,account_group,normal_balance,report_class) VALUES(?,?,?,?,?)',$row);
+
+    // Sub-accounts for actual cash & bank
+    $kasInduk = ac_one($db, "SELECT id FROM accounts WHERE code='1100'")['id'] ?? null;
+    $subAccounts = [
+        ['1110', 'Petty Cash / Kas Tunai', 1, 'debit', 'cash', $kasInduk],
+        ['1120', 'Bank BCA (1832-918-428)', 1, 'debit', 'cash', $kasInduk],
+        ['1130', 'Bank Mandiri Cadangan', 1, 'debit', 'cash', $kasInduk],
+    ];
+    foreach ($subAccounts as $sa) {
+        $stmt = $db->prepare("INSERT INTO accounts (code, name, account_group, normal_balance, report_class, parent_id, is_detail, is_active) VALUES (?, ?, ?, ?, ?, ?, 1, 1) ON DUPLICATE KEY UPDATE name=VALUES(name), is_active=1");
+        $stmt->bind_param('ssissi', $sa[0], $sa[1], $sa[2], $sa[3], $sa[4], $sa[5]);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    // Default cash & bank accounts
+    $cashBankSeeds = [
+        ['Rekening BCA Creativa Bridging Intern', '1120', 'Bank BCA', '1832-918-428'],
+        ['Petty Cash (Kas Kecil Tunai)', '1110', 'Kas Tunai Kasir', 'CASH-01'],
+        ['Rekening Cadangan Mandiri', '1130', 'Bank Mandiri', '130-0019283'],
+    ];
+    foreach ($cashBankSeeds as $cb) {
+        $accRow = ac_one($db, "SELECT id FROM accounts WHERE code=?", [$cb[1]]);
+        if ($accRow) {
+            $accId = (int)$accRow['id'];
+            $stmt = $db->prepare("INSERT INTO cash_bank_accounts (name, account_id, bank_name, account_number, is_active) VALUES (?, ?, ?, ?, 1) ON DUPLICATE KEY UPDATE name=VALUES(name), bank_name=VALUES(bank_name), account_number=VALUES(account_number), is_active=1");
+            $stmt->bind_param('siss', $cb[0], $accId, $cb[2], $cb[3]);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+
+    // Default open accounting periods (2026 - 2027)
+    $curYear = (int)date('Y');
+    for ($y = $curYear; $y <= $curYear + 1; $y++) {
+        for ($m = 1; $m <= 12; $m++) {
+            $p = sprintf('%04d-%02d', $y, $m);
+            $db->query("INSERT IGNORE INTO accounting_periods (month, status) VALUES ('$p', 'open')");
+        }
+    }
+
     // Posted journals and their lines are immutable even through direct SQL.
     $guards=[
       'ac_journal_update'=>"BEFORE UPDATE ON journal_entries FOR EACH ROW BEGIN IF OLD.status='posted' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Posted journal is immutable'; END IF; END",
@@ -44,7 +85,7 @@ function install_accounting_schema(mysqli $db): void {
       'ac_journal_balance'=>"BEFORE UPDATE ON journal_entries FOR EACH ROW BEGIN IF NEW.status='posted' AND ((SELECT COUNT(*) FROM journal_lines WHERE journal_entry_id=NEW.id)<2 OR (SELECT COALESCE(SUM(debit-credit),1) FROM journal_lines WHERE journal_entry_id=NEW.id)<>0 OR (SELECT status FROM accounting_periods WHERE id=NEW.period_id)<>'open') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Journal unbalanced or period closed'; END IF; END"
     ];
     $guards['ac_journal_insert']='BEFORE INSERT ON journal_entries FOR EACH ROW BEGIN IF NEW.status<>\'draft\' THEN SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT=\'Journal must start as draft\'; END IF; END';
-    $guards['ac_audit_update']='BEFORE UPDATE ON accounting_audit_logs FOR EACH ROW SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT=\'Audit logs are immutable\'';
+    $guards['ac_audit_update']="BEFORE UPDATE ON accounting_audit_logs FOR EACH ROW BEGIN IF (OLD.hash_self IS NOT NULL AND OLD.hash_self <> '') OR (NEW.actor_name <> OLD.actor_name) OR (NEW.entity_type <> OLD.entity_type) OR (NEW.entity_id <> OLD.entity_id) OR (NEW.action <> OLD.action) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Audit logs are immutable'; END IF; END";
     $guards['ac_audit_delete']='BEFORE DELETE ON accounting_audit_logs FOR EACH ROW SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT=\'Audit logs are immutable\'';
     foreach($guards as $name=>$definition) if(!ac_one($db,'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=?',[$name])) $db->query("CREATE TRIGGER $name $definition");
     ac_query($db,'INSERT IGNORE INTO schema_migrations(version,checksum) VALUES(?,?)',['finance_traceability_v1',hash_file('sha256',__FILE__)]);

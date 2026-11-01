@@ -13,95 +13,21 @@ import {
 import { Landmark, CheckCircle2, XCircle, Plus, Eye, Pencil, Trash2 } from "lucide-react";
 import axios from "axios";
 
-const INITIAL_REKENING = [
-  { id: 1, nama: "Rekening BCA Creativa Bridging Intern", jenis: "Bank", bank: "Bank BCA", noRek: "1832-918-428", saldo: 120000000, status: "Aktif" },
-  { id: 2, nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", jenis: "Tunai", bank: "Kas Tunai Kasir", noRek: "CASH-01", saldo: 5000000, status: "Aktif" },
-  { id: 3, nama: "Rekening Cadangan Mandiri", jenis: "Bank", bank: "Bank Mandiri", noRek: "130-0019283", saldo: 25000000, status: "Aktif" },
-  { id: 4, nama: "E-Wallet Bisnis (DANA / Flip)", jenis: "E-Wallet", bank: "DANA Bisnis", noRek: "0812-9988-7766", saldo: 12500000, status: "Aktif" },
-];
+const INITIAL_REKENING = [];
 
 export default function RekeningPage() {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_rekening_data");
       if (saved) {
-        let parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Auto-heal penamaan akun BCA dan Petty Cash
-          parsed = parsed.map(r => {
-            const rStr = `${r.nama} ${r.bank} ${r.noRek}`.toLowerCase();
-            if (r.id === 1 || (rStr.includes('bca') && !rStr.includes('petty'))) {
-              return {
-                ...r,
-                nama: "Rekening BCA Creativa Bridging Intern",
-                bank: "Bank BCA",
-                noRek: r.noRek && r.noRek.includes('1832') ? r.noRek : "1832-918-428"
-              };
-            }
-            if (r.id === 2 || rStr.includes('petty')) {
-              return {
-                ...r,
-                nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)",
-                jenis: "Tunai",
-                bank: "Kas Tunai Kasir",
-                noRek: "CASH-01"
-              };
-            }
-            return r;
-          });
-
-          // Pastikan 4 akun standar kas & bank selalu tersedia
-          const hasBca = parsed.some(r => r.id === 1 || r.nama.toLowerCase().includes('bca'));
-          if (!hasBca) {
-            parsed.unshift({ id: 1, nama: "Rekening BCA Creativa Bridging Intern", jenis: "Bank", bank: "Bank BCA", noRek: "1832-918-428", saldo: 120000000, status: "Aktif" });
-          }
-
-          const hasPetty = parsed.some(r => r.id === 2 || r.nama.toLowerCase().includes('petty') || r.nama.toLowerCase().includes('kas kecil'));
-          if (!hasPetty) {
-            parsed.push({ id: 2, nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", jenis: "Tunai", bank: "Kas Tunai Kasir", noRek: "CASH-01", saldo: 5000000, status: "Aktif" });
-          }
-
-          const hasMandiri = parsed.some(r => r.nama.toLowerCase().includes('mandiri'));
-          if (!hasMandiri) {
-            parsed.push({ id: 3, nama: "Rekening Cadangan Mandiri", jenis: "Bank", bank: "Bank Mandiri", noRek: "130-0019283", saldo: 25000000, status: "Aktif" });
-          }
-
-          const hasWallet = parsed.some(r => r.nama.toLowerCase().includes('wallet') || r.nama.toLowerCase().includes('dana') || r.nama.toLowerCase().includes('flip'));
-          if (!hasWallet) {
-            parsed.push({ id: 4, nama: "E-Wallet Bisnis (DANA / Flip)", jenis: "E-Wallet", bank: "DANA Bisnis", noRek: "0812-9988-7766", saldo: 12500000, status: "Aktif" });
-          }
-
-          // Sinkronkan live saldo dari finance_coa_data jika tersedia
-          try {
-            const coaRaw = localStorage.getItem("finance_coa_data");
-            if (coaRaw) {
-              const coaList = JSON.parse(coaRaw);
-              if (Array.isArray(coaList)) {
-                parsed = parsed.map(r => {
-                  const rStr = `${r.nama} ${r.bank}`.toLowerCase();
-                  if (rStr.includes('bca')) {
-                    const bcaCoa = coaList.find(c => String(c.kode) === '1002' || (c.nama && c.nama.toLowerCase().includes('bca') && !c.nama.toLowerCase().includes('petty')));
-                    if (bcaCoa && Number(bcaCoa.saldo) > 0) {
-                      return { ...r, saldo: Number(bcaCoa.saldo) };
-                    }
-                  }
-                  if (rStr.includes('petty') || rStr.includes('kas kecil')) {
-                    const pettyCoa = coaList.find(c => String(c.kode) === '1001' || (c.nama && (c.nama.toLowerCase().includes('petty') || c.nama.toLowerCase().includes('kas kecil'))));
-                    if (pettyCoa && Number(pettyCoa.saldo) > 0) {
-                      return { ...r, saldo: Number(pettyCoa.saldo) };
-                    }
-                  }
-                  return r;
-                });
-              }
-            }
-          } catch (e) {}
-
-          return parsed;
+          const hasDummyBalances = parsed.some(r => r.saldo === 120000000 || r.saldo === 25000000);
+          if (!hasDummyBalances) return parsed;
         }
       }
     } catch (e) {}
-    return INITIAL_REKENING;
+    return [];
   });
   const [loading, setLoading] = useState(false);
   const [jenis, setJenis] = useState("all");
@@ -117,6 +43,40 @@ export default function RekeningPage() {
       localStorage.setItem("finance_rekening_data", JSON.stringify(data));
     } catch (e) {}
   }, [data]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    axios.get("/api/accounting.php?view=lookups")
+      .then(res => {
+        if (!active) return;
+        const rawBanks = res.data?.data?.banks || res.data?.banks || [];
+        if (rawBanks.length > 0) {
+          const apiBanks = rawBanks.map((b, i) => {
+            const isCash = b.name.toLowerCase().includes('kas') || b.name.toLowerCase().includes('petty');
+            const isWallet = b.name.toLowerCase().includes('wallet') || b.name.toLowerCase().includes('dana');
+            return {
+              id: b.id || i + 1,
+              nama: b.name,
+              jenis: isCash ? "Tunai" : isWallet ? "E-Wallet" : "Bank",
+              bank: b.bank_name || (isCash ? "Kas Tunai Kasir" : "Bank BCA"),
+              noRek: b.account_number || (isCash ? "CASH-01" : "—"),
+              saldo: Number(b.balance || 0),
+              status: Number(b.is_active) === 0 ? "Nonaktif" : "Aktif"
+            };
+          });
+          setData(apiBanks);
+          try {
+            localStorage.setItem("finance_rekening_data", JSON.stringify(apiBanks));
+          } catch (e) {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   const [form, setForm] = useState({
     nama: "",

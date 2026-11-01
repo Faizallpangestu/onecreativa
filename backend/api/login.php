@@ -57,22 +57,43 @@ session_regenerate_id(true);
 $_SESSION = ['user_id' => (int)$user['id'], 'csrf_token' => bin2hex(random_bytes(32))];
 
 // ── Log successful login ──
-$conn->prepare("INSERT INTO login_audit_log(user_id,user_name,user_role,action,ip_address,user_agent) VALUES(?,?,?,'login',?,?)")
-     ->execute([(int)$user['id'], $user['email'], $user['role_name'] ?? '', $ip, $ua]);
+try {
+    $conn->prepare("INSERT INTO login_audit_log(user_id,user_name,user_role,action,ip_address,user_agent) VALUES(?,?,?,'login',?,?)")
+         ->execute([(int)$user['id'], $user['email'], $user['role_name'] ?? '', $ip, $ua]);
+} catch (Throwable $e) {
+    error_log("login_audit_log failed: " . $e->getMessage());
+}
 
 // Also log to accounting_audit_logs if it exists (for complete audit trail in finance)
-$auditCheck = $conn->query("SHOW TABLES LIKE 'accounting_audit_logs'");
-if ($auditCheck && $auditCheck->num_rows > 0) {
-    $prevRow  = $conn->query("SELECT hash_self FROM accounting_audit_logs ORDER BY id DESC LIMIT 1")?->fetch_assoc();
-    $prevHash = $prevRow['hash_self'] ?? '';
-    $details  = json_encode(['user_role' => $user['role_name'], 'ip' => $ip, 'actor_role' => $user['role_name']], JSON_UNESCAPED_UNICODE);
-    $stmt = $conn->prepare("INSERT INTO accounting_audit_logs(entity_type,entity_id,action,actor_id,actor_name,details_json,ip_address,hash_prev) VALUES('auth',?,?,?,?,?,?,?)");
-    $eid  = 'USER-' . (int)$user['id'];
-    $stmt->execute([$eid, 'LOGIN', (int)$user['id'], $user['email'], $details, $ip, $prevHash]);
-    $logId    = (int)$conn->insert_id;
-    $selfHash = hash('sha256', $prevHash . $logId . 'auth' . $eid . 'LOGIN' . $user['id'] . date('Y-m-d H:i:s'));
-    $conn->query("UPDATE accounting_audit_logs SET hash_self='$selfHash' WHERE id=$logId");
-    $stmt->close();
+try {
+    $auditCheck = $conn->query("SHOW TABLES LIKE 'accounting_audit_logs'");
+    if ($auditCheck && $auditCheck->num_rows > 0) {
+        $hasHashCol = false;
+        $colCheck = $conn->query("SHOW COLUMNS FROM accounting_audit_logs LIKE 'hash_self'");
+        if ($colCheck && $colCheck->num_rows > 0) {
+            $hasHashCol = true;
+        }
+
+        $details = json_encode(['user_role' => $user['role_name'], 'ip' => $ip, 'actor_role' => $user['role_name']], JSON_UNESCAPED_UNICODE);
+        $eid = 'USER-' . (int)$user['id'];
+
+        if ($hasHashCol) {
+            $prevRow  = $conn->query("SELECT hash_self FROM accounting_audit_logs ORDER BY id DESC LIMIT 1")?->fetch_assoc();
+            $prevHash = $prevRow['hash_self'] ?? '';
+            $stmt = $conn->prepare("INSERT INTO accounting_audit_logs(entity_type,entity_id,action,actor_id,actor_name,details_json,ip_address,hash_prev) VALUES('auth',?,?,?,?,?,?,?)");
+            $stmt->execute([$eid, 'LOGIN', (int)$user['id'], $user['email'], $details, $ip, $prevHash]);
+            $logId    = (int)$conn->insert_id;
+            $selfHash = hash('sha256', $prevHash . $logId . 'auth' . $eid . 'LOGIN' . $user['id'] . date('Y-m-d H:i:s'));
+            $conn->query("UPDATE accounting_audit_logs SET hash_self='$selfHash' WHERE id=$logId");
+            $stmt->close();
+        } else {
+            $stmt = $conn->prepare("INSERT INTO accounting_audit_logs(entity_type,entity_id,action,actor_id,actor_name,details_json) VALUES('auth',?,?,?,?,?)");
+            $stmt->execute([$eid, 'LOGIN', (int)$user['id'], $user['email'], $details]);
+            $stmt->close();
+        }
+    }
+} catch (Throwable $e) {
+    error_log("accounting_audit_logs on login failed: " . $e->getMessage());
 }
 
 unset($user['password_hash']);

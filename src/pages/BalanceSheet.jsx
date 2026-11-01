@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import {
   Building2,
@@ -23,7 +23,7 @@ import {
   Tooltip as RechartsTooltip
 } from "recharts";
 import * as XLSX from "xlsx-js-style";
-import { getRealFinancialData } from "../services/realFinancialService";
+import { fetchRealFinancialData } from "../services/realFinancialApi";
 
 // Helper format angka Rupiah standar akuntansi
 const formatNum = (val, withPrefix = false) => {
@@ -41,6 +41,8 @@ export default function BalanceSheetPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("Oktober 2026");
   const [comparePeriod, setComparePeriod] = useState("September 2026");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [realReport, setRealReport] = useState(null);
+  const [loadError, setLoadError] = useState("");
 
   // Dengarkan event storage agar jika user menambah/mengedit transaksi atau invoice di tab lain, laporan langsung re-render
   useEffect(() => {
@@ -50,9 +52,17 @@ export default function BalanceSheetPage() {
   }, []);
 
   // ── KALKULASI DATA NERACA 100% DARI TRANSAKSI RIIL SISTEM ──
-  const realReport = useMemo(() => {
-    return getRealFinancialData(selectedPeriod, comparePeriod);
+  useEffect(() => {
+    let active = true;
+    fetchRealFinancialData(selectedPeriod, comparePeriod)
+      .then(report => { if (active) setRealReport(report); })
+      .catch(error => { if (active) { setRealReport(null); setLoadError(error.message || "Neraca gagal dimuat."); } });
+    return () => { active = false; };
   }, [selectedPeriod, comparePeriod, refreshTrigger]);
+
+  if (!realReport) {
+    return <Layout><div className="p-8 text-center text-slate-500">{loadError || "Memuat neraca dari database production..."}</div></Layout>;
+  }
 
   const { balanceSheet, kpis, ratios, compositions } = realReport;
 

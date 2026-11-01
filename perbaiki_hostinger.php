@@ -1,11 +1,15 @@
 <?php
+define('CREATIVA_TEST_ROUTER', true);
 echo "<h2>Alat Perbaikan Otomatis Hostinger - Creativa</h2>";
 
 $base_dir = __DIR__;
 $success = true;
 
+// Cari direktori backend jika script berada di root project
+$backend_dir = file_exists($base_dir . '/config/database.php') ? $base_dir : $base_dir . '/backend';
+
 // 1. Perbaiki typo k?php di db_env.php
-$db_env = $base_dir . '/config/db_env.php';
+$db_env = $backend_dir . '/config/db_env.php';
 if (file_exists($db_env)) {
     $content = file_get_contents($db_env);
     if (strpos($content, 'k?php') !== false) {
@@ -19,12 +23,11 @@ if (file_exists($db_env)) {
         echo "<p style='color:green'>✔ Berhasil menambahkan &lt;?php ke config/db_env.php</p>";
     }
 } else {
-    echo "<p style='color:red'>✖ File config/db_env.php TIDAK DITEMUKAN. Anda harus membuatnya di Hostinger.</p>";
-    $success = false;
+    echo "<p style='color:orange'>ℹ config/db_env.php tidak ditemukan di lokal (menggunakan konfigurasi default database.php).</p>";
 }
 
 // 2. Hapus api/.htaccess yang bikin bentrok jika ada
-$api_htaccess = $base_dir . '/api/.htaccess';
+$api_htaccess = $backend_dir . '/api/.htaccess';
 if (file_exists($api_htaccess)) {
     $content = file_get_contents($api_htaccess);
     if (strpos($content, 'Deny from all') !== false || strpos($content, 'Require all denied') !== false) {
@@ -47,7 +50,7 @@ if (file_exists($root_htaccess)) {
 }
 
 // 4. Test Koneksi Database
-require $base_dir . '/config/database.php';
+require $backend_dir . '/config/database.php';
 if (isset($conn) && $conn) {
     echo "<p style='color:green; font-weight:bold;'>✔ KONEKSI DATABASE HOSTINGER BERHASIL!</p>";
     
@@ -62,10 +65,42 @@ if (isset($conn) && $conn) {
           `actor_id` INT UNSIGNED NOT NULL,
           `actor_name` VARCHAR(255) NOT NULL,
           `details_json` LONGTEXT NOT NULL,
+          `ip_address` VARCHAR(45) NULL,
+          `hash_prev` VARCHAR(64) NULL,
+          `hash_self` VARCHAR(64) NULL,
           `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           INDEX `idx_entity` (`entity_type`, `entity_id`, `id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ");
+
+    // Pastikan kolom hash chain dan ip_address tersedia di accounting_audit_logs
+    $chkAuditCols = [
+        'ip_address' => 'VARCHAR(45) NULL AFTER `details_json`',
+        'hash_prev'  => 'VARCHAR(64) NULL AFTER `ip_address`',
+        'hash_self'  => 'VARCHAR(64) NULL AFTER `hash_prev`'
+    ];
+    foreach ($chkAuditCols as $colName => $colDef) {
+        $c = mysqli_query($conn, "SHOW COLUMNS FROM `accounting_audit_logs` LIKE '$colName'");
+        if ($c && mysqli_num_rows($c) == 0) {
+            mysqli_query($conn, "ALTER TABLE `accounting_audit_logs` ADD COLUMN `$colName` $colDef");
+        }
+    }
+
+    // Perbarui trigger ac_audit_update agar tidak memblokir inisialisasi hash_self
+    mysqli_query($conn, "DROP TRIGGER IF EXISTS `ac_audit_update`");
+    mysqli_query($conn, "
+        CREATE TRIGGER `ac_audit_update` BEFORE UPDATE ON `accounting_audit_logs` FOR EACH ROW 
+        BEGIN 
+          IF (OLD.hash_self IS NOT NULL AND OLD.hash_self <> '') 
+             OR (NEW.actor_name <> OLD.actor_name) 
+             OR (NEW.entity_type <> OLD.entity_type) 
+             OR (NEW.entity_id <> OLD.entity_id) 
+             OR (NEW.action <> OLD.action) THEN 
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Audit logs are immutable'; 
+          END IF; 
+        END
+    ");
+
     mysqli_query($conn, "
         CREATE TABLE IF NOT EXISTS `employee_employment` (
           `employee_id` INT UNSIGNED PRIMARY KEY,
@@ -77,7 +112,54 @@ if (isset($conn) && $conn) {
           `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ");
-    echo "<p style='color:green'>✔ Tabel <code>accounting_audit_logs</code> dan <code>employee_employment</code> siap digunakan.</p>";
+
+    // Inisialisasi skema anggaran (budget)
+    if (file_exists($backend_dir . '/services/budget_schema.php')) {
+        require_once $backend_dir . '/services/budget_schema.php';
+        if (function_exists('install_budget_schema')) {
+            try {
+                install_budget_schema($conn);
+                echo "<p style='color:green'>✔ Skema Anggaran (budget_requests & items) berhasil diverifikasi.</p>";
+            } catch (Throwable $e) {
+                echo "<p style='color:orange'>⚠ Peringatan skema anggaran: " . htmlspecialchars($e->getMessage()) . "</p>";
+            }
+        }
+    }
+
+    // Inisialisasi skema akuntansi & modul relasi jika service tersedia
+    if (file_exists($backend_dir . '/services/accounting_schema.php')) {
+        require_once $backend_dir . '/services/accounting_schema.php';
+        if (function_exists('install_accounting_schema')) {
+            try {
+                install_accounting_schema($conn);
+                echo "<p style='color:green'>✔ Skema modul Keuangan & Akuntansi (COA, Rekening Bank, Periode) berhasil diverifikasi.</p>";
+            } catch (Throwable $e) {
+                echo "<p style='color:orange'>⚠ Peringatan skema akuntansi: " . htmlspecialchars($e->getMessage()) . "</p>";
+            }
+        }
+    }
+
+    echo "<p style='color:green'>✔ Tabel <code>accounting_audit_logs</code> (beserta hash chain & trigger) dan <code>employee_employment</code> siap digunakan.</p>";
+
+    // Pastikan tabel keuangan esensial ada
+    mysqli_query($conn, "
+        CREATE TABLE IF NOT EXISTS `payment_allocations` (
+          `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          `transaction_id` BIGINT UNSIGNED NOT NULL UNIQUE,
+          `source_document_id` BIGINT UNSIGNED NOT NULL,
+          `amount` DECIMAL(15,2) NOT NULL,
+          `is_reversed` TINYINT NOT NULL DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ");
+    mysqli_query($conn, "
+        CREATE TABLE IF NOT EXISTS `budget_realizations` (
+          `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          `budget_request_id` INT UNSIGNED NOT NULL,
+          `amount` DECIMAL(15,2) NOT NULL,
+          `status` VARCHAR(30) NOT NULL DEFAULT 'recorded',
+          `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ");
 
     // Cek dan lengkapi kolom positions
     $chkPosCol = mysqli_query($conn, "SHOW COLUMNS FROM `positions` LIKE 'base_salary'");

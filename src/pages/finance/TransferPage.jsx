@@ -20,38 +20,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-const INITIAL_TRANSFER_HISTORY = [
-  {
-    id: 'TRF-2026-0034',
-    tanggal: '2026-10-25',
-    dari: 'Rekening BCA Creativa Bridging Intern',
-    ke: 'Petty Cash (Kas Kecil Tunai & Vendor Kecil)',
-    nominal: 5000000,
-    biayaAdmin: 0,
-    status: 'Selesai',
-    catatan: 'Dropping kas kecil operasional & vendor bulanan',
-  },
-  {
-    id: 'TRF-2026-0028',
-    tanggal: '2026-10-15',
-    dari: 'Rekening BCA Creativa Bridging Intern',
-    ke: 'Rekening Cadangan Mandiri',
-    nominal: 15000000,
-    biayaAdmin: 2500,
-    status: 'Selesai',
-    catatan: 'Alokasi cadangan likuiditas darurat',
-  },
-  {
-    id: 'TRF-2026-0020',
-    tanggal: '2026-10-05',
-    dari: 'Rekening BCA Creativa Bridging Intern',
-    ke: 'E-Wallet Bisnis (DANA / Flip)',
-    nominal: 2500000,
-    biayaAdmin: 1000,
-    status: 'Selesai',
-    catatan: 'Topup operasional disbursement instan',
-  },
-];
+const INITIAL_TRANSFER_HISTORY = [];
 
 function loadTransferAccounts() {
   let list = [];
@@ -161,9 +130,14 @@ export default function TransferPage() {
   const [history, setHistory] = useState(() => {
     try {
       const saved = localStorage.getItem('finance_transfer_history');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(item => !String(item.id).startsWith('TRF-2026-00'));
+        }
+      }
     } catch (e) {}
-    return INITIAL_TRANSFER_HISTORY;
+    return [];
   });
 
   useEffect(() => {

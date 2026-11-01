@@ -7,7 +7,6 @@ import Layout from '../components/Layout';
 import { financeMoney as money } from '../utils/accountingApi';
 import axios from 'axios';
 import './DashboardFinance.css';
-import financeHero from '../assets/finance_3d_bg.webp';
 
 // ── Helpers ──────────────────────────────────────────────────
 const MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -44,6 +43,16 @@ const sourceLabels = {
   budget_realization: 'Realisasi RAB',
   legacy_finance: 'Transaksi Historis',
 };
+
+// Projection and realization may use different display numbers, e.g.
+// PROJ-FIN-00347 versus FIN-00347. Audit highlighting uses this canonical key.
+function normalizeAuditDocumentKey(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/^(PROJ-REAL-|PROJ-|REAL-|FIN-|PAYROLL-|MENUNGGU-|PENDING-)+/, '')
+    .trim();
+}
 
 // ── SVG Icons ────────────────────────────────────────────────
 // ── SVG Icons ────────────────────────────────────────────────
@@ -89,6 +98,10 @@ const Sparkles = (p) => (
 // ── Custom Tooltip ───────────────────────────────────────────
 function CustomTooltip({ active, payload, label, formatter }) {
   if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload || {};
+  const projection = Number(point.proyeksi) || 0;
+  const realization = Number(point.realisasi) || 0;
+  const difference = projection - realization;
   return (
     <div style={{
       background: 'white', borderRadius: 12, padding: '12px 16px',
@@ -105,6 +118,14 @@ function CustomTooltip({ active, payload, label, formatter }) {
           <span style={{ fontWeight: 700, color: '#0f172a' }}>{formatter ? formatter(p.value) : money(p.value)}</span>
         </div>
       ))}
+      {(Object.prototype.hasOwnProperty.call(point, 'proyeksi') || Object.prototype.hasOwnProperty.call(point, 'realisasi')) && (
+        <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 7, paddingTop: 6, color: difference >= 0 ? '#b45309' : '#be123c', fontWeight: 700 }}>
+          Selisih audit: {formatter ? formatter(Math.abs(difference)) : money(Math.abs(difference))}
+          <span style={{ display: 'block', fontSize: 10, fontWeight: 500, color: '#64748b', marginTop: 2 }}>
+            {difference >= 0 ? 'Proyeksi masih di atas realisasi' : 'Realisasi di atas proyeksi'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -213,7 +234,7 @@ function AuditModal({ item, related, onClose, onSwitchTab, currentTab }) {
                   <div className="fd-detail-item" style={{ marginTop: 8 }}>
                     <label>Status</label>
                     <span className="fd-tag fd-tag--projection">
-                      {projItem.payment_status === 'unpaid' ? 'Belum Dibayar' : 'Terjadwal'}
+                      {projItem.projection_status === 'realized' || projItem.was_realized || projItem.payment_status === 'paid' ? 'Sudah Direalisasikan' : projItem.payment_status === 'unpaid' ? 'Belum Dibayar' : 'Terjadwal'}
                     </span>
                   </div>
                   {currentTab === 'realization' && onSwitchTab && (
@@ -334,7 +355,9 @@ export default function DashboardFinance() {
   const [viewMode, setViewMode] = useState('split');
   const [cashflowView, setCashflowView] = useState('chart');
   const [hoveredMatchKey, setHoveredMatchKey] = useState(null);
-  const [flowFilter, setFlowFilter] = useState('income'); // default 'income' for student billing focus, or 'all' / 'expense'
+  // Keep the audit panel aligned with the year KPI cards by default.
+  // Users can still narrow the panel to inflow or outflow explicitly.
+  const [flowFilter, setFlowFilter] = useState('all');
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -397,6 +420,10 @@ export default function DashboardFinance() {
   const activeData = useMemo(() => {
     if (!data) return null;
     const cloned = JSON.parse(JSON.stringify(data));
+    // Production must be database-only. Browser localStorage is an optional
+    // development convenience and must never reintroduce stale/demo finance
+    // rows after deployment.
+    if (import.meta.env.PROD) return cloned;
     try {
       const rawCustom = JSON.parse(localStorage.getItem('saved_custom_invoices') || '[]');
       let hasFixedBank = false;
@@ -416,7 +443,9 @@ export default function DashboardFinance() {
       if (hasFixedBank) {
         try {
           localStorage.setItem('saved_custom_invoices', JSON.stringify(savedCustom));
-        } catch (e) {}
+        } catch {
+          // Local storage is optional; the dashboard data remains usable without it.
+        }
       }
 
       if (Array.isArray(savedCustom) && savedCustom.length > 0) {
@@ -846,6 +875,29 @@ export default function DashboardFinance() {
     return cloned;
   }, [data, year]);
 
+  // KPI comparison must use the same period. The detail list intentionally
+  // keeps the future projection horizon, but it must not be compared against
+  // realization for only the selected year.
+  const auditYearTotals = useMemo(() => {
+    if (!activeData) return { projection: 0, realization: 0, projectionCount: 0, realizationCount: 0 };
+    const selectedYear = Number(year);
+    const isInSelectedYear = (item) => {
+      const raw = item?.transaction_date || item?.tanggal || '';
+      const match = String(raw).match(/^(\d{4})/);
+      return match ? Number(match[1]) === selectedYear : true;
+    };
+    const projectionItems = (activeData.projection_items || []).filter(isInSelectedYear);
+    const realizationItems = (activeData.realization_items || []).filter(item =>
+      isInSelectedYear(item) && !item.is_pending_realization && Number(item.amount) > 0
+    );
+    return {
+      projection: projectionItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+      realization: realizationItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+      projectionCount: projectionItems.length,
+      realizationCount: realizationItems.length,
+    };
+  }, [activeData, year]);
+
   const chartData = useMemo(() => {
     if (!activeData?.months) return [];
     return activeData.months.map((m, i) => ({
@@ -886,17 +938,20 @@ export default function DashboardFinance() {
       if (match) return match;
     }
     if (item.source_id) {
-      const match = items.find(r => String(r.source_id) === String(item.source_id));
+      const match = items.find(r =>
+        String(r.source_id) === String(item.source_id) &&
+        (!item.source_type || !r.source_type || String(r.source_type) === String(item.source_type))
+      );
       if (match) return match;
     }
 
     // 3. Normalized document number matching
     if (item.number) {
-      const numClean = String(item.number).replace(/^(PROJ-|FIN-|PAYROLL-|MENUNGGU-)/, '').trim();
+        const numClean = normalizeAuditDocumentKey(item.number);
       const match = items.find(r => {
         if (!r.number) return false;
         if (r.number === item.number) return true;
-        const rClean = String(r.number).replace(/^(PROJ-|FIN-|PAYROLL-|MENUNGGU-)/, '').trim();
+        const rClean = normalizeAuditDocumentKey(r.number);
         return rClean && rClean === numClean;
       });
       if (match) return match;
@@ -958,17 +1013,26 @@ export default function DashboardFinance() {
     return filterItems(activeData?.realization_items);
   }, [activeData?.realization_items, filterItems]);
 
-  const getMatchKey = useCallback((item) => {
+  const getMatchKey = useCallback((item, relatedItem = null) => {
     if (!item) return null;
+    const linked = relatedItem || {};
+    const sourceType = item.source_type || linked.source_type;
+    const sourceId = item.source_id ?? linked.source_id;
+    if (sourceId !== undefined && sourceId !== null && String(sourceId) !== '') {
+      return `src_${sourceType || 'unknown'}_${sourceId}`;
+    }
+    if (item.salary_request_id || linked.salary_request_id) {
+      return `sal_${item.salary_request_id || linked.salary_request_id}`;
+    }
+    if (item.budget_request_id || linked.budget_request_id) {
+      return `bud_${item.budget_request_id || linked.budget_request_id}`;
+    }
     if (item.related_proj_id) return `ref_${item.related_proj_id}`;
     if (item.related_proj_number) return `ref_${item.related_proj_number}`;
-    if (item.salary_request_id) return `sal_${item.salary_request_id}`;
-    if (item.budget_request_id) return `bud_${item.budget_request_id}`;
-    if (item.source_id) return `src_${item.source_id}`;
-    if (item.number) {
-      const clean = String(item.number).replace(/^(PROJ-|FIN-|PAYROLL-|MENUNGGU-)/, '').trim();
-      if (clean) return `ref_${clean}`;
-    }
+    const linkedRef = linked.related_proj_id || linked.related_proj_number;
+    if (linkedRef) return `ref_${linkedRef}`;
+    const clean = normalizeAuditDocumentKey(item.number || linked.number);
+    if (clean) return `ref_${clean}`;
     if (item.id) {
       const cleanId = String(item.id).replace(/^(PENDING-)/, '').trim();
       if (cleanId) return `ref_${cleanId}`;
@@ -1347,18 +1411,18 @@ export default function DashboardFinance() {
                         <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                           <TrendUp className="w-4 h-4" />
                         </div>
-                        <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">TOTAL PROYEKSI</span>
+                        <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">PROYEKSI TAHUN AKTIF</span>
                       </div>
                       <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
-                        {activeData.projection_items?.length || 0} trx
+                        {auditYearTotals.projectionCount} trx
                       </span>
                     </div>
                     <div className="text-[22px] font-black text-[#1a73e8] tracking-tight mb-3">
-                      {money(activeData.totals.projection)}
+                      {money(auditYearTotals.projection)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-slate-400 font-medium">Dana belum masuk</span>
+                    <span className="text-xs text-slate-400 font-medium">Belum dibayar / outstanding</span>
                     <div className="w-20 h-6">
                       <Sparkline values={chartData.map(m => m.proyeksi)} color="#2563eb" />
                     </div>
@@ -1373,19 +1437,19 @@ export default function DashboardFinance() {
                         <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                           <FileCheck className="w-4 h-4" />
                         </div>
-                        <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">TOTAL REALISASI</span>
+                        <span className="text-[11px] font-bold text-slate-500 tracking-wider uppercase">REALISASI TAHUN AKTIF</span>
                       </div>
                       <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600">
-                        {activeData.realization_items?.length || 0} trx
+                        {auditYearTotals.realizationCount} trx
                       </span>
                     </div>
                     <div className="text-[22px] font-black text-emerald-600 tracking-tight mb-3">
-                      {money(activeData.totals.realization)}
+                      {money(auditYearTotals.realization)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1">
-                    <span className={`text-xs font-semibold flex items-center gap-1 ${Math.abs(Number(activeData.totals.projection) - Number(activeData.totals.realization)) < 1 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {Math.abs(Number(activeData.totals.projection) - Number(activeData.totals.realization)) < 1 ? '✓ Balanced' : '⚠ Piutang Berjalan'}
+                    <span className={`text-xs font-semibold flex items-center gap-1 ${Math.abs(auditYearTotals.projection - auditYearTotals.realization) < 1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {Math.abs(auditYearTotals.projection - auditYearTotals.realization) < 1 ? '✓ Balanced' : '⚠ Piutang Berjalan'}
                     </span>
                     <div className="w-20 h-6">
                       <Sparkline values={chartData.map(m => m.realisasi)} color="#059669" />
@@ -1466,7 +1530,7 @@ export default function DashboardFinance() {
                     <div className="flex items-center gap-4 text-xs shrink-0">
                       <span className="flex items-center gap-1.5 text-slate-600 font-medium">
                         <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                        Proyeksi (Belum Dibayar)
+                        Proyeksi (Belum Dibayar + Sudah Direalisasikan)
                       </span>
                       <span className="flex items-center gap-1.5 text-slate-600 font-medium">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
@@ -2040,7 +2104,7 @@ export default function DashboardFinance() {
                                 filteredProjectionItems.map((item, i) => {
                                   const related = findRelated(item, 'projection');
                                   const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
-                                  const mKey = getMatchKey(item);
+                                  const mKey = getMatchKey(item, related);
                                   const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
                                   const isHigh = highlightedId === (item.id || item.number);
                                   return (
@@ -2085,6 +2149,9 @@ export default function DashboardFinance() {
                                       </td>
                                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                         {(() => {
+                                          if (item.projection_status === 'realized' || item.was_realized || item.payment_status === 'paid') {
+                                            return <span className="badge-bs badge-bs-success">✓ Sudah Direalisasikan</span>;
+                                          }
                                           if (related && (related.payment_status === 'paid' || Number(related.amount) > 0)) {
                                             if (isBalanced) {
                                               return <span className="badge-bs badge-bs-success">✓ Paid</span>;
@@ -2154,7 +2221,7 @@ export default function DashboardFinance() {
                                 filteredRealizationItems.map((item, i) => {
                                   const related = findRelated(item, 'realization');
                                   const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
-                                  const mKey = getMatchKey(item);
+                                  const mKey = getMatchKey(item, related);
                                   const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
                                   const isHigh = highlightedId === (item.id || item.number);
                                   const isPending = item.is_pending_realization || Number(item.amount) === 0;
@@ -2259,17 +2326,21 @@ export default function DashboardFinance() {
                             </td></tr>
                           ) : (
                             (auditTab === 'projection' ? filteredProjectionItems : filteredRealizationItems).map((item, i) => {
-                              const related = findRelated(item);
-                              const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
                               const idKey = item.id || item.number || i;
+                               const related = findRelated(item, auditTab);
+                               const matchKey = getMatchKey(item, related);
+                              const isHovered = hoveredMatchKey && hoveredMatchKey === matchKey;
                               const isHigh = highlightedId === (item.id || item.number);
                               const isPending = item.is_pending_realization || Number(item.amount) === 0;
                               return (
                                 <tr
                                   key={idKey}
                                   id={`audit-row-${item.id || item.number}`}
-                                  className={`fd-row-clickable ${isHigh ? 'fd-row-highlighted' : ''}`}
+                                  className={`fd-row-clickable ${isHovered ? (auditTab === 'projection' ? 'fd-row-linked-active-blue' : 'fd-row-linked-active') : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
+                                  onMouseEnter={() => setHoveredMatchKey(matchKey)}
+                                  onMouseLeave={() => setHoveredMatchKey(null)}
                                   onClick={() => handleAuditClick(item)}
+                                  title={`Hover untuk menyorot pasangan ${auditTab === 'projection' ? 'realisasi' : 'proyeksi'}; klik untuk detail audit.`}
                                 >
                                   <td style={{ fontWeight: 600 }}>
                                     {isPending ? (

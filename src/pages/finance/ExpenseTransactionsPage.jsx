@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import Layout from "../../components/Layout";
 import { 
   FinancePageHeader, 
@@ -10,7 +11,7 @@ import {
   exportToExcel 
 } from "./FinancePageComponents";
 import { accountingGet, accountingMutate } from "../../utils/accountingApi";
-import { Eye, Plus, Pencil, Trash2, AlertTriangle, Building2, UserCheck, Clock } from "lucide-react";
+import { Eye, Plus, Pencil, Trash2, AlertTriangle, Building2, UserCheck, Clock, FileText, UploadCloud, Link as LinkIcon, X } from "lucide-react";
 
 function getNowDateTimeLocal() {
   const now = new Date();
@@ -44,14 +45,32 @@ function formatWaktuIndo(dtString, fallbackDate) {
   }
 }
 
-const INITIAL_EXPENSE_DATA = [
-  { id: 1, tanggal: "2026-10-01", waktuPelunasan: "2026-10-01T14:30", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Pembelian", deskripsi: "Laptop Admin", sumberDana: "Bank BCA Operasional", nominal: 7500000, status: "Paid", vendor: "Toko Office Equipment" },
-  { id: 2, tanggal: "2026-09-29", waktuPelunasan: "2026-09-29T10:15", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Operasional", deskripsi: "Listrik Kantor Gedung LPK", sumberDana: "Petty Cash (Kasir)", nominal: 1200000, status: "Paid", vendor: "CV Sukses Listrik" },
-  { id: 3, tanggal: "2026-09-25", waktuPelunasan: "2026-09-25T16:00", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Reimbursement", deskripsi: "Transport Dinas", sumberDana: "Petty Cash (Kasir)", nominal: 500000, status: "Paid", vendor: "Staff Admin" },
-  { id: 4, tanggal: "2026-09-20", waktuPelunasan: "2026-09-20T09:00", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Gaji Karyawan", deskripsi: "Gaji Bulanan", sumberDana: "Bank BCA Operasional", nominal: 25000000, status: "Paid", vendor: "Karyawan LPK" },
-  { id: 5, tanggal: "2026-09-18", waktuPelunasan: "2026-09-18T11:45", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Operasional", deskripsi: "Langganan Internet Dedicated Fiber", sumberDana: "Bank BCA Operasional", nominal: 850000, status: "Paid", vendor: "PT Maju Internet" },
-  { id: 6, tanggal: "2026-09-14", waktuPelunasan: "2026-09-14T13:20", petugasPelunasan: "FINANCE LPK CREATIVA", kategori: "Pembelian", deskripsi: "Buku Pelajaran & Modul N5", sumberDana: "Petty Cash (Kasir)", nominal: 3200000, status: "Paid", vendor: "Percetakan Mitra" },
-];
+function dataUrlToFile(dataUrl, filename = "bukti-pengeluaran.jpg") {
+  if (!String(dataUrl || "").startsWith("data:")) return null;
+  const [meta, body] = dataUrl.split(",");
+  const mime = meta.match(/data:([^;]+)/)?.[1] || "image/jpeg";
+  const bytes = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+  return new File([bytes], filename, { type: mime });
+}
+
+async function saveLegacyProof(itemId, form) {
+  const rawId = String(itemId || "").replace(/^legacy:/, "");
+  if (!/^\d+$/.test(rawId)) return;
+  const body = new FormData();
+  body.append("action", "attach_proof");
+  body.append("id", rawId);
+  if (form.buktiType === "link") body.append("link", form.buktiLink || "");
+  else {
+    const file = dataUrlToFile(form.buktiFoto, form.buktiNama || "bukti-pengeluaran.jpg");
+    if (file) body.append("proof", file);
+  }
+  if (form.buktiType === "link" || form.buktiFoto) {
+    const session = await axios.get("/api/session.php");
+    await axios.post("/api/finance.php", body, { headers: { "X-CSRF-Token": session.data?.csrf_token || "" } });
+  }
+}
+
+const INITIAL_EXPENSE_DATA = [];
 
 export default function ExpenseTransactionsPage() {
   const [data, setData] = useState(() => {
@@ -60,43 +79,16 @@ export default function ExpenseTransactionsPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item, idx) => {
-            const desk = item.deskripsi || item.keterangan || item.uraian || item.description || (item.vendor ? `Pengadaan ${item.vendor}` : "Beban Operasional LPK");
-            const sumber = item.sumberDana || item.akun || item.rekening || item.source || item.bank || (Number(item.nominal || item.amount || 0) > 5000000 ? "Bank BCA Operasional" : "Petty Cash (Kasir)");
-            let vendorName = item.vendor || item.pihak;
-            if (!vendorName || vendorName === "—" || vendorName === "Staff/Vendor") {
-              if (desk.includes("CV Sukses Listrik")) vendorName = "CV Sukses Listrik";
-              else if (desk.includes("PT Maju Internet")) vendorName = "PT Maju Internet";
-              else if (desk.includes("Toko Office") || desk.includes("Office Equipment")) vendorName = "Toko Office Equipment";
-              else if (desk.includes("Percetakan Mitra")) vendorName = "Percetakan Mitra";
-              else if (desk.includes("Toko ATK Sentosa") || desk.includes("ATK Sentosa")) vendorName = "Toko ATK Sentosa";
-              else if (desk.includes("Klinik Medika")) vendorName = "Klinik Medika Pratama";
-              else if (desk.includes("PLN")) vendorName = "PLN Persero";
-              else vendorName = item.vendor || "CV Sukses Listrik";
-            }
-            const waktu = item.waktuPelunasan || item.paid_at || (item.tanggal ? `${item.tanggal}T10:30` : getNowDateTimeLocal());
-            const petugas = item.petugasPelunasan || item.dilunasiOleh || "FINANCE LPK CREATIVA";
-            return {
-              ...item,
-              id: item.id || idx + 1,
-              deskripsi: desk,
-              keterangan: desk,
-              sumberDana: sumber,
-              akun: sumber,
-              vendor: vendorName,
-              pihak: vendorName,
-              waktuPelunasan: waktu,
-              petugasPelunasan: petugas,
-              nominal: Number(item.nominal || item.amount || 0),
-              status: item.status || "Lunas",
-            };
-          });
+          const dummyDesks = ["Laptop Admin", "Listrik Kantor Gedung LPK", "Transport Dinas", "Gaji Bulanan", "Langganan Internet Dedicated Fiber", "Buku Pelajaran & Modul N5"];
+          const clean = parsed.filter(item => !dummyDesks.includes(item.deskripsi));
+          return clean;
         }
       }
     } catch (e) {}
-    return INITIAL_EXPENSE_DATA;
+    return [];
   });
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-12-31");
   const [kategori, setKategori] = useState("all");
@@ -179,6 +171,10 @@ export default function ExpenseTransactionsPage() {
     nominal: "",
     status: "Paid",
     vendor: "CV Sukses Listrik",
+    buktiType: "file",
+    buktiFoto: "",
+    buktiNama: "",
+    buktiLink: "",
   });
 
   const handleOpenCreate = () => {
@@ -193,6 +189,10 @@ export default function ExpenseTransactionsPage() {
       nominal: "",
       status: "Paid",
       vendor: "CV Sukses Listrik",
+      buktiType: "file",
+      buktiFoto: "",
+      buktiNama: "",
+      buktiLink: "",
     });
     setIsModalOpen(true);
   };
@@ -209,6 +209,10 @@ export default function ExpenseTransactionsPage() {
       nominal: item.nominal,
       status: item.status,
       vendor: item.vendor || item.pihak || "",
+      buktiType: item.buktiLink ? "link" : "file",
+      buktiFoto: item.buktiFoto || "",
+      buktiNama: item.buktiNama || "",
+      buktiLink: item.buktiLink || "",
     });
     setIsModalOpen(true);
   };
@@ -245,31 +249,49 @@ export default function ExpenseTransactionsPage() {
 
   useEffect(() => {
     let active = true;
-    accountingGet("ledger", { type: "expense" })
-      .then(res => {
-        if (active && res.data?.rows?.length > 0) {
-          const deletedIds = JSON.parse(localStorage.getItem("finance_expense_deleted_ids") || "[]");
-          const apiRows = res.data.rows
-            .map((r, i) => ({
-              id: r.ledger_id || r.id || i + 1,
-              tanggal: r.transaction_date || r.date,
-              kategori: r.category || "Operasional",
-              deskripsi: r.description || "Pengeluaran",
-              sumberDana: r.cash_account_name || "Kas/Bank",
-              nominal: Number(r.outgoing_amount || r.amount || 0),
-              status: r.approval_status === "approved" ? "Approved" : r.payment_status === "paid" ? "Paid" : "Pending",
-              vendor: r.party_name || r.vendor_name || "—",
-            }))
-            .filter(r => !deletedIds.includes(String(r.id)));
-
-          const hasSaved = localStorage.getItem("finance_expense_data");
-          if (!hasSaved && apiRows.length > 0) {
-            setData(apiRows);
-          }
+    Promise.all([
+      accountingGet("ledger", { type: "expense" }).catch(() => ({ data: { rows: [] } })),
+      axios.get("/api/finance.php", { params: { type: "expense", _t: Date.now() } }).catch(() => ({ data: { data: [] } })),
+    ])
+      .then(([res, legacyRes]) => {
+        if (!active) return;
+        const apiRows = (res.data?.rows || [])
+          .map((r, i) => ({
+            id: r.ledger_id || r.id || i + 1,
+            tanggal: r.transaction_date || r.date,
+            kategori: r.category || "Operasional",
+            deskripsi: r.description || "Pengeluaran",
+            sumberDana: r.cash_account_name || "Kas/Bank",
+            nominal: Number(r.outgoing_amount || r.amount || 0),
+            status: r.approval_status === "approved" ? "Approved" : r.payment_status === "paid" ? "Paid" : "Pending",
+            vendor: r.party_name || r.vendor_name || "—",
+            buktiFoto: r.source_type === "legacy_finance" && r.source_id ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.source_id)}` : "",
+          }))
+          ;
+        const legacyRows = (legacyRes.data?.data || []).map((r, i) => ({
+          id: `legacy:${r.id || i + 1}`,
+          tanggal: r.transaction_date,
+          kategori: r.category || "Pengeluaran",
+          deskripsi: r.description || "Transaksi historis",
+          sumberDana: r.bank_name || r.metode || "Kas/Bank",
+          nominal: Number(r.amount || 0),
+          status: "Paid",
+          vendor: r.account_name || r.source || "-",
+          buktiFoto: r.photo_path ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.id)}` : "",
+          buktiLink: r.drive_link || "",
+        }));
+        const rowsById = new Map([...apiRows, ...legacyRows].map(row => [String(row.id), row]));
+        const rows = [...rowsById.values()];
+        setData(rows);
+        try {
+          localStorage.setItem("finance_expense_data", JSON.stringify(rows));
+        } catch {
+          // Local persistence is best effort.
         }
       })
-      .catch(() => {
-        // Fallback to initial starter data
+      .catch(error => { if (active) setLoadError(error.message || "Transaksi pengeluaran gagal dimuat."); })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => { active = false; };
   }, []);
@@ -342,6 +364,7 @@ export default function ExpenseTransactionsPage() {
           party_name: form.vendor,
         });
       } catch {}
+      try { await saveLegacyProof(editingItem.id, form); } catch (proofError) { console.warn("Bukti pengeluaran gagal disimpan", proofError); }
     } else {
       const newItem = {
         id: Date.now(),
@@ -414,6 +437,10 @@ export default function ExpenseTransactionsPage() {
       nominal: "",
       status: "Paid",
       vendor: "CV Sukses Listrik",
+      buktiType: "file",
+      buktiFoto: "",
+      buktiNama: "",
+      buktiLink: "",
     });
   };
 
@@ -461,6 +488,21 @@ export default function ExpenseTransactionsPage() {
       )
     },
     { header: "Status", accessor: "status", align: "center", render: (r) => <FinanceBadge status={r.status || "Lunas"} /> },
+    {
+      header: "Bukti",
+      accessor: "bukti",
+      align: "center",
+      className: "w-20",
+      render: (r) => r.buktiFoto ? (
+        <a href={r.buktiFoto} target="_blank" rel="noopener noreferrer" title="Lihat bukti pengeluaran" className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg">
+          <FileText className="w-3 h-3" /> Foto
+        </a>
+      ) : r.buktiLink ? (
+        <a href={r.buktiLink} target="_blank" rel="noopener noreferrer" title={r.buktiLink} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg">
+          <LinkIcon className="w-3 h-3" /> Link
+        </a>
+      ) : <span className="text-slate-300 text-xs">—</span>
+    },
     { 
       header: "Aksi", 
       accessor: "aksi", 
@@ -547,6 +589,12 @@ export default function ExpenseTransactionsPage() {
             setEndDate("2026-12-31");
           }}
         />
+
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            Data pengeluaran gagal dimuat dari database: {loadError}
+          </div>
+        )}
 
         <FinanceTable
           columns={columns}
@@ -677,6 +725,29 @@ export default function ExpenseTransactionsPage() {
                 <option value="Pending">Pending (Diajukan)</option>
               </select>
             </div>
+            <div className="md:col-span-2 border border-slate-200/80 rounded-xl p-3 bg-slate-50/50 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-rose-500" /> Bukti Pengeluaran (Foto / Link)</label>
+                <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-[11px] font-semibold text-slate-600">
+                  <button type="button" onClick={() => setForm({ ...form, buktiType: "file" })} className={`px-2.5 py-1 rounded-md ${form.buktiType === "file" ? "bg-white text-rose-600 shadow-2xs" : "hover:text-slate-900"}`}>Upload Foto</button>
+                  <button type="button" onClick={() => setForm({ ...form, buktiType: "link" })} className={`px-2.5 py-1 rounded-md ${form.buktiType === "link" ? "bg-white text-blue-600 shadow-2xs" : "hover:text-slate-900"}`}>Tautan Link</button>
+                </div>
+              </div>
+              {form.buktiType === "file" ? (
+                form.buktiFoto ? (
+                  <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                    <img src={form.buktiFoto} alt="Bukti pengeluaran" className="w-12 h-12 object-cover rounded-md border border-slate-100" />
+                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-slate-800 truncate">{form.buktiNama || "bukti-pengeluaran.jpg"}</p><p className="text-[10px] text-emerald-600 font-medium">Foto siap disimpan</p></div>
+                    <button type="button" onClick={() => setForm({ ...form, buktiFoto: "", buktiNama: "" })} className="p-1.5 text-slate-400 hover:text-rose-500 rounded-md" title="Hapus foto"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-200 hover:border-rose-400 bg-white rounded-xl cursor-pointer transition">
+                    <UploadCloud className="w-6 h-6 text-slate-400 mb-1" /><span className="text-xs font-semibold text-slate-700">Pilih file foto bukti pengeluaran</span><span className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, WebP, atau PDF maksimal 5 MB</span>
+                    <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = ev => setForm({ ...form, buktiFoto: ev.target.result, buktiNama: file.name }); reader.readAsDataURL(file); }} />
+                  </label>
+                )
+              ) : <input type="url" placeholder="https://drive.google.com/... atau tautan bukti pengeluaran" value={form.buktiLink} onChange={e => setForm({ ...form, buktiLink: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium" />}
+            </div>
           </div>
         </FinanceModal>
 
@@ -729,6 +800,7 @@ export default function ExpenseTransactionsPage() {
                 <div className="flex justify-between"><span className="text-slate-500">Sumber Dana:</span><span className="font-semibold text-slate-800">{selectedItem.sumberDana}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Nominal:</span><span className="font-bold text-rose-600 text-sm">{formatRupiah(selectedItem.nominal)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Status:</span><FinanceBadge status={selectedItem.status} /></div>
+                <div className="pt-2 border-t border-slate-200"><span className="text-slate-500 block mb-2">Bukti Pengeluaran:</span>{selectedItem.buktiFoto ? <a href={selectedItem.buktiFoto} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-semibold inline-flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Lihat foto / file bukti</a> : selectedItem.buktiLink ? <a href={selectedItem.buktiLink} target="_blank" rel="noopener noreferrer" className="text-blue-700 font-semibold inline-flex items-center gap-1"><LinkIcon className="w-3.5 h-3.5" /> Buka tautan bukti</a> : <span className="text-slate-400">Belum ada bukti</span>}</div>
               </div>
 
               <div className="mt-5 flex justify-end">

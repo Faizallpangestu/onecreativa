@@ -17,6 +17,34 @@ try {
 
     $year = !empty($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
     if ($year < 2000 || $year > 2100) ac_fail('Tahun tidak valid.');
+    // Audit projection starts at the selected year and follows every future
+    // dated obligation/receivable. The twelve-month chart remains scoped to
+    // the selected year; the detail list is intentionally open-ended so a
+    // CFO can audit next year and later schedules without losing records.
+    $projectionStart = sprintf('%04d-01-01', $year);
+
+    // Production may still have the legacy finance_records schema. Build the
+    // compatibility fragments once so old databases do not fail the whole API.
+    $hasAccountingTransactions = ac_table($conn, 'accounting_transactions');
+    $legacyJoin = $hasAccountingTransactions
+        ? "LEFT JOIN accounting_transactions t ON t.legacy_finance_id = f.id AND t.journal_status <> 'reversed'"
+        : '';
+    $legacyNotMigrated = $hasAccountingTransactions ? 'AND t.id IS NULL' : '';
+    $hasLegacySalary = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='salary_request_id'") !== null;
+    $hasLegacyBudget = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='budget_request_id'") !== null;
+    $hasLegacyAccountName = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='account_name'") !== null;
+    $hasLegacySource = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='source'") !== null;
+    $hasLegacyBankName = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='bank_name'") !== null;
+    $hasLegacyAccountNumber = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='account_number'") !== null;
+    $hasLegacyMetode = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='metode'") !== null;
+    $legacySalaryColumn = $hasLegacySalary ? 'f.salary_request_id' : 'NULL';
+    $legacyBudgetColumn = $hasLegacyBudget ? 'f.budget_request_id' : 'NULL';
+    $legacyPartyColumn = $hasLegacyAccountName && $hasLegacySource
+        ? "COALESCE(NULLIF(f.account_name, ''), NULLIF(f.source, ''), 'Internal')"
+        : ($hasLegacyAccountName ? "COALESCE(NULLIF(f.account_name, ''), 'Internal')" : ($hasLegacySource ? "COALESCE(NULLIF(f.source, ''), 'Internal')" : "'Internal'"));
+    $legacyBankColumn = $hasLegacyBankName ? "COALESCE(NULLIF(f.bank_name, ''), 'Kas/Bank')" : "'Kas/Bank'";
+    $legacyAccountColumn = $hasLegacyAccountNumber ? "f.account_number" : "''";
+    $legacyMetodeColumn = $hasLegacyMetode ? "COALESCE(NULLIF(f.metode, ''), 'Transfer')" : "'Transfer'";
 
     $months = [];
     for ($m = 1; $m <= 12; $m++) {
@@ -32,7 +60,7 @@ try {
 
     // === PROJECTION: Approved transactions that are unpaid (expected income/expenses) ===
     // Projection = amount from approved but unpaid transactions
-    if (ac_table($conn, 'accounting_transactions')) {
+    if ($hasAccountingTransactions) {
         // Projections: approved but unpaid transactions for the given year
         $projStmt = $conn->prepare("
             SELECT MONTH(transaction_date) AS m,
@@ -71,7 +99,7 @@ try {
         $realStmt->close();
 
         // Income & Expense by month from posted journals
-        if (ac_table($conn, 'journal_entries')) {
+        if (ac_table($conn, 'journal_entries') && ac_table($conn, 'journal_lines') && ac_table($conn, 'accounts')) {
             $flowStmt = $conn->prepare("
                 SELECT MONTH(j.entry_date) AS m,
                        CAST(SUM(CASE WHEN a.account_group = 4 THEN l.credit - l.debit ELSE 0 END) AS CHAR) AS income,
@@ -98,22 +126,18 @@ try {
         }
     }
 
-    // Fallback to legacy finance_records if no accounting_transactions data
-    $hasAccountingData = false;
-    foreach ($months as $m) {
-        if ($m['income'] !== '0' || $m['expense'] !== '0' || $m['projection'] !== '0' || $m['realization'] !== '0') {
-            $hasAccountingData = true;
-            break;
-        }
-    }
-
-    if (!$hasAccountingData && ac_table($conn, 'finance_records')) {
+    // Merge legacy finance_records even when the new accounting tables already
+    // contain data. Exclude records already migrated into accounting_transactions
+    // so the historical ledger is preserved without double counting.
+    if (ac_table($conn, 'finance_records')) {
         $legacyStmt = $conn->prepare("
-            SELECT MONTH(transaction_date) AS m, type,
-                   CAST(SUM(amount) AS CHAR) AS total
-            FROM finance_records
-            WHERE YEAR(transaction_date) = ?
-            GROUP BY MONTH(transaction_date), type
+            SELECT MONTH(f.transaction_date) AS m, f.type,
+                   CAST(SUM(f.amount) AS CHAR) AS total
+            FROM finance_records f
+            {$legacyJoin}
+            WHERE YEAR(f.transaction_date) = ?
+              {$legacyNotMigrated}
+            GROUP BY MONTH(f.transaction_date), f.type
         ");
         $legacyStmt->bind_param('i', $year);
         $legacyStmt->execute();
@@ -122,9 +146,13 @@ try {
             $m = (int)$row['m'];
             if (!isset($months[$m])) continue;
             if ($row['type'] === 'income') {
-                $months[$m]['income'] = $row['total'] ?? '0';
+                $months[$m]['income'] = ac_decimal(
+                    ac_cents($months[$m]['income']) + ac_cents($row['total'] ?? '0')
+                );
             } else {
-                $months[$m]['expense'] = $row['total'] ?? '0';
+                $months[$m]['expense'] = ac_decimal(
+                    ac_cents($months[$m]['expense']) + ac_cents($row['total'] ?? '0')
+                );
             }
             $months[$m]['realization'] = ac_decimal(
                 ac_cents($months[$m]['realization']) + ac_cents($row['total'] ?? '0')
@@ -175,16 +203,18 @@ try {
         $expSrcStmt->close();
     }
 
-    if (empty($incomeBySource) && ac_table($conn, 'finance_records')) {
+    if (ac_table($conn, 'finance_records')) {
         $legacyIncSrc = $conn->prepare("
-            SELECT COALESCE(NULLIF(bank_name, ''), 'BCA') AS account_name,
-                   CAST(SUM(amount) AS CHAR) AS total,
+            SELECT COALESCE(NULLIF(f.bank_name, ''), 'BCA') AS account_name,
+                   CAST(SUM(f.amount) AS CHAR) AS total,
                    COUNT(*) AS count
-            FROM finance_records
-            WHERE YEAR(transaction_date) = ?
-              AND type = 'income'
-            GROUP BY COALESCE(NULLIF(bank_name, ''), 'BCA')
-            ORDER BY SUM(amount) DESC
+            FROM finance_records f
+            {$legacyJoin}
+            WHERE YEAR(f.transaction_date) = ?
+              AND f.type = 'income'
+              {$legacyNotMigrated}
+            GROUP BY COALESCE(NULLIF(f.bank_name, ''), 'BCA')
+            ORDER BY SUM(f.amount) DESC
         ");
         $legacyIncSrc->bind_param('i', $year);
         $legacyIncSrc->execute();
@@ -192,16 +222,18 @@ try {
         $legacyIncSrc->close();
     }
 
-    if (empty($expenseBySource) && ac_table($conn, 'finance_records')) {
+    if (ac_table($conn, 'finance_records')) {
         $legacyExpSrc = $conn->prepare("
-            SELECT COALESCE(NULLIF(bank_name, ''), 'BCA') AS account_name,
-                   CAST(SUM(amount) AS CHAR) AS total,
+            SELECT COALESCE(NULLIF(f.bank_name, ''), 'BCA') AS account_name,
+                   CAST(SUM(f.amount) AS CHAR) AS total,
                    COUNT(*) AS count
-            FROM finance_records
-            WHERE YEAR(transaction_date) = ?
-              AND type = 'expense'
-            GROUP BY COALESCE(NULLIF(bank_name, ''), 'BCA')
-            ORDER BY SUM(amount) DESC
+            FROM finance_records f
+            {$legacyJoin}
+            WHERE YEAR(f.transaction_date) = ?
+              AND f.type = 'expense'
+              {$legacyNotMigrated}
+            GROUP BY COALESCE(NULLIF(f.bank_name, ''), 'BCA')
+            ORDER BY SUM(f.amount) DESC
         ");
         $legacyExpSrc->bind_param('i', $year);
         $legacyExpSrc->execute();
@@ -223,13 +255,13 @@ try {
                    t.source_id, t.source_number
             FROM accounting_transactions t
             LEFT JOIN cash_bank_accounts cba ON cba.id = t.cash_account_id
-            WHERE YEAR(t.transaction_date) = ?
+            WHERE t.transaction_date >= ?
               AND t.approval_status = 'approved'
               AND t.payment_status = 'unpaid'
             ORDER BY t.transaction_date DESC
             LIMIT 200
         ");
-        $piStmt->bind_param('i', $year);
+        $piStmt->bind_param('s', $projectionStart);
         $piStmt->execute();
         $projectionItems = $piStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $piStmt->close();
@@ -272,30 +304,25 @@ try {
                    CONCAT(s.bank_name, ' (', s.account_number, ')') AS cash_account_name,
                    s.id AS salary_request_id
             FROM salary_requests s
-            WHERE YEAR(COALESCE(s.payday, s.period_start)) = ?
+            WHERE COALESCE(s.payday, s.period_start) >= ?
             ORDER BY s.id DESC
         ");
-        $salStmt->bind_param('i', $year);
+        $salStmt->bind_param('s', $projectionStart);
         $salStmt->execute();
         $salList = $salStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $salStmt->close();
 
         foreach ($salList as $sal) {
-            $m = (int)date('n', strtotime($sal['transaction_date']));
-            if (isset($months[$m])) {
-                $months[$m]['projection'] = ac_decimal(
-                    ac_cents($months[$m]['projection']) + ac_cents($sal['amount'])
-                );
-            }
-            $projectionItems[] = $sal;
-
+            $salDate = strtotime($sal['transaction_date']);
+            $salYear = $salDate ? (int)date('Y', $salDate) : $year;
+            $m = $salDate ? (int)date('n', $salDate) : 1;
             if ($sal['payment_status'] === 'paid') {
                 $realSal = $sal;
                 $realSal['number'] = 'FIN-' . $sal['number'];
                 $realSal['paid_at'] = $sal['transaction_date'];
                 $realSal['related_proj_id'] = $sal['id'];
                 $realSal['related_proj_number'] = $sal['number'];
-                if (isset($months[$m])) {
+                if ($salYear === $year && isset($months[$m])) {
                     $months[$m]['realization'] = ac_decimal(
                         ac_cents($months[$m]['realization']) + ac_cents($sal['amount'])
                     );
@@ -303,45 +330,41 @@ try {
                         ac_cents($months[$m]['expense']) + ac_cents($sal['amount'])
                     );
                 }
-                $realizationItems[] = $realSal;
+                if ($salYear === $year) $realizationItems[] = $realSal;
             } else {
-                $todayIso = date('Y-m-d');
-                $isOverdue = $todayIso > $sal['transaction_date'];
-                $pendingSal = $sal;
-                $pendingSal['id'] = 'PENDING-' . $sal['number'];
-                $pendingSal['number'] = 'MENUNGGU-' . $sal['number'];
-                $pendingSal['amount'] = '0';
-                $pendingSal['expected_amount'] = $sal['amount'];
-                $pendingSal['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
-                $pendingSal['is_pending_realization'] = true;
-                $pendingSal['related_proj_id'] = $sal['id'];
-                $pendingSal['related_proj_number'] = $sal['number'];
-                $realizationItems[] = $pendingSal;
+                if ($salYear === $year && isset($months[$m])) {
+                    $months[$m]['projection'] = ac_decimal(
+                        ac_cents($months[$m]['projection']) + ac_cents($sal['amount'])
+                    );
+                }
+                $projectionItems[] = $sal;
             }
         }
     }
 
-    if (empty($realizationItems) && ac_table($conn, 'finance_records')) {
+    if (ac_table($conn, 'finance_records')) {
         $legacyReal = $conn->prepare("
-            SELECT id,
-                   CONCAT('FIN-', LPAD(id, 5, '0')) AS number,
-                   transaction_date,
-                   type,
-                   amount,
-                   COALESCE(NULLIF(account_name, ''), NULLIF(source, ''), 'Internal') AS party_name,
-                   description,
+            SELECT f.id,
+                   CONCAT('FIN-', LPAD(f.id, 5, '0')) AS number,
+                   f.transaction_date,
+                   f.type,
+                   f.amount,
+                   {$legacyPartyColumn} AS party_name,
+                   f.description,
                    'legacy_finance' AS source_type,
-                   category AS classification,
+                   f.category AS classification,
                    'approved' AS approval_status,
                    'paid' AS payment_status,
-                   CONCAT(COALESCE(NULLIF(bank_name, ''), 'BCA'), IF(account_number != '', CONCAT(' (', account_number, ')'), '')) AS cash_account_name,
-                   created_at AS paid_at,
-                   COALESCE(NULLIF(metode, ''), 'Transfer') AS reference,
-                   salary_request_id,
-                   budget_request_id
-            FROM finance_records
-            WHERE YEAR(transaction_date) = ?
-            ORDER BY transaction_date DESC
+                   CONCAT({$legacyBankColumn}, IF({$legacyAccountColumn} != '', CONCAT(' (', {$legacyAccountColumn}, ')'), '')) AS cash_account_name,
+                   f.created_at AS paid_at,
+                   {$legacyMetodeColumn} AS reference,
+                   {$legacySalaryColumn} AS salary_request_id,
+                   {$legacyBudgetColumn} AS budget_request_id
+            FROM finance_records f
+            {$legacyJoin}
+            WHERE YEAR(f.transaction_date) = ?
+              {$legacyNotMigrated}
+            ORDER BY f.transaction_date DESC
             LIMIT 200
         ");
         $legacyReal->bind_param('i', $year);
@@ -363,71 +386,75 @@ try {
             }
             $realizationItems[] = $ri;
 
-            // Also pair non-salary finance records as projections
-            if (empty($ri['salary_request_id'])) {
-                $projItem = $ri;
-                $projItem['number'] = 'PROJ-' . substr($ri['number'], 4);
-                $projItem['payment_status'] = 'unpaid';
-                $m = (int)date('n', strtotime($projItem['transaction_date']));
-                if (isset($months[$m])) {
-                    $months[$m]['projection'] = ac_decimal(
-                        ac_cents($months[$m]['projection']) + ac_cents($projItem['amount'])
-                    );
-                }
-                $projectionItems[] = $projItem;
-            }
         }
     }
 
     // === ENRICH WITH BILLING INVOICES (Student Invoices -> Proyeksi & Realisasi) ===
     if (ac_table($conn, 'billing_invoices')) {
+        $billingPaidExpr = ac_table($conn, 'billing_pembayaran')
+            ? '(SELECT COALESCE(SUM(bp.jumlah), 0) FROM billing_pembayaran bp WHERE bp.noInv = bi.id)'
+            : '0';
         $invStmt = $conn->prepare("
-            SELECT id,
-                   tanggal AS transaction_date,
+             SELECT bi.id,
+                    CASE WHEN bi.tanggal REGEXP '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN STR_TO_DATE(bi.tanggal, '%d/%m/%Y') ELSE DATE(bi.tanggal) END AS transaction_date,
                    'income' AS type,
-                   total AS amount,
-                   customer AS party_name,
-                   CONCAT('Tagihan Siswa - ', customer) AS description,
+                    GREATEST(0, bi.total - {$billingPaidExpr}) AS amount,
+                    bi.total AS invoice_amount,
+                    {$billingPaidExpr} AS paid_amount,
+                    bi.customer AS party_name,
+                    CONCAT('Tagihan Siswa - ', bi.customer) AS description,
                    'invoice_billing' AS source_type,
                    'Pemasukan Pelatihan' AS classification,
                    'approved' AS approval_status,
-                   status,
+                    CASE
+                      WHEN LOWER(COALESCE(bi.status, '')) IN ('paid', 'lunas') OR bi.total - {$billingPaidExpr} <= 0 THEN 'paid'
+                      WHEN {$billingPaidExpr} > 0 OR LOWER(COALESCE(bi.status, '')) IN ('partial', 'partially paid', 'sebagian', 'sebagian dibayar') THEN 'partial'
+                      ELSE 'unpaid'
+                    END AS status,
                    'BCA (1832-918-428)' AS cash_account_name,
-                   jatuhTempo,
-                   created_at
-            FROM billing_invoices
-            WHERE YEAR(tanggal) = ?
-            ORDER BY id DESC
+                    bi.jatuhTempo,
+                    bi.created_at
+             FROM billing_invoices bi
+              WHERE (CASE WHEN bi.tanggal REGEXP '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN STR_TO_DATE(bi.tanggal, '%d/%m/%Y') ELSE DATE(bi.tanggal) END) >= ?
+             ORDER BY bi.id DESC
         ");
-        $invStmt->bind_param('i', $year);
+        $invStmt->bind_param('s', $projectionStart);
         $invStmt->execute();
         $invList = $invStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $invStmt->close();
 
         foreach ($invList as $inv) {
-            $m = (int)date('n', strtotime($inv['transaction_date']));
-            $isPaid = in_array(strtolower($inv['status']), ['paid', 'lunas']);
+            $invTimestamp = strtotime($inv['transaction_date']);
+            $invYear = $invTimestamp ? (int)date('Y', $invTimestamp) : $year;
+            $m = $invTimestamp ? (int)date('n', $invTimestamp) : 1;
+            $invoiceStatus = strtolower((string)($inv['status'] ?? 'unpaid'));
+            $isPaid = $invoiceStatus === 'paid';
+            $isPartial = $invoiceStatus === 'partial';
 
-            // 1. Proyeksi: Semua invoice yang terbit adalah target kas masuk
-            $projInv = $inv;
-            $projInv['number'] = $inv['id'];
-            $projInv['payment_status'] = $isPaid ? 'paid' : 'unpaid';
-            if (isset($months[$m])) {
-                $months[$m]['projection'] = ac_decimal(
-                    ac_cents($months[$m]['projection']) + ac_cents($projInv['amount'])
-                );
+            // Invoice unpaid = projection only. Once paid, it moves to
+            // realization and income below; it must not remain in projection.
+            if (!$isPaid) {
+                $projInv = $inv;
+                $projInv['number'] = $inv['id'];
+                $projInv['payment_status'] = $isPartial ? 'partial' : 'unpaid';
+                if ($invYear === $year && isset($months[$m])) {
+                    $months[$m]['projection'] = ac_decimal(
+                        ac_cents($months[$m]['projection']) + ac_cents($projInv['amount'])
+                    );
+                }
+                $projectionItems[] = $projInv;
             }
-            $projectionItems[] = $projInv;
 
             // 2. Realisasi: Jika sudah dibayar (Paid/Lunas), masuk ke Realisasi aktual
-            if ($isPaid) {
+            if ($isPaid || $isPartial) {
                 $realInv = $inv;
                 $realInv['number'] = 'FIN-' . $inv['id'];
-                $realInv['payment_status'] = 'paid';
+                $realInv['amount'] = $inv['paid_amount'] > 0 ? $inv['paid_amount'] : $inv['invoice_amount'];
+                $realInv['payment_status'] = $isPaid ? 'paid' : 'partial';
                 $realInv['paid_at'] = $inv['transaction_date'];
                 $realInv['related_proj_id'] = $inv['id'];
                 $realInv['related_proj_number'] = $inv['id'];
-                if (isset($months[$m])) {
+                if ($invYear === $year && isset($months[$m])) {
                     $months[$m]['realization'] = ac_decimal(
                         ac_cents($months[$m]['realization']) + ac_cents($realInv['amount'])
                     );
@@ -435,24 +462,121 @@ try {
                         ac_cents($months[$m]['income']) + ac_cents($realInv['amount'])
                     );
                 }
-                $realizationItems[] = $realInv;
-            } else {
-                // Baris pasangan di Realisasi (Unpaid / Overdue) dengan nominal 0 agar kas riil bank tidak menggelembung
-                $todayIso = date('Y-m-d');
-                $isOverdue = (!empty($inv['jatuhTempo']) && $todayIso > $inv['jatuhTempo']);
-                $pendingInv = $inv;
-                $pendingInv['id'] = 'PENDING-' . $inv['id'];
-                $pendingInv['number'] = 'MENUNGGU-' . $inv['id'];
-                $pendingInv['amount'] = '0';
-                $pendingInv['expected_amount'] = $inv['amount'];
-                $pendingInv['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
-                $pendingInv['is_pending_realization'] = true;
-                $pendingInv['related_proj_id'] = $inv['id'];
-                $pendingInv['related_proj_number'] = $inv['id'];
-                $realizationItems[] = $pendingInv;
+                if ($invYear === $year) $realizationItems[] = $realInv;
             }
         }
     }
+
+    // === ENRICH WITH LEGACY CLIENT INVOICES (OUTSTANDING = PROJECTION) ===
+    // invoice_clients stores the original bill while invoice_records stores
+    // payments. Unpaid and partially paid balances must remain projections.
+    if (ac_table($conn, 'invoice_clients')) {
+        $paymentJoin = ac_table($conn, 'invoice_records')
+            ? "LEFT JOIN invoice_records p ON p.client_id = c.id"
+            : '';
+        $paymentSum = ac_table($conn, 'invoice_records')
+            ? 'COALESCE(SUM(p.jumlah), 0)'
+            : '0';
+        $clientInvStmt = $conn->prepare("
+            SELECT c.id,
+                   DATE(c.created_at) AS transaction_date,
+                   'income' AS type,
+                   CAST(c.total_biaya - {$paymentSum} AS DECIMAL(15,2)) AS amount,
+                   c.name AS party_name,
+                   CONCAT('Tagihan Client - ', c.name) AS description,
+                   'invoice_client' AS source_type,
+                   'Pemasukan Pelatihan' AS classification,
+                   'approved' AS approval_status,
+                   'unpaid' AS payment_status,
+                   'BCA (1832-918-428)' AS cash_account_name,
+                   c.created_at
+            FROM invoice_clients c
+            {$paymentJoin}
+            WHERE c.created_at >= ?
+            GROUP BY c.id, c.created_at, c.total_biaya, c.name
+            HAVING c.total_biaya - {$paymentSum} > 0
+            ORDER BY c.created_at DESC, c.id DESC
+        ");
+        $clientInvStmt->bind_param('s', $projectionStart);
+        $clientInvStmt->execute();
+        $clientInvList = $clientInvStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $clientInvStmt->close();
+        foreach ($clientInvList as $inv) {
+            $clientTimestamp = strtotime($inv['transaction_date']);
+            $clientYear = $clientTimestamp ? (int)date('Y', $clientTimestamp) : $year;
+            $m = $clientTimestamp ? (int)date('n', $clientTimestamp) : 1;
+            $inv['number'] = 'CLIENT-' . $inv['id'];
+            if ($clientYear === $year && isset($months[$m])) {
+                $months[$m]['projection'] = ac_decimal(ac_cents($months[$m]['projection']) + ac_cents($inv['amount']));
+            }
+            $projectionItems[] = $inv;
+        }
+    }
+
+    // === FUTURE COMMITMENTS (approved but not yet paid/realized) ===
+    // These are not invoices, but they are real financial obligations already
+    // approved by Finance. Keep them in the audit projection until a posted
+    // accounting transaction exists, then the accounting ledger becomes the
+    // single source of truth and this fallback is suppressed.
+    if (ac_table($conn, 'vendor_bills') && ac_table($conn, 'vendors')) {
+        $vendorStmt = $conn->prepare("\n            SELECT b.id, b.number, DATE(b.bill_date) AS transaction_date,\n                   'expense' AS type, b.amount, v.name AS party_name,\n                   CONCAT('Tagihan vendor - ', v.name) AS description,\n                   'vendor_bill' AS source_type, 'Tagihan Vendor' AS classification,\n                   'approved' AS approval_status, 'unpaid' AS payment_status,\n                   'BCA (1832-918-428)' AS cash_account_name, b.id AS source_id\n            FROM vendor_bills b\n            JOIN vendors v ON v.id = b.vendor_id\n            WHERE b.status = 'approved'\n              AND b.bill_date >= ?\n              AND NOT EXISTS (\n                SELECT 1 FROM accounting_transactions t\n                WHERE t.source_type = 'vendor_bill'\n                  AND t.source_id = CAST(b.id AS CHAR)\n                  AND t.journal_status <> 'reversed'\n              )\n            ORDER BY b.bill_date ASC, b.id ASC\n            LIMIT 500\n        ");
+        $vendorStmt->bind_param('s', $projectionStart);
+        $vendorStmt->execute();
+        foreach ($vendorStmt->get_result()->fetch_all(MYSQLI_ASSOC) as $bill) {
+            $billDate = strtotime($bill['transaction_date']);
+            $billYear = $billDate ? (int)date('Y', $billDate) : $year;
+            $billMonth = $billDate ? (int)date('n', $billDate) : 1;
+            if ($billYear === $year && isset($months[$billMonth])) {
+                $months[$billMonth]['projection'] = ac_decimal(ac_cents($months[$billMonth]['projection']) + ac_cents($bill['amount']));
+            }
+            $bill['number'] = $bill['number'] ?: 'BILL-' . $bill['id'];
+            $projectionItems[] = $bill;
+        }
+        $vendorStmt->close();
+    }
+
+    if (ac_table($conn, 'reimbursements')) {
+        $reimStmt = $conn->prepare("\n            SELECT r.id, CONCAT('REIMB-', r.id) AS number, DATE(r.created_at) AS transaction_date,\n                   'expense' AS type, r.amount,\n                   COALESCE(NULLIF(e.full_name, ''), u.email, CONCAT('Karyawan #', r.user_id)) AS party_name,\n                   r.description, 'reimbursement' AS source_type,\n                   CONCAT('Reimbursement - ', r.category) AS classification,\n                   'approved' AS approval_status, 'unpaid' AS payment_status,\n                   'BCA (1832-918-428)' AS cash_account_name, r.id AS source_id\n            FROM reimbursements r\n            LEFT JOIN users u ON u.id = r.user_id\n            LEFT JOIN employees e ON e.user_id = r.user_id\n            WHERE r.status = 'approved'\n              AND r.created_at >= ?\n              AND NOT EXISTS (\n                SELECT 1 FROM accounting_transactions t\n                WHERE t.source_type = 'reimbursement'\n                  AND t.source_id = CAST(r.id AS CHAR)\n                  AND t.journal_status <> 'reversed'\n              )\n            ORDER BY r.created_at ASC, r.id ASC\n            LIMIT 500\n        ");
+        $reimStmt->bind_param('s', $projectionStart);
+        $reimStmt->execute();
+        foreach ($reimStmt->get_result()->fetch_all(MYSQLI_ASSOC) as $reim) {
+            $reimDate = strtotime($reim['transaction_date']);
+            $reimYear = $reimDate ? (int)date('Y', $reimDate) : $year;
+            $reimMonth = $reimDate ? (int)date('n', $reimDate) : 1;
+            if ($reimYear === $year && isset($months[$reimMonth])) {
+                $months[$reimMonth]['projection'] = ac_decimal(ac_cents($months[$reimMonth]['projection']) + ac_cents($reim['amount']));
+            }
+            $projectionItems[] = $reim;
+        }
+        $reimStmt->close();
+    }
+
+    // Approved RAB/budget balances are expected cash outflows even before a
+    // vendor bill is created. Subtract recorded realizations and open
+    // commitments so audit totals never count the same budget twice.
+    if (ac_table($conn, 'budget_requests') && ac_table($conn, 'budget_realizations')) {
+        $budgetCommitmentExpr = ac_table($conn, 'budget_commitments')
+            ? "COALESCE((SELECT SUM(c.amount) FROM budget_commitments c JOIN budget_request_items i ON i.id=c.budget_item_id WHERE i.budget_request_id=b.id AND c.status='open'),0)"
+            : '0';
+        $budgetStmt = $conn->prepare("\n            SELECT b.id, CONCAT('RAB-', LPAD(b.id, 6, '0')) AS number, b.period AS transaction_date,\n                   'expense' AS type,\n                   GREATEST(0, b.approved_amount\n                     - COALESCE((SELECT SUM(r.amount) FROM budget_realizations r WHERE r.budget_request_id=b.id AND r.status='recorded'),0)\n                     - {$budgetCommitmentExpr}) AS amount,\n                   'Komitmen RAB' AS party_name, b.title AS description,\n                   'budget_approval' AS source_type, 'Anggaran disetujui' AS classification,\n                   'approved' AS approval_status, 'unpaid' AS payment_status,\n                   'BCA (1832-918-428)' AS cash_account_name, b.id AS source_id\n            FROM budget_requests b\n            WHERE b.status IN ('approved','partially_realized')\n              AND b.approved_amount > 0\n              AND b.period >= ?\n            HAVING amount > 0\n            ORDER BY b.period ASC, b.id ASC\n            LIMIT 500\n        ");
+        $budgetStmt->bind_param('s', $projectionStart);
+        $budgetStmt->execute();
+        foreach ($budgetStmt->get_result()->fetch_all(MYSQLI_ASSOC) as $budget) {
+            $budgetDate = strtotime($budget['transaction_date']);
+            $budgetYear = $budgetDate ? (int)date('Y', $budgetDate) : $year;
+            $budgetMonth = $budgetDate ? (int)date('n', $budgetDate) : 1;
+            if ($budgetYear === $year && isset($months[$budgetMonth])) {
+                $months[$budgetMonth]['projection'] = ac_decimal(ac_cents($months[$budgetMonth]['projection']) + ac_cents($budget['amount']));
+            }
+            $projectionItems[] = $budget;
+        }
+        $budgetStmt->close();
+    }
+
+    // === LIFECYCLE RULE ===
+    // Projections contain only approved outstanding amounts. Realizations
+    // contain only money actually paid/verified. A paid item is removed from
+    // projection by the source query and is represented once in realization.
 
     // === INCOME BY CLASSIFICATION ===
     $incomeByClassification = [];
@@ -490,15 +614,17 @@ try {
         $expClsStmt->close();
     }
 
-    if (empty($incomeByClassification) && ac_table($conn, 'finance_records')) {
+    if (ac_table($conn, 'finance_records')) {
         $legacyIncCls = $conn->prepare("
-            SELECT COALESCE(NULLIF(category, ''), 'Lainnya') AS classification,
-                   CAST(SUM(amount) AS CHAR) AS total
-            FROM finance_records
-            WHERE YEAR(transaction_date) = ?
-              AND type = 'income'
-            GROUP BY COALESCE(NULLIF(category, ''), 'Lainnya')
-            ORDER BY SUM(amount) DESC
+            SELECT COALESCE(NULLIF(f.category, ''), 'Lainnya') AS classification,
+                   CAST(SUM(f.amount) AS CHAR) AS total
+            FROM finance_records f
+            {$legacyJoin}
+            WHERE YEAR(f.transaction_date) = ?
+              AND f.type = 'income'
+              {$legacyNotMigrated}
+            GROUP BY COALESCE(NULLIF(f.category, ''), 'Lainnya')
+            ORDER BY SUM(f.amount) DESC
         ");
         $legacyIncCls->bind_param('i', $year);
         $legacyIncCls->execute();
@@ -506,15 +632,17 @@ try {
         $legacyIncCls->close();
     }
 
-    if (empty($expenseByClassification) && ac_table($conn, 'finance_records')) {
+    if (ac_table($conn, 'finance_records')) {
         $legacyExpCls = $conn->prepare("
-            SELECT COALESCE(NULLIF(category, ''), 'Lainnya') AS classification,
-                   CAST(SUM(amount) AS CHAR) AS total
-            FROM finance_records
-            WHERE YEAR(transaction_date) = ?
-              AND type = 'expense'
-            GROUP BY COALESCE(NULLIF(category, ''), 'Lainnya')
-            ORDER BY SUM(amount) DESC
+            SELECT COALESCE(NULLIF(f.category, ''), 'Lainnya') AS classification,
+                   CAST(SUM(f.amount) AS CHAR) AS total
+            FROM finance_records f
+            {$legacyJoin}
+            WHERE YEAR(f.transaction_date) = ?
+              AND f.type = 'expense'
+              {$legacyNotMigrated}
+            GROUP BY COALESCE(NULLIF(f.category, ''), 'Lainnya')
+            ORDER BY SUM(f.amount) DESC
         ");
         $legacyExpCls->bind_param('i', $year);
         $legacyExpCls->execute();
@@ -523,121 +651,139 @@ try {
     }
 
     // === TOTALS ===
+    // The audit KPI includes every open projection from the selected year
+    // onward. Monthly chart values below remain selected-year-only.
     $totalProjCents = 0;
+    $totalProjYearCents = 0;
     $totalRealCents = 0;
     $totalIncCents  = 0;
     $totalExpCents  = 0;
     foreach ($months as $m) {
-        $totalProjCents += ac_cents((string)($m['projection'] ?? '0'));
+        $totalProjYearCents += ac_cents((string)($m['projection'] ?? '0'));
         $totalRealCents += ac_cents((string)($m['realization'] ?? '0'));
         $totalIncCents  += ac_cents((string)($m['income'] ?? '0'));
         $totalExpCents  += ac_cents((string)($m['expense'] ?? '0'));
+    }
+    foreach ($projectionItems as $projectionItem) {
+        $totalProjCents += ac_cents((string)($projectionItem['amount'] ?? '0'));
     }
     $totalProjection  = ac_decimal($totalProjCents);
     $totalRealization = ac_decimal($totalRealCents);
     $totalIncome      = ac_decimal($totalIncCents);
     $totalExpense     = ac_decimal($totalExpCents);
 
-    // === P1: CFO ALERTS & INDICATORS ===
+    // === P1: CFO ALERTS & INDICATORS (Non-blocking) ===
     $alerts = [];
+    $unpostedCount = 0;
+    $budgetAlerts = [];
+    $overdueReceivables = [];
+    $cashBurnRate = 0;
+    $cashBalance  = 0;
+    $monthsLeft   = null;
 
     // Alert 1: Unposted payments (paid/verified but not journaled)
-    $unpostedCount = 0;
-    if (ac_table($conn, 'accounting_transactions')) {
-        $upRow = $conn->query("SELECT COUNT(*) AS c FROM accounting_transactions WHERE journal_status='unposted' AND payment_status IN ('paid','verified')");
-        $unpostedCount = (int)($upRow?->fetch_assoc()['c'] ?? 0);
-    }
-    if ($unpostedCount > 0) {
-        $alerts[] = ['type' => 'warning', 'code' => 'UNPOSTED', 'message' => "$unpostedCount transaksi sudah dibayar tapi belum diposting ke jurnal", 'count' => $unpostedCount];
-    }
+    try {
+        if (ac_table($conn, 'accounting_transactions')) {
+            $upRow = $conn->query("SELECT COUNT(*) AS c FROM accounting_transactions WHERE journal_status='unposted' AND payment_status IN ('paid','verified')");
+            $unpostedCount = (int)($upRow?->fetch_assoc()['c'] ?? 0);
+        }
+        if ($unpostedCount > 0) {
+            $alerts[] = ['type' => 'warning', 'code' => 'UNPOSTED', 'message' => "$unpostedCount transaksi sudah dibayar tapi belum diposting ke jurnal", 'count' => $unpostedCount];
+        }
+    } catch (Throwable) {}
 
     // Alert 2: Budget overspend (>80% realized)
-    $budgetAlerts = [];
-    if (ac_table($conn, 'budget_requests') && ac_table($conn, 'budget_realizations')) {
-        $budgetRes = $conn->query("
-            SELECT b.id, b.title, b.approved_amount,
-                   COALESCE((SELECT SUM(r.amount) FROM budget_realizations r WHERE r.budget_request_id=b.id AND r.status='recorded'),0) AS realized
-            FROM budget_requests b
-            WHERE b.status='approved' AND b.approved_amount > 0
-              AND YEAR(b.period) = $year
-        ");
-        if ($budgetRes) {
-            while ($br = $budgetRes->fetch_assoc()) {
-                $pct = (float)$br['approved_amount'] > 0 ? ((float)$br['realized'] / (float)$br['approved_amount']) * 100 : 0;
-                if ($pct >= 80) {
-                    $budgetAlerts[] = ['title' => $br['title'], 'approved' => (float)$br['approved_amount'], 'realized' => (float)$br['realized'], 'pct' => round($pct, 1)];
-                    if ($pct >= 100) {
-                        $alerts[] = ['type' => 'danger',  'code' => 'BUDGET_EXCEEDED', 'message' => 'Anggaran "'.$br['title'].'" SUDAH MELEBIHI batas ('.round($pct,1).'%)', 'budget_id' => (int)$br['id']];
-                    } else {
-                        $alerts[] = ['type' => 'warning', 'code' => 'BUDGET_80PCT',    'message' => 'Anggaran "'.$br['title'].'" sudah '.round($pct,1).'% terpakai', 'budget_id' => (int)$br['id']];
+    try {
+        if (ac_table($conn, 'budget_requests') && ac_table($conn, 'budget_realizations')) {
+            $budgetRes = $conn->query("
+                SELECT b.id, b.title, b.approved_amount,
+                       COALESCE((SELECT SUM(r.amount) FROM budget_realizations r WHERE r.budget_request_id=b.id AND r.status='recorded'),0) AS realized
+                FROM budget_requests b
+                WHERE b.status='approved' AND b.approved_amount > 0
+                  AND YEAR(b.period) = $year
+            ");
+            if ($budgetRes) {
+                while ($br = $budgetRes->fetch_assoc()) {
+                    $pct = (float)$br['approved_amount'] > 0 ? ((float)$br['realized'] / (float)$br['approved_amount']) * 100 : 0;
+                    if ($pct >= 80) {
+                        $budgetAlerts[] = ['title' => $br['title'], 'approved' => (float)$br['approved_amount'], 'realized' => (float)$br['realized'], 'pct' => round($pct, 1)];
+                        if ($pct >= 100) {
+                            $alerts[] = ['type' => 'danger',  'code' => 'BUDGET_EXCEEDED', 'message' => 'Anggaran "'.$br['title'].'" SUDAH MELEBIHI batas ('.round($pct,1).'%)', 'budget_id' => (int)$br['id']];
+                        } else {
+                            $alerts[] = ['type' => 'warning', 'code' => 'BUDGET_80PCT',    'message' => 'Anggaran "'.$br['title'].'" sudah '.round($pct,1).'% terpakai', 'budget_id' => (int)$br['id']];
+                        }
                     }
                 }
             }
         }
-    }
+    } catch (Throwable) {}
 
     // Alert 3: Aging piutang > 30 hari
-    $overdueReceivables = [];
-    $totalOverdue = 0;
-    if (ac_table($conn, 'accounting_source_documents')) {
-        $agingRes = $conn->query("
-            SELECT d.source_type, d.source_id, d.due_date,
-                   DATEDIFF(CURDATE(), d.due_date) AS days_overdue,
-                   CAST(d.amount - COALESCE((SELECT SUM(p.amount) FROM payment_allocations p WHERE p.source_document_id=d.id AND p.is_reversed=0),0) AS DECIMAL(15,2)) AS outstanding
-            FROM accounting_source_documents d
-            WHERE d.due_date < CURDATE()
-              AND d.amount > COALESCE((SELECT SUM(p.amount) FROM payment_allocations p WHERE p.source_document_id=d.id AND p.is_reversed=0),0)
-            ORDER BY days_overdue DESC
-            LIMIT 20
-        ");
-        if ($agingRes) {
-            while ($ag = $agingRes->fetch_assoc()) {
-                if ((float)$ag['outstanding'] > 0 && (int)$ag['days_overdue'] > 0) {
-                    $overdueReceivables[] = $ag;
-                    $totalOverdue += (float)$ag['outstanding'];
+    try {
+        $totalOverdue = 0;
+        if (ac_table($conn, 'accounting_source_documents')) {
+            $hasAlloc = ac_table($conn, 'payment_allocations');
+            $allocSubquery = $hasAlloc
+                ? "COALESCE((SELECT SUM(p.amount) FROM payment_allocations p WHERE p.source_document_id=d.id AND p.is_reversed=0),0)"
+                : "0";
+            $agingRes = $conn->query("
+                SELECT d.source_type, d.source_id, d.due_date,
+                       DATEDIFF(CURDATE(), d.due_date) AS days_overdue,
+                       CAST(d.amount - $allocSubquery AS DECIMAL(15,2)) AS outstanding
+                FROM accounting_source_documents d
+                WHERE d.due_date < CURDATE()
+                  AND d.amount > $allocSubquery
+                ORDER BY days_overdue DESC
+                LIMIT 20
+            ");
+            if ($agingRes) {
+                while ($ag = $agingRes->fetch_assoc()) {
+                    if ((float)$ag['outstanding'] > 0 && (int)$ag['days_overdue'] > 0) {
+                        $overdueReceivables[] = $ag;
+                        $totalOverdue += (float)$ag['outstanding'];
+                    }
                 }
             }
+            if ($totalOverdue > 0) {
+                $alerts[] = ['type' => 'danger', 'code' => 'OVERDUE_AR', 'message' => count($overdueReceivables).' piutang jatuh tempo belum dibayar (total: Rp '.number_format($totalOverdue,0,',','.') . ')', 'total_overdue' => $totalOverdue];
+            }
         }
-        if ($totalOverdue > 0) {
-            $alerts[] = ['type' => 'danger', 'code' => 'OVERDUE_AR', 'message' => count($overdueReceivables).' piutang jatuh tempo belum dibayar (total: Rp '.number_format($totalOverdue,0,',','.') . ')', 'total_overdue' => $totalOverdue];
-        }
-    }
+    } catch (Throwable) {}
 
     // Alert 4: Cash burn rate (avg monthly expense last 3 months)
-    $cashBurnRate = 0;
-    $cashBalance  = 0;
-    $monthsLeft   = null;
-    if (ac_table($conn, 'journal_lines')) {
-        $burnRes = $conn->query("
-            SELECT AVG(monthly_exp) AS avg_monthly_expense
-            FROM (
-                SELECT MONTH(j.entry_date) AS m, SUM(l.debit - l.credit) AS monthly_exp
+    try {
+        if (ac_table($conn, 'journal_lines') && ac_table($conn, 'journal_entries') && ac_table($conn, 'accounts')) {
+            $burnRes = $conn->query("
+                SELECT AVG(monthly_exp) AS avg_monthly_expense
+                FROM (
+                    SELECT MONTH(j.entry_date) AS m, SUM(l.debit - l.credit) AS monthly_exp
+                    FROM journal_lines l
+                    JOIN journal_entries j ON j.id = l.journal_entry_id
+                    JOIN accounts a ON a.id = l.account_id
+                    WHERE j.status = 'posted'
+                      AND a.account_group = 5
+                      AND j.entry_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+                    GROUP BY MONTH(j.entry_date)
+                ) t
+            ");
+            $cashBurnRate = (float)($burnRes?->fetch_assoc()['avg_monthly_expense'] ?? 0);
+
+            $cashRes = $conn->query("
+                SELECT SUM(l.debit - l.credit) AS total
                 FROM journal_lines l
                 JOIN journal_entries j ON j.id = l.journal_entry_id
                 JOIN accounts a ON a.id = l.account_id
-                WHERE j.status = 'posted'
-                  AND a.account_group = 5
-                  AND j.entry_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
-                GROUP BY MONTH(j.entry_date)
-            ) t
-        ");
-        $cashBurnRate = (float)($burnRes?->fetch_assoc()['avg_monthly_expense'] ?? 0);
-
-        $cashRes = $conn->query("
-            SELECT SUM(l.debit - l.credit) AS total
-            FROM journal_lines l
-            JOIN journal_entries j ON j.id = l.journal_entry_id
-            JOIN accounts a ON a.id = l.account_id
-            WHERE j.status='posted' AND a.report_class='cash'
-        ");
-        $cashBalance = (float)($cashRes?->fetch_assoc()['total'] ?? 0);
-        if ($cashBurnRate > 0 && $cashBalance > 0) {
-            $monthsLeft = round($cashBalance / $cashBurnRate, 1);
-            if ($monthsLeft < 3) {
-                $alerts[] = ['type' => 'danger', 'code' => 'LOW_CASH', 'message' => 'Saldo kas hanya cukup untuk '.number_format($monthsLeft, 1).' bulan berdasarkan burn rate saat ini'];
+                WHERE j.status='posted' AND a.report_class='cash'
+            ");
+            $cashBalance = (float)($cashRes?->fetch_assoc()['total'] ?? 0);
+            if ($cashBurnRate > 0 && $cashBalance > 0) {
+                $monthsLeft = round($cashBalance / $cashBurnRate, 1);
+                if ($monthsLeft < 3) {
+                    $alerts[] = ['type' => 'danger', 'code' => 'LOW_CASH', 'message' => 'Saldo kas hanya cukup untuk '.number_format($monthsLeft, 1).' bulan berdasarkan burn rate saat ini'];
+                }
             }
         }
-    }
+    } catch (Throwable) {}
 
     echo json_encode([
         'status' => 'success',
@@ -646,6 +792,7 @@ try {
             'months' => array_values($months),
             'totals' => [
                 'projection'  => $totalProjection,
+                'projection_current_year' => ac_decimal($totalProjYearCents),
                 'realization' => $totalRealization,
                 'income'      => $totalIncome,
                 'expense'     => $totalExpense,
@@ -657,6 +804,8 @@ try {
             'income_by_classification'  => $incomeByClassification,
             'expense_by_classification' => $expenseByClassification,
             'projection_items'          => $projectionItems,
+            'projection_horizon_start'  => $projectionStart,
+            'projection_horizon'        => 'selected_year_and_all_future_dates',
             'realization_items'         => $realizationItems,
             // P1 CFO alerts
             'alerts'                    => $alerts,

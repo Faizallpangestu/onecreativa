@@ -279,9 +279,28 @@ export default function ExpenseTransactionsPage() {
           vendor: r.account_name || r.source || "-",
           buktiFoto: r.photo_path ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.id)}` : "",
           buktiLink: r.drive_link || "",
+          salary_request_id: r.salary_request_id || null,
         }));
-        const rowsById = new Map([...apiRows, ...legacyRows].map(row => [String(row.id), row]));
+        const savedRaw = localStorage.getItem("finance_expense_data");
+        const existingLocal = savedRaw ? JSON.parse(savedRaw) : [];
+        const deletedIds = new Set(JSON.parse(localStorage.getItem("finance_expense_deleted_ids") || "[]").map(String));
+
+        const rowsById = new Map();
+        [...apiRows, ...legacyRows].forEach(row => {
+          if (!deletedIds.has(String(row.id))) {
+            rowsById.set(String(row.id), row);
+          }
+        });
+        if (Array.isArray(existingLocal)) {
+          existingLocal.forEach(row => {
+            const rId = String(row.id);
+            if (!deletedIds.has(rId) && !rowsById.has(rId)) {
+              rowsById.set(rId, row);
+            }
+          });
+        }
         const rows = [...rowsById.values()];
+        rows.sort((a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
         setData(rows);
         try {
           localStorage.setItem("finance_expense_data", JSON.stringify(rows));

@@ -11,6 +11,16 @@ if (!headers_sent()) {
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'OPTIONS') { http_response_code(200); exit; }
+if (!in_array($method, ['GET', 'POST'], true)) {
+    http_response_code(405);
+    echo json_encode(['status' => 'error', 'message' => 'Metode permintaan tidak didukung.']);
+    exit;
+}
+
+$actor = session_actor($conn);
+if (!$actor) ac_fail('Silakan login kembali.', 401);
+ac_require($conn, $actor, $method === 'GET' ? 'read' : 'prepare');
+session_write_close();
 
 // ── Auto-create adjustment table ──
 $conn->query("CREATE TABLE IF NOT EXISTS financial_report_adjustments (
@@ -26,10 +36,6 @@ $conn->query("CREATE TABLE IF NOT EXISTS financial_report_adjustments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-// ── Session ──
-$actor = null;
-try { $actor = session_actor($conn); } catch (Throwable $t) {}
 
 // ══════════════════════════════════════════════════════════════════
 // GET: FETCH FINANCIAL REPORTS — 100% from journal_entries (PSAK 1)
@@ -144,18 +150,28 @@ if ($method === 'GET') {
                 'amount' => $bal,
             ];
 
-            if ($grp === 4) {
+            // PSAK 1 / IAS 1: account_group 4=Revenue, 5=Expense
+            // other_income and other_expense are sub-classes within group 4 and 5
+            if ($grp === 4 && in_array($cls, ['revenue'], true)) {
                 $revenue_lines[] = $item;
                 $total_revenue  += $bal;
+            } elseif ($grp === 4 && in_array($cls, ['other_income'], true)) {
+                // Other income goes into other section (non-operating)
+                $other_income_lines[] = $item;
+                $total_other         += $bal;
             } elseif ($grp === 5 && in_array($cls, ['cost_of_services', 'cogs'], true)) {
                 $cogs_lines[] = $item;
                 $total_cogs  += $bal;
+            } elseif ($grp === 5 && in_array($cls, ['income_tax'], true)) {
+                // Income tax expense is separate per IAS 12
+                $other_income_lines[] = $item;
+                $total_other         -= $bal; // tax reduces net profit
+            } elseif ($grp === 5 && in_array($cls, ['other_expense'], true)) {
+                $other_income_lines[] = $item;
+                $total_other         -= $bal;
             } elseif ($grp === 5) {
                 $opex_lines[] = $item;
                 $total_opex  += $bal;
-            } elseif ($grp === 6 || in_array($cls, ['other_income', 'other_expense'], true)) {
-                $other_income_lines[] = $item;
-                $total_other         += $bal;
             }
         }
     }
@@ -254,19 +270,32 @@ if ($method === 'GET') {
     $net_investing = 0.0;
     $net_financing = 0.0;
 
+    // IAS 7: Cash flow classification - net = debit - credit on cash accounts
+    // Positive net = cash inflow, Negative net = cash outflow
+    $cfLabels = [
+        'operating'  => 'Aktivitas Operasional',
+        'investing'  => 'Aktivitas Investasi',
+        'financing'  => 'Aktivitas Pendanaan',
+        'transfer'   => 'Transfer Antar Rekening',
+        'noncash'    => 'Non-Kas (Penyesuaian)',
+    ];
+
     if ($reportData && !empty($reportData['cash_flow'])) {
         foreach ($reportData['cash_flow'] as $cfRow) {
             $class   = $cfRow['cash_flow_class'] ?? 'operating';
-            $netAmt  = (float)($cfRow['net'] ?? 0);
-            $item    = [
-                'title'    => ucfirst($class) . ' Cash Flow',
-                'incoming' => (float)($cfRow['incoming'] ?? 0),
-                'outgoing' => (float)($cfRow['outgoing'] ?? 0),
+            // net already signed: positive = inflow, negative = outflow
+            $incoming = (float)($cfRow['incoming'] ?? 0);
+            $outgoing = (float)($cfRow['outgoing'] ?? 0);
+            $netAmt   = $incoming - $outgoing;  // IAS 7 net cash flow
+            $item     = [
+                'title'    => $cfLabels[$class] ?? ucfirst($class),
+                'incoming' => $incoming,
+                'outgoing' => $outgoing,
                 'amount'   => $netAmt,
             ];
-            if ($class === 'operating')  { $cf_operating[] = $item; $net_operating += $netAmt; }
-            elseif ($class === 'investing') { $cf_investing[] = $item; $net_investing += $netAmt; }
-            elseif ($class === 'financing') { $cf_financing[] = $item; $net_financing += $netAmt; }
+            if ($class === 'operating')       { $cf_operating[] = $item; $net_operating += $netAmt; }
+            elseif ($class === 'investing')   { $cf_investing[] = $item; $net_investing += $netAmt; }
+            elseif ($class === 'financing')   { $cf_financing[] = $item; $net_financing += $netAmt; }
         }
     }
 

@@ -50,7 +50,22 @@ try {
   if (fs.existsSync(path.join(__dirname, 'perbaiki_hostinger.php'))) {
     fs.copyFileSync(path.join(__dirname, 'perbaiki_hostinger.php'), path.join(destDir, 'perbaiki_hostinger.php'));
   }
+  const distConfigDir = path.join(destDir, 'config');
+  if (!fs.existsSync(distConfigDir)) fs.mkdirSync(distConfigDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(distConfigDir, 'db_env.php'),
+    "<?php\n$DB_HOST = 'localhost';\n$DB_USER = 'u260890310_one';\n$DB_PASS = 'Creativa4321!';\n$DB_NAME = 'u260890310_one';\n"
+  );
   console.log('✅ Berhasil! Folder dist sekarang sudah berisi frontend & backend secara utuh.');
+
+  console.log('📦 Membuat zip deploy otomatis: One-creativa-dist-production.zip...');
+  try {
+    const { execSync } = await import('child_process');
+    execSync('powershell -Command "Compress-Archive -Path \'dist\\*\' -DestinationPath \'One-creativa-dist-production.zip\' -Force"', { stdio: 'inherit' });
+    console.log('🎉 Selesai! File One-creativa-dist-production.zip siap di-upload ke Hostinger.');
+  } catch (zErr) {
+    console.warn('Pembuatan zip opsional:', zErr.message);
+  }
 } catch (err) {
   console.error('❌ Gagal menyalin backend:', err);
   process.exitCode=1;

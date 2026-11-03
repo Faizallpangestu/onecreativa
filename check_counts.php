@@ -4,27 +4,27 @@
  * Run: php check_counts.php
  * This script never inserts, updates, deletes, or posts accounting data.
  */
-require __DIR__ . '/backend/config/database.php';
+// Never bootstrap application configuration: it may run migrations.
+require_once __DIR__ . '/tools/audit-readonly.php';
 
-mysqli_report(MYSQLI_REPORT_OFF);
-
-function audit_table_exists(mysqli $conn, string $table): bool {
+function audit_table_exists($conn, string $table): bool {
     $safe = $conn->real_escape_string($table);
-    $result = $conn->query("SHOW TABLES LIKE '{$safe}'");
-    return $result && $result->num_rows > 0;
+    return audit_scalar($conn, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='{$safe}'") > 0;
 }
 
-function audit_scalar(mysqli $conn, string $sql): float {
+function audit_scalar($conn, string $sql): float {
     $result = $conn->query($sql);
-    if (!$result) return 0;
+    if (!$result) throw new RuntimeException('Audit query failed.');
     $row = $result->fetch_row();
-    return (float)($row[0] ?? 0);
+    if (!$row || $row[0] === null || !is_numeric($row[0])) throw new RuntimeException('Audit query returned no numeric value.');
+    return (float)$row[0];
 }
 
 function audit_line(string $label, $value): void {
     echo str_pad($label, 46) . ': ' . $value . PHP_EOL;
 }
 
+function audit_report($conn): void {
 echo "ONE CREATIVA - FINANCE INTEGRITY AUDIT (READ ONLY)" . PHP_EOL;
 echo "Generated: " . date('c') . PHP_EOL . PHP_EOL;
 
@@ -38,7 +38,8 @@ if (audit_table_exists($conn, 'finance_records')) {
 
 if (audit_table_exists($conn, 'accounting_transactions')) {
     audit_line('Accounting transactions', (int)audit_scalar($conn, 'SELECT COUNT(*) FROM accounting_transactions'));
-    audit_line('Paid/verified without posted journal', (int)audit_scalar($conn, "SELECT COUNT(*) FROM accounting_transactions WHERE payment_status IN ('paid','verified') AND journal_status <> 'posted'"));
+    audit_line('Paid/verified not marked posted', (int)audit_scalar($conn, "SELECT COUNT(*) FROM accounting_transactions WHERE payment_status IN ('paid','verified') AND (journal_status IS NULL OR journal_status <> 'posted')"));
+    audit_line('Unknown/null transaction journal status', (int)audit_scalar($conn, "SELECT COUNT(*) FROM accounting_transactions WHERE journal_status IS NULL OR journal_status NOT IN ('unposted','posted','reversed')"));
     audit_line('Posted accounting transactions', (int)audit_scalar($conn, "SELECT COUNT(*) FROM accounting_transactions WHERE journal_status='posted'"));
 } else {
     audit_line('accounting_transactions table', 'MISSING');
@@ -61,3 +62,10 @@ echo PHP_EOL . "Review rules:" . PHP_EOL;
 echo "- Any non-zero exception must be resolved or documented before official publication." . PHP_EOL;
 echo "- Legacy records are not official accounting until mapped to approved double-entry journals." . PHP_EOL;
 echo "- Bank statements, opening balances, receivables, payables, and tax balances require external reconciliation." . PHP_EOL;
+audit_review_coverage($conn);
+}
+
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+    exit(audit_run());
+}

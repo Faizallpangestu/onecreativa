@@ -33,29 +33,8 @@ import {
 } from 'recharts';
 import axios from 'axios';
 
-// Blueprint invoice default untuk siswa aktif
-const DEFAULT_BLUEPRINT_INVOICES = [
-  {
-    id: "INV-2026-003",
-    customer: "Hany Agesti",
-    program: "Kursus Bahasa Jepang Reguler N4",
-    terbayar: 2500000,
-    tanggal: "2026-10-24",
-    resep: "RCP-2026-088",
-    kategori: "Aktivitas Operasional",
-    akun: "Bank BCA Operasional"
-  },
-  {
-    id: "INV-2026-004",
-    customer: "Siti Aminah",
-    program: "Kursus Bahasa Jepang Intensif Tokutei Ginou",
-    terbayar: 3500000,
-    tanggal: "2026-10-25",
-    resep: "RCP-2026-089",
-    kategori: "Aktivitas Operasional",
-    akun: "Bank BCA Operasional"
-  }
-];
+// Mulai dari 0 (Tidak ada data dummy default)
+const DEFAULT_BLUEPRINT_INVOICES = [];
 
 export default function CashflowPage() {
   const [selectedYear, setSelectedYear] = useState('all');
@@ -63,6 +42,7 @@ export default function CashflowPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [search, setSearch] = useState('');
   const [serverSalaries, setServerSalaries] = useState([]);
+  const [serverTransactions, setServerTransactions] = useState([]);
 
   // Fetch data gaji riil dari API
   useEffect(() => {
@@ -77,17 +57,35 @@ export default function CashflowPage() {
     return () => { active = false; };
   }, []);
 
+  // Fetch transaksi buku kas riil dari API accounting ledger
+  useEffect(() => {
+    let active = true;
+    axios.get('/api/accounting.php?view=ledger')
+      .then(res => {
+        if (active && Array.isArray(res.data?.data?.rows)) {
+          setServerTransactions(res.data.data.rows);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
   // ── EKSTRAKSI TRANSAKSI ARUS KAS 100% RIIL DARI BERBAGAI SUMBER AKTIF ──
   const allCashActivities = useMemo(() => {
     const list = [];
     const addedRefs = new Set();
+
+    const isDummy = (str) => {
+      const s = String(str || '').toLowerCase();
+      return s.includes('hany agesti') || s.includes('siti aminah') || s.includes('tgcj2608') || s.includes('trf-2026-0034');
+    };
 
     // 1. Penerimaan Pembayaran Invoice Siswa (billing_pembayaran_custom) -> Operasional Masuk
     try {
       const savedPayments = JSON.parse(localStorage.getItem('billing_pembayaran_custom') || '[]');
       if (Array.isArray(savedPayments)) {
         savedPayments.forEach((p) => {
-          if (!p || !p.jumlah) return;
+          if (!p || !p.jumlah || isDummy(p.customer) || isDummy(p.receiptNo)) return;
           const refKey = p.receiptNo || `PAY-${p.id || p.noInv}`;
           if (addedRefs.has(refKey)) return;
           addedRefs.add(refKey);
@@ -115,11 +113,12 @@ export default function CashflowPage() {
         savedInvoices.forEach((inv) => {
           if (!inv) return;
           const invId = inv.id || inv.nomor || '';
+          if (isDummy(inv.customer) || isDummy(invId)) return;
 
           if (Array.isArray(inv.payments) && inv.payments.length > 0) {
             inv.payments.forEach((p, idx) => {
               const refKey = p.receiptNo || `RCP-${invId}-${idx + 1}`;
-              if (addedRefs.has(refKey)) return;
+              if (addedRefs.has(refKey) || isDummy(p.customer) || isDummy(refKey)) return;
               addedRefs.add(refKey);
 
               const nom = Number(p.jumlah || 0);
@@ -158,23 +157,34 @@ export default function CashflowPage() {
       console.warn('Gagal membaca saved_custom_invoices:', e);
     }
 
-    // 3. Penerimaan Blueprint Siswa Resmi (Hany Agesti & Siti Aminah)
-    DEFAULT_BLUEPRINT_INVOICES.forEach((defInv) => {
-      const refKey = defInv.resep || defInv.id;
-      if (!addedRefs.has(refKey) && !addedRefs.has(defInv.id)) {
+    // 3. Transaksi Riil Buku Kas Server (serverTransactions)
+    if (serverTransactions.length > 0) {
+      serverTransactions.forEach((t) => {
+        const inAmt = Number(t.incoming_amount || 0);
+        const outAmt = Number(t.outgoing_amount || 0);
+        if (inAmt <= 0 && outAmt <= 0) return;
+        const refKey = `TX-${t.ledger_id || t.id || t.number}`;
+        if (addedRefs.has(refKey)) return;
         addedRefs.add(refKey);
+
+        const isIncome = inAmt > 0;
+        let actCat = 'Aktivitas Operasional';
+        const clsLower = (t.classification || '').toLowerCase();
+        if (clsLower.includes('invest') || clsLower.includes('aset')) actCat = 'Aktivitas Investasi';
+        else if (clsLower.includes('pendanaan') || clsLower.includes('modal')) actCat = 'Aktivitas Pendanaan';
+
         list.push({
-          id: `cf-blueprint-${defInv.id}`,
-          tanggal: defInv.tanggal,
-          kategori: 'Aktivitas Operasional',
-          keterangan: `Penerimaan SPP Siswa - ${defInv.customer} (${defInv.program})`,
-          tipe: 'inflow',
-          nominal: defInv.terbayar,
-          akun: defInv.akun,
-          referensi: defInv.id
+          id: `cf-tx-${t.ledger_id || t.id || refKey}`,
+          tanggal: t.transaction_date || t.date || '2026-11-01',
+          kategori: actCat,
+          keterangan: `${t.description || t.party_name || 'Transaksi Kas'}`,
+          tipe: isIncome ? 'inflow' : 'outflow',
+          nominal: isIncome ? inAmt : outAmt,
+          akun: t.cash_account_name || 'Bank Operasional',
+          referensi: t.number || refKey
         });
-      }
-    });
+      });
+    }
 
     // 4. Pemasukan Lainnya (finance_income_data)
     try {
@@ -190,7 +200,7 @@ export default function CashflowPage() {
 
             list.push({
               id: `cf-inc-${inc.id}`,
-              tanggal: inc.tanggal || '2026-10-20',
+              tanggal: inc.tanggal || '2026-11-01',
               kategori: inc.kategori?.toLowerCase().includes('modal') ? 'Aktivitas Pendanaan' : 'Aktivitas Operasional',
               keterangan: `${inc.kategori || 'Pemasukan Lain'} - ${inc.keterangan || inc.sumber || 'Penerimaan Operasional'}`,
               tipe: 'inflow',
@@ -203,7 +213,7 @@ export default function CashflowPage() {
       }
     } catch (e) {}
 
-    // 5. Beban Penggajian Karyawan / Instruktur (Operasional Keluar -> BCA)
+    // 5. Beban Penggajian Karyawan / Instruktur Riil
     if (serverSalaries.length > 0) {
       serverSalaries.forEach((sal) => {
         const refKey = `SAL-${sal.id || sal.employee_name}`;
@@ -212,30 +222,18 @@ export default function CashflowPage() {
 
         list.push({
           id: `cf-sal-${sal.id}`,
-          tanggal: sal.created_at ? sal.created_at.slice(0, 10) : '2026-10-25',
+          tanggal: sal.created_at ? sal.created_at.slice(0, 10) : '2026-11-01',
           kategori: 'Aktivitas Operasional',
           keterangan: `Pembayaran Gaji Karyawan/Instruktur - ${sal.employee_name || 'Karyawan LPK'}`,
           tipe: 'outflow',
           nominal: Number(sal.net_salary || sal.amount || 0),
           akun: 'Bank BCA Operasional',
-          referensi: `PAYROLL-${sal.id || 'OCT'}`
+          referensi: `PAYROLL-${sal.id || 'NOV'}`
         });
-      });
-    } else {
-      // Default resmi: Penggajian Anggi Alfin
-      list.push({
-        id: 'cf-sal-default-anggi',
-        tanggal: '2026-10-25',
-        kategori: 'Aktivitas Operasional',
-        keterangan: 'Pembayaran Payroll Gaji & Tunjangan - Anggi Alfin (Head Trainer)',
-        tipe: 'outflow',
-        nominal: 10000000,
-        akun: 'Bank BCA Operasional',
-        referensi: 'PAYROLL-2026-10'
       });
     }
 
-    // 6. Beban Operasional & Kas Kecil (finance_expense_data) -> Listrik, Modul, dll
+    // 6. Beban Operasional & Kas Kecil Riil (finance_expense_data)
     try {
       const expRaw = localStorage.getItem('finance_expense_data');
       if (expRaw) {
@@ -250,7 +248,6 @@ export default function CashflowPage() {
             const katLower = (exp.kategori || '').toLowerCase();
             const ketLower = (exp.keterangan || '').toLowerCase();
 
-            // Klasifikasi aktivitas
             let actCat = 'Aktivitas Operasional';
             if (katLower.includes('aset') || katLower.includes('investasi') || ketLower.includes('komputer') || ketLower.includes('laptop')) {
               actCat = 'Aktivitas Investasi';
@@ -258,7 +255,7 @@ export default function CashflowPage() {
 
             list.push({
               id: `cf-exp-${exp.id}`,
-              tanggal: exp.tanggal || '2026-10-20',
+              tanggal: exp.tanggal || '2026-11-01',
               kategori: actCat,
               keterangan: `${exp.kategori || 'Pengeluaran'} - ${exp.keterangan || exp.vendor || 'Beban Operasional'}`,
               tipe: 'outflow',
@@ -271,59 +268,9 @@ export default function CashflowPage() {
       }
     } catch (e) {}
 
-    // 7. Pengeluaran Vendor Resmi (Listrik, Cetak Modul, Komputer Lab) jika belum ada di expense_data
-    if (!addedRefs.has('EXP-PLN-OCT')) {
-      list.push({
-        id: 'cf-exp-pln',
-        tanggal: '2026-10-22',
-        kategori: 'Aktivitas Operasional',
-        keterangan: 'Pembelian Token Listrik PLN Gedung Pelatihan LPK',
-        tipe: 'outflow',
-        nominal: 1200000,
-        akun: 'Petty Cash',
-        referensi: 'BILL-PLN-2026-10'
-      });
-    }
-    if (!addedRefs.has('EXP-MODUL-OCT')) {
-      list.push({
-        id: 'cf-exp-modul',
-        tanggal: '2026-10-20',
-        kategori: 'Aktivitas Operasional',
-        keterangan: 'Pembayaran Pengadaan Modul & Bahan Ajar (Percetakan Mitra)',
-        tipe: 'outflow',
-        nominal: 3200000,
-        akun: 'Petty Cash',
-        referensi: 'BILL-MODUL-2026-10'
-      });
-    }
-    if (!addedRefs.has('EXP-PC-OCT')) {
-      list.push({
-        id: 'cf-exp-pc',
-        tanggal: '2026-10-18',
-        kategori: 'Aktivitas Investasi',
-        keterangan: 'Pengadaan Komputer Lab Baru (Toko Office Equipment)',
-        tipe: 'outflow',
-        nominal: 7500000,
-        akun: 'Bank BCA Operasional',
-        referensi: 'INV-ASSET-2026-001'
-      });
-    }
-
-    // 8. Aktivitas Pendanaan (Setoran Modal Awal LPK)
-    list.push({
-      id: 'cf-fin-modal',
-      tanggal: '2026-05-01',
-      kategori: 'Aktivitas Pendanaan',
-      keterangan: 'Penyetoran Modal Awal Pemilik Perusahaan (LPK Creativa)',
-      tipe: 'inflow',
-      nominal: 50000000,
-      akun: 'Bank BCA Operasional',
-      referensi: 'CAPITAL-IN-01'
-    });
-
     // Urutkan berdasarkan tanggal terbaru
     return list.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
-  }, [serverSalaries]);
+  }, [serverSalaries, serverTransactions]);
 
   // ── FILTER DATA BERDASARKAN FILTER BAR ──
   const filteredActivities = useMemo(() => {
@@ -410,7 +357,7 @@ export default function CashflowPage() {
         }
       }
     } catch (e) {}
-    return 162500000;
+    return 0;
   }, []);
 
   const saldoAwalEst = Math.max(0, totalSaldoKasBank - netCashflow);

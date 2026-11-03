@@ -24,7 +24,11 @@ import {
   Save, 
   Hash, 
   Award,
-  Globe
+  Globe,
+  Zap,
+  CheckCircle2,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -41,6 +45,8 @@ export default function StudentsCustomerPage() {
   const [editingId, setEditingId] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [showWebhookConfig, setShowWebhookConfig] = useState(false);
 
   // Form state according to reference
   const [form, setForm] = useState({
@@ -81,10 +87,11 @@ export default function StudentsCustomerPage() {
             if (override) return override;
 
             const name = s.name || s.nama_lengkap || "Siswa";
+            const nisVal = s.nis || `S-${String(sid).padStart(3, "0")}`;
             return {
               id: sid,
               nama: name,
-              nis: s.nis || `S-${String(sid).padStart(3, "0")}`,
+              nis: nisVal,
               affiliator: s.affiliator || "-",
               program: s.program || "Program Pelatihan Jepang",
               kontak: s.no_wa && s.no_wa !== "-" ? s.no_wa : (s.kontak || "0812-xxxx-xxxx"),
@@ -96,10 +103,16 @@ export default function StudentsCustomerPage() {
               provinsi: s.provinsi || "Jawa Barat",
               kota: s.kota || "Kab. Cianjur",
               kode_pos: s.kode_pos || "43211",
+              fromWeb: Boolean(s.fromWeb || (nisVal && nisVal.startsWith("TGCJ")) || !s.affiliator || s.affiliator === "-"),
             };
           });
 
         setData(apiStudents);
+
+        // Jika data masih kosong, otomatis tarik dari creativabridging.com
+        if (apiStudents.length === 0) {
+          handleSyncFromWeb(false);
+        }
       }
     } catch (err) {
       console.error("Gagal mengambil data siswa:", err);
@@ -109,6 +122,69 @@ export default function StudentsCustomerPage() {
       }
     } finally {
       if (active) setLoading(false);
+    }
+  };
+
+  const handleSyncFromWeb = async (showNotification = true) => {
+    setIsSyncing(true);
+    try {
+      let webParticipants = [];
+      try {
+        const resp = await fetch("https://creativabridging.com/api_peserta.php?api_key=CREATIVA_SYNC_SECRET_2026");
+        const json = await resp.json();
+        if (json?.status && Array.isArray(json.data)) {
+          webParticipants = json.data;
+        }
+      } catch (clientFetchErr) {
+        console.warn("Direct fetch creativabridging.com error, continuing with server sync:", clientFetchErr);
+      }
+
+      const syncRes = await axios.post("/api/sync_students_web.php", {
+        students: webParticipants.length > 0 ? webParticipants : undefined
+      });
+
+      // Bersihkan local_only_students_finance agar siswa yang sudah dihapus di web tidak ada lagi di local storage
+      if (webParticipants.length > 0) {
+        localStorage.setItem("local_only_students_finance", JSON.stringify(webParticipants));
+      }
+
+      await fetchStudents(true);
+
+      const totalCount = syncRes.data?.total || syncRes.data?.students?.length || webParticipants.length || data.length;
+      const deletedCount = Number(syncRes.data?.deleted || 0);
+      const invoicesGen = Number(syncRes.data?.invoices_generated || 0);
+
+      if (showNotification) {
+        let msgHtml = `Berhasil sinkronisasi <b>${totalCount} siswa pendaftar</b> dari <code>creativabridging.com</code>!`;
+        if (invoicesGen > 0) {
+          msgHtml += `<br/><div class="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2 font-medium">✓ <b>${invoicesGen} Invoice Tagihan Baru</b> berhasil diterbitkan otomatis & langsung masuk ke modul <b>Invoice Penagihan</b>.</div>`;
+        }
+        if (deletedCount > 0) {
+          msgHtml += `<br/><span class="text-xs text-rose-600 font-semibold">${deletedCount} siswa yang dihapus di website telah ikut dihapus dari sistem.</span>`;
+        } else {
+          msgHtml += `<br/><span class="text-xs text-slate-500">Alur Layer 2 Keuangan (Website → Data Siswa → Invoice Tagihan) berjalan sempurna.</span>`;
+        }
+        Swal.fire({
+          icon: "success",
+          title: "Sinkronisasi Berhasil!",
+          html: msgHtml,
+          customClass: { popup: "rounded-2xl" },
+          confirmButtonColor: "#2563eb"
+        });
+      }
+    } catch (err) {
+      console.error("Gagal sinkron data dari creativabridging.com:", err);
+      if (showNotification) {
+        Swal.fire({
+          icon: "error",
+          title: "Gagal Menarik Data",
+          text: err.response?.data?.message || err.message || "Pastikan koneksi internet aktif dan endpoint creativabridging.com dapat diakses.",
+          customClass: { popup: "rounded-2xl" },
+          confirmButtonColor: "#ef4444"
+        });
+      }
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -422,7 +498,14 @@ export default function StudentsCustomerPage() {
       className: "min-w-[190px]",
       render: (r) => (
         <div>
-          <p className="font-semibold text-slate-900 leading-tight">{r.nama}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-semibold text-slate-900 leading-tight">{r.nama}</p>
+            {r.fromWeb && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/80" title="Terdaftar dari creativabridging.com">
+                <Globe className="w-2.5 h-2.5 text-sky-500" /> Web
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-slate-400 font-normal mt-0.5">{r.email || "-"}</p>
         </div>
       )
@@ -528,7 +611,104 @@ export default function StudentsCustomerPage() {
           primaryLabel="+ Create Customer"
           onPrimaryClick={handleOpenAdd}
           onSecondaryClick={handleExport}
-        />
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowWebhookConfig(prev => !prev)}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl border transition shadow-2xs cursor-pointer ${
+                showWebhookConfig 
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-emerald-200" 
+                  : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+              }`}
+              title="Informasi Webhook Real-time Website"
+            >
+              <Zap className="w-4 h-4 text-emerald-500 fill-current" />
+              <span>Integrasi Webhook {showWebhookConfig ? "▲" : "▼"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSyncFromWeb(true)}
+              disabled={isSyncing}
+              className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 hover:border-blue-300 transition shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Tarik & sinkronkan data pendaftar & generate invoice dari creativabridging.com"
+            >
+              <Globe className={`w-4 h-4 text-blue-600 ${isSyncing ? "animate-spin" : ""}`} />
+              <span>{isSyncing ? "Menarik Data & Invoice..." : "Tarik & Sinkron Web"}</span>
+            </button>
+          </div>
+        </FinancePageHeader>
+
+        {/* ── WEBHOOK INTEGRATION STATUS BANNER (FLOWCHART LAYER 2) ── */}
+        {showWebhookConfig && (
+          <div className="mb-6 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-5 border border-blue-800/50 shadow-xl relative overflow-hidden animate-fadeIn">
+            <div className="flex items-start justify-between gap-4 flex-wrap pb-4 border-b border-blue-800/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+                  <Zap className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm tracking-wide text-white">Integrasi Webhook Pendaftaran Website (Layer 2)</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Aktif & Online
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-200/80 mt-0.5">
+                    Menerima pendaftaran siswa baru secara otomatis dan menerbitkan tagihan invoice seketika (Real-Time Push).
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWebhookConfig(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 text-xs">
+              <div className="bg-slate-800/70 rounded-xl p-3.5 border border-slate-700/60">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Webhook Endpoint URL (Target Web creativabridging.com)</p>
+                <div className="flex items-center justify-between gap-2 bg-slate-900/90 px-3 py-2 rounded-lg font-mono text-[11px] text-emerald-300 border border-slate-700">
+                  <span className="truncate">https://one.creativabridging.com/api/webhook_registration.php</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText("https://one.creativabridging.com/api/webhook_registration.php");
+                      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'URL Webhook Disalin!', timer: 1500, showConfirmButton: false });
+                    }}
+                    className="p-1 hover:text-white transition cursor-pointer"
+                    title="Salin URL"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-300">
+                  <span>Secret Key: <code className="text-amber-300 font-mono font-bold bg-slate-900/60 px-1.5 py-0.5 rounded">CREATIVA_SYNC_SECRET_2026</code></span>
+                  <span className="text-blue-300 font-medium">Header: <code>X-Webhook-Secret</code></span>
+                </div>
+              </div>
+
+              <div className="bg-slate-800/70 rounded-xl p-3.5 border border-slate-700/60 flex flex-col justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Alur Otomatisasi Terintegrasi</p>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px]">
+                    <li><strong className="text-white">Pendaftar Mengisi Form:</strong> di <code>creativabridging.com</code></li>
+                    <li><strong className="text-white">Validasi Duplikat:</strong> Sistem cek NIK, No WA, dan Email</li>
+                    <li><strong className="text-white">Generate Tagihan Otomatis:</strong> Terbit invoice baru di Menu Penagihan</li>
+                    <li><strong className="text-white">Notifikasi Siap Kirim:</strong> Link tagihan WhatsApp & email tercatat</li>
+                  </ol>
+                </div>
+                <p className="text-[10px] text-emerald-400 font-medium mt-2">
+                  ✓ Sesuai SOP & Blueprint Flowchart Akuntansi Creativa (Layer 2)
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 3 Summary KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

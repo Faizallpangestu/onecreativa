@@ -15,6 +15,10 @@ export default function MenuKaryawan() {
   let user = null;
   try { user = JSON.parse(localStorage.getItem("user") || "null"); } catch { /* Invalid cached session leaves user unset. */ }
 
+  const today = new Date();
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [isLoading, setIsLoading] = useState(false);
+
   const [dashboardData, setDashboardData] = useState({
     stats: { hadir_hari_ini: '--:--', status_absen: 'Belum Absen', total_kehadiran: 0, izin_cuti: 0, terlambat: 0, alpa: 0, total_hari_kerja: 22 },
     calendar: {},
@@ -22,29 +26,44 @@ export default function MenuKaryawan() {
     tugas: []
   });
 
+  const selYear = selectedDate.getFullYear();
+  const selMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
+  const isCurrentMonth = selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() === today.getMonth();
+
+  const handlePrevMonth = () => {
+    setSelectedDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+  const handleNextMonth = () => {
+    setSelectedDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+  const handleResetMonth = () => {
+    setSelectedDate(new Date());
+  };
+
   useEffect(() => {
     if (user?.id) {
-      fetch(`/api/dashboard_karyawan.php?user_id=${user.id}`)
+      setIsLoading(true);
+      fetch(`/api/dashboard_karyawan.php?user_id=${user.id}&month=${selMonth}&year=${selYear}`)
         .then(res => res.json())
         .then(res => {
           if (res.status === 'success') setDashboardData(res.data);
         })
-        .catch(err => console.error("Failed to fetch dashboard data", err));
+        .catch(err => console.error("Failed to fetch dashboard data", err))
+        .finally(() => setIsLoading(false));
     }
-  }, [user?.id]);
+  }, [user?.id, selMonth, selYear]);
 
   // Date formatted: Kamis, 2 Oktober 2026
-  const today = new Date();
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const dateString = today.toLocaleDateString('id-ID', options);
-  const currentMonthName = today.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const selectedMonthName = selectedDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
   // Custom Calendar logic for UI
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth();
+  const currentYear = selectedDate.getFullYear();
+  const currentMonth = selectedDate.getMonth();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  // Adjust so Monday is 0 instead of Sunday if desired, but default getDay(): Sun=0. Let's make Mon=0
+  // Adjust so Monday is 0 instead of Sunday
   const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
   const blanks = Array.from({ length: adjustedFirstDay }, (_, i) => i);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -216,8 +235,9 @@ export default function MenuKaryawan() {
             <div className="lg:col-span-7 bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 flex flex-col justify-center">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-[17px] font-black text-slate-800 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div> Statistik Kedisiplinan
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div> Statistik Kedisiplinan ({selectedMonthName})
                 </h3>
+                {isLoading && <span className="text-[11px] font-bold text-blue-500 animate-pulse">Memuat...</span>}
               </div>
 
               <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-8 lg:gap-16">
@@ -260,7 +280,7 @@ export default function MenuKaryawan() {
                   {/* Center Text */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-[36px] font-black text-slate-800 leading-none mb-1">{dashboardData.stats.total_hari_kerja}</span>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Hari</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Hari Kerja</span>
                   </div>
                 </div>
 
@@ -290,11 +310,35 @@ export default function MenuKaryawan() {
             {/* Calendar */}
             <div className="lg:col-span-5 bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 flex flex-col">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-[16px] font-black text-slate-800">Presensi Bulan Ini</h3>
                 <div className="flex items-center gap-2">
-                  <button className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 bg-slate-50 border border-slate-100 hover:bg-slate-100 transition"><ChevronLeft className="w-4 h-4"/></button>
-                  <span className="text-[12px] font-bold text-slate-600 px-1">{currentMonthName}</span>
-                  <button className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 bg-slate-50 border border-slate-100 hover:bg-slate-100 transition"><ChevronRight className="w-4 h-4"/></button>
+                  <h3 className="text-[16px] font-black text-slate-800">
+                    {isCurrentMonth ? "Presensi Bulan Ini" : `Presensi ${selectedMonthName}`}
+                  </h3>
+                  {!isCurrentMonth && (
+                    <button 
+                      onClick={handleResetMonth}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition border border-blue-100 active:scale-95"
+                    >
+                      Bulan Ini
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={handlePrevMonth}
+                    title="Bulan sebelumnya"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-slate-600 bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition cursor-pointer active:scale-95"
+                  >
+                    <ChevronLeft className="w-4 h-4"/>
+                  </button>
+                  <span className="text-[12px] font-bold text-slate-700 px-1 select-none min-w-[100px] text-center">{selectedMonthName}</span>
+                  <button 
+                    onClick={handleNextMonth}
+                    title="Bulan berikutnya"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-slate-600 bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition cursor-pointer active:scale-95"
+                  >
+                    <ChevronRight className="w-4 h-4"/>
+                  </button>
                 </div>
               </div>
 
@@ -306,11 +350,14 @@ export default function MenuKaryawan() {
                 {blanks.map(b => <div key={`blank-${b}`} className="text-transparent">0</div>)}
                 {days.map(d => {
                   let badge = null;
-                  const isToday = d === today.getDate();
+                  const isToday = isCurrentMonth && d === today.getDate();
                   const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                   const calEntry = dashboardData.calendar[dateKey];
                   // Support both old string format and new object format
                   const calStatus = typeof calEntry === 'object' ? calEntry?.status : calEntry;
+                  const checkInTime = typeof calEntry === 'object' ? calEntry?.check_in : null;
+                  const checkOutTime = typeof calEntry === 'object' ? calEntry?.check_out : null;
+                  const dayTitle = checkInTime ? `Tgl ${d}: Masuk ${checkInTime}${checkOutTime ? ` - Pulang ${checkOutTime}` : ''} (${calStatus})` : `Tgl ${d}: Tidak ada data`;
                   
                   if (calStatus === 'present' || calStatus === 'dinas') badge = "bg-emerald-500";
                   if (calStatus === 'late') badge = "bg-amber-400";
@@ -318,8 +365,8 @@ export default function MenuKaryawan() {
                   if (calStatus === 'leave') badge = "bg-blue-400";
                   
                   return (
-                    <div key={d} className="flex flex-col items-center justify-center gap-1">
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30' : d % 7 === 6 || d % 7 === 0 ? 'text-rose-500 hover:bg-slate-50' : 'hover:bg-slate-100 cursor-pointer'}`}>
+                    <div key={d} className="flex flex-col items-center justify-center gap-1 group/day relative" title={dayTitle}>
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-transform group-hover/day:scale-110 ${isToday ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30 font-black' : d % 7 === 6 || d % 7 === 0 ? 'text-rose-500 hover:bg-slate-50' : 'hover:bg-slate-100 cursor-pointer'}`}>
                         {d}
                       </div>
                       <div className={`w-1.5 h-1.5 rounded-full ${badge || 'bg-transparent'}`}></div>
@@ -330,9 +377,9 @@ export default function MenuKaryawan() {
 
               <div className="mt-6 flex flex-wrap gap-4 items-center justify-center text-[10px] font-bold text-slate-500 border-t border-slate-100 pt-5">
                 <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Hadir</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Terlambat</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400"></div> Izin/Cuti</div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-slate-200"></div> Tidak Ada Jadwal</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400"></div> Terlambat</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-400"></div> Izin/Cuti</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-slate-200"></div> Libur / Kosong</div>
               </div>
             </div>
 

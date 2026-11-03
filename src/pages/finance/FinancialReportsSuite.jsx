@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
 import {
   FinancePageHeader,
@@ -36,8 +36,11 @@ import Swal from "sweetalert2";
 
 export default function FinancialReportsSuite({ initialTab = "overview", title = "Laporan Keuangan Eksekutif" }) {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [period, setPeriod] = useState("2026-10");
-  const [loading, setLoading] = useState(true);
+  // Default to current month dynamically
+  const [period, setPeriod] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [reportData, setReportData] = useState(null);
   const [reportError, setReportError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -64,8 +67,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
   }, [initialTab]);
 
   // Fetch report data from PHP API
-  const fetchReports = async () => {
-    setLoading(true);
+  const fetchReports = useCallback(async () => {
     setReportError("");
     try {
       const res = await axios.get(`/api/financial_reports.php?period=${period}`);
@@ -78,15 +80,13 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
     } catch (err) {
       console.error("Laporan jurnal gagal dimuat:", err);
       setReportData(null);
-      setReportError("Laporan tidak dapat dimuat dari jurnal database. Angka dummy tidak digunakan.");
-    } finally {
-      setLoading(false);
+      setReportError(err.response?.data?.message || "Laporan tidak dapat dimuat dari jurnal database. Angka dummy tidak digunakan.");
     }
-  };
+  }, [period]);
 
   useEffect(() => {
     fetchReports();
-  }, [period, refreshKey]);
+  }, [fetchReports, refreshKey]);
 
   // Open modal for Create
   const handleOpenCreateModal = () => {
@@ -155,7 +155,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
         Swal.fire("Gagal", res.data?.message || "Gagal memproses penyesuaian.", "error");
       }
     } catch (err) {
-      Swal.fire("Gagal", "Penyesuaian wajib tersimpan di database jurnal dan tidak disimpan offline.", "error");
+      Swal.fire("Gagal", err.response?.data?.message || "Penyesuaian wajib tersimpan di database jurnal dan tidak disimpan offline.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -193,8 +193,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
           Swal.fire("Gagal", res.data?.message || "Gagal menghapus penyesuaian.", "error");
         }
       } catch (err) {
-        Swal.fire("Berhasil", "Penyesuaian dihapus dari sistem.", "success");
-        setRefreshKey((k) => k + 1);
+        Swal.fire("Gagal", err.response?.data?.message || "Penyesuaian gagal dihapus. Data tidak diubah.", "error");
       }
     }
   };
@@ -306,7 +305,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
 
             {/* Actions Bar */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              {/* Period Filter */}
+              {/* Period Filter — Dynamic last 18 months + future 3 */}
               <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
                 <Calendar className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                 <span className="text-xs font-semibold text-slate-600 mr-2">Periode:</span>
@@ -315,10 +314,19 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
                   onChange={(e) => setPeriod(e.target.value)}
                   className="text-xs font-bold text-slate-800 bg-transparent border-none focus:outline-hidden cursor-pointer"
                 >
-                  <option value="2026-10">Oktober 2026</option>
-                  <option value="2026-09">September 2026</option>
-                  <option value="2026-08">Agustus 2026</option>
-                  <option value="all">Semua Periode sampai Hari Ini</option>
+                  {(() => {
+                    const opts = [];
+                    const now = new Date();
+                    // Generate 18 months back + 3 months forward
+                    for (let i = -18; i <= 3; i++) {
+                      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                      const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                      const label = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                      opts.push(<option key={val} value={val}>{label}</option>);
+                    }
+                    opts.push(<option key="all" value="all">Semua Periode (Kumulatif)</option>);
+                    return opts.reverse();
+                  })()}
                 </select>
               </div>
 
@@ -367,7 +375,10 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
           <div className="hidden print:block mb-8 text-center border-b pb-4">
             <h2 className="text-xl font-bold uppercase tracking-wider text-slate-900">LPK CREATIVA BRIDGING INTERNATIONAL</h2>
             <p className="text-xs text-slate-600">Lembaga Pelatihan Kerja & Pengiriman Tenaga Kerja Jepang Berkualitas</p>
-            <p className="text-xs text-slate-500 mt-1">Laporan Keuangan Resmi • Periode: {period === "2026-10" ? "Oktober 2026" : period}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Laporan Keuangan Resmi • Periode: {period === 'all' ? 'Semua Periode (Kumulatif)' : new Date(period + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">Standar: PSAK 1 / IAS 1 / SAK ETAP | Dicetak: {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
           </div>
 
           {/* ── 4 KPI STATS CARDS (CLEAN BOOTSTRAP 5 STYLE) ── */}
@@ -464,6 +475,19 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
 
               <button
                 type="button"
+                onClick={() => setActiveTab("trial_balance")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                  activeTab === "trial_balance"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Trial Balance (Neraca Saldo)</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab("adjustments")}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === "adjustments"
@@ -472,7 +496,7 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
                 }`}
               >
                 <Pencil className="w-4 h-4" />
-                <span>Penyesuaian (CRUD)</span>
+                <span>Penyesuaian (Jurnal)</span>
                 {adjustments.length > 0 && (
                   <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-blue-100 text-blue-800">
                     {adjustments.length}
@@ -987,8 +1011,13 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
                     ))}
                     <tr className="bg-slate-50 font-bold border-b border-slate-200">
                       <td className="py-2.5 px-4 text-slate-800">Arus Kas Bersih dari Aktivitas Investasi</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-amber-800 font-bold">
-                        ({formatRupiah(Math.abs(cf.summary?.net_investing || 0))})
+                      <td className={`py-2.5 px-4 text-right font-mono font-bold ${
+                        (cf.summary?.net_investing || 0) >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                      }`}>
+                        {(cf.summary?.net_investing || 0) >= 0
+                          ? formatRupiah(cf.summary.net_investing)
+                          : `(${formatRupiah(Math.abs(cf.summary.net_investing))})`
+                        }
                       </td>
                     </tr>
 
@@ -1006,8 +1035,13 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
                     ))}
                     <tr className="bg-slate-50 font-bold border-b border-slate-200">
                       <td className="py-2.5 px-4 text-slate-800">Arus Kas Bersih dari Aktivitas Pendanaan</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-purple-800 font-bold">
-                        ({formatRupiah(Math.abs(cf.summary?.net_financing || 0))})
+                      <td className={`py-2.5 px-4 text-right font-mono font-bold ${
+                        (cf.summary?.net_financing || 0) >= 0 ? 'text-emerald-700' : 'text-purple-800'
+                      }`}>
+                        {(cf.summary?.net_financing || 0) >= 0
+                          ? formatRupiah(cf.summary.net_financing)
+                          : `(${formatRupiah(Math.abs(cf.summary.net_financing))})`
+                        }
                       </td>
                     </tr>
 
@@ -1033,7 +1067,97 @@ export default function FinancialReportsSuite({ initialTab = "overview", title =
           )}
 
           {/* ══════════════════════════════════════════════════════════════════════════ */}
-          {/* TAB 5: PENYESUAIAN / ADJUSTMENTS (CRUD PHP) */}
+          {/* TAB 5: TRIAL BALANCE (NERACA SALDO) — PSAK 1 / IAS 1 */}
+          {/* ══════════════════════════════════════════════════════════════════════════ */}
+          {activeTab === "trial_balance" && (() => {
+            const tb = reportData?.trial_balance || {};
+            const rows = tb.rows || [];
+            const isBalanced = tb.balanced ?? false;
+            const totalDebit  = parseFloat(tb.debit  || 0);
+            const totalCredit = parseFloat(tb.credit || 0);
+            return (
+              <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Neraca Saldo (Trial Balance)</h3>
+                    <p className="text-xs text-slate-500">Posisi saldo semua akun COA pada akhir periode — standar PSAK 1 / IAS 1</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                    isBalanced
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      : "bg-rose-50 border-rose-200 text-rose-800"
+                  }`}>
+                    {isBalanced ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                    <span>{isBalanced ? "SEIMBANG (Balanced)" : "TIDAK SEIMBANG!"}</span>
+                  </div>
+                </div>
+                <div className="p-6 overflow-x-auto">
+                  {rows.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400">
+                      <Layers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                      <p className="text-sm font-semibold">Belum ada jurnal posted</p>
+                      <p className="text-xs mt-1">Posting transaksi melalui modul Akuntansi → Buku Transaksi</p>
+                    </div>
+                  ) : (
+                    <>
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/80 text-slate-700 border-y border-slate-200 font-bold uppercase tracking-wider text-[11px]">
+                            <th className="py-3 px-3 text-left w-20">Kode</th>
+                            <th className="py-3 px-3 text-left">Nama Akun</th>
+                            <th className="py-3 px-3 text-center w-24">Kel</th>
+                            <th className="py-3 px-3 text-right w-36">Debit (IDR)</th>
+                            <th className="py-3 px-3 text-right w-36">Kredit (IDR)</th>
+                            <th className="py-3 px-3 text-right w-36">Saldo (IDR)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => {
+                            const bal = parseFloat(row.balance || 0);
+                            const grpLabels = { '1': 'Aset', '2': 'Liab', '3': 'Ekuitas', '4': 'Pendapatan', '5': 'Beban' };
+                            const grpColors = { '1': 'bg-blue-50 text-blue-700', '2': 'bg-rose-50 text-rose-700', '3': 'bg-emerald-50 text-emerald-700', '4': 'bg-teal-50 text-teal-700', '5': 'bg-amber-50 text-amber-700' };
+                            return (
+                              <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/60 transition">
+                                <td className="py-2 px-3 font-mono text-slate-500 text-[11px]">{row.code}</td>
+                                <td className="py-2 px-3 font-medium text-slate-800">{row.name}</td>
+                                <td className="py-2 px-3 text-center">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${grpColors[row.account_group] || 'bg-slate-100 text-slate-600'}`}>
+                                    {grpLabels[row.account_group] || `Grp${row.account_group}`}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-700">{parseFloat(row.debit || 0) > 0 ? formatRupiah(parseFloat(row.debit)) : "—"}</td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-700">{parseFloat(row.credit || 0) > 0 ? formatRupiah(parseFloat(row.credit)) : "—"}</td>
+                                <td className={`py-2 px-3 text-right font-mono font-bold ${bal >= 0 ? 'text-slate-900' : 'text-rose-700'}`}>
+                                  {bal >= 0 ? formatRupiah(bal) : `(${formatRupiah(Math.abs(bal))})`}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className={`font-black border-t-2 text-sm ${isBalanced ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950' : 'border-rose-500 bg-rose-50/70 text-rose-950'}`}>
+                            <td colSpan={3} className="py-3 px-3 uppercase tracking-wider">TOTAL NERACA SALDO</td>
+                            <td className="py-3 px-3 text-right font-mono">{formatRupiah(totalDebit)}</td>
+                            <td className="py-3 px-3 text-right font-mono">{formatRupiah(totalCredit)}</td>
+                            <td className="py-3 px-3 text-right font-mono">
+                              {isBalanced ? "✓ Seimbang" : `Selisih: ${formatRupiah(Math.abs(totalDebit - totalCredit))}`}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                      <p className="text-[11px] text-slate-400 mt-3 text-center">
+                        Trial Balance menampilkan semua jurnal berstatus <strong>posted</strong> (buku besar ditutup).
+                        Total Debit harus sama dengan Total Kredit sesuai prinsip double-entry (PSAK 1 / IAS 1).
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ══════════════════════════════════════════════════════════════════════════ */}
+          {/* TAB 6: PENYESUAIAN / ADJUSTMENTS */}
           {/* ══════════════════════════════════════════════════════════════════════════ */}
           {activeTab === "adjustments" && (
             <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">

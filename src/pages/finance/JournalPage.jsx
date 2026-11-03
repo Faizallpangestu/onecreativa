@@ -12,11 +12,8 @@ import {
 import { Plus, RefreshCw, BookOpen, Check, ArrowRight } from "lucide-react";
 import axios from "axios";
 
-// Default blueprint invoices dari modul billing
-const DEFAULT_BLUEPRINT_INVOICES = [
-  { id: "TGCJ2608001", tanggal: "2026-08-21", customer: "Hany Agesti", program: "Kelas Intensif Offline", total: 15000000, terbayar: 15000000, status: "Paid", bank_name: "BCA", receiptNo: "RCP-TGCJ2608001-01" },
-  { id: "TGCJ2608004", tanggal: "2026-08-19", customer: "Siti Aminah", program: "Kursus Reguler", total: 8000000, terbayar: 4000000, status: "Partially Paid", bank_name: "BCA", receiptNo: "RCP-TGCJ2608004-01" },
-];
+// Default blueprint invoices dari modul billing (Dimulai dari 0, tidak ada dummy)
+const DEFAULT_BLUEPRINT_INVOICES = [];
 
 function formatDateIndo(dateStr) {
   if (!dateStr) return "-";
@@ -201,17 +198,8 @@ export default function JournalPage() {
       }
     });
 
-    // 4. Entri Jurnal Suntikan Dana Kas Kecil (Dropping dari Rekening BCA ke Petty Cash)
-    // Sesuai prinsip akuntansi & arahan CFO: "patty cash juga kan suntikan dananya dari transferan rek BCA creatva bridging intern"
-    const droppingTransfers = [
-      {
-        id: "TRF-2026-0034",
-        tanggal: "2026-06-20",
-        deskripsi: "Suntikan Dana Kas Kecil dari Rekening BCA Creativa Bridging Intern",
-        nominal: 5000000,
-        status: "Posted"
-      }
-    ];
+    // 4. Entri Jurnal Suntikan Dana Kas Kecil (Hanya dari riwayat riil)
+    const droppingTransfers = [];
 
     try {
       const trfRaw = localStorage.getItem("finance_transfers_history");

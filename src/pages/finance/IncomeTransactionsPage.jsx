@@ -12,7 +12,7 @@ import {
 } from "./FinancePageComponents";
 import { accountingGet, accountingMutate } from "../../utils/accountingApi";
 import { 
-  Eye, Plus, Pencil, Trash2, AlertTriangle, 
+  Eye, Zap, Plus, Pencil, Trash2, AlertTriangle, 
   UploadCloud, Link as LinkIcon, ExternalLink, X, FileText, Image as ImageIcon 
 } from "lucide-react";
 
@@ -47,7 +47,96 @@ async function saveLegacyProof(itemId, form) {
   }
 }
 
+
+// ── AMBIL DAFTAR REKENING REAL DARI COA & MASTER REKENING ──
+function getRegisteredReceivingAccounts(lookupData = null) {
+  const accounts = [];
+  const seen = new Set();
+
+  // A. Dari API lookups (Database: cash_bank_accounts & COA accounts)
+  if (lookupData) {
+    const rawBanks = lookupData.banks || [];
+    const rawAccounts = lookupData.accounts || [];
+
+    rawBanks.filter(b => Number(b.is_active) !== 0).forEach(b => {
+      const bName = b.bank_name ? b.bank_name.replace(/^bank\s+/i, "") : (b.name || "Bank");
+      const noRek = b.account_number || "";
+      const label = noRek ? `${bName} (${noRek}) - ${b.name}` : b.name;
+      const val = noRek ? `${bName} (${noRek})` : b.name;
+      const key = (noRek || val).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        accounts.push({ id: `db-bank-${b.id}`, label, value: val, noRek, bank: bName });
+      }
+    });
+
+    rawAccounts.filter(a => Number(a.is_active) !== 0 && Number(a.account_group) === 1 && (a.report_class === 'cash' || String(a.name).toLowerCase().includes('bank') || String(a.name).toLowerCase().includes('kas'))).forEach(a => {
+      const matchNo = (a.name || "").match(/\b[\d-]{7,20}\b/);
+      const noRek = matchNo ? matchNo[0] : "";
+      const key = (noRek || a.name).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        accounts.push({ id: `db-coa-${a.id || a.code}`, label: `[${a.code}] ${a.name}`, value: a.name, noRek, bank: a.name });
+      }
+    });
+  }
+
+  // B. Dari Master Rekening lokal (finance_rekening_data)
+  try {
+    const rawRek = localStorage.getItem("finance_rekening_data");
+    if (rawRek) {
+      const parsed = JSON.parse(rawRek);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed.filter(r => r.status === "Aktif" || !r.status).forEach(r => {
+          const bankName = r.bank ? r.bank.replace(/^bank\s+/i, "") : (r.nama || "Bank");
+          const noRek = r.noRek || "";
+          const label = noRek ? `${bankName} (${noRek}) - ${r.nama || r.pemilik || 'LPK Creativa'}` : (r.nama || bankName);
+          const val = noRek ? `${bankName} (${noRek})` : (r.nama || bankName);
+          const key = (noRek || val).toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            accounts.push({ id: `rek-${r.id}`, label, value: val, noRek, bank: bankName });
+          }
+        });
+      }
+    }
+  } catch (e) {}
+
+  // C. Dari Master COA lokal (finance_coa_data)
+  try {
+    const rawCoa = localStorage.getItem("finance_coa_data");
+    if (rawCoa) {
+      const parsed = JSON.parse(rawCoa);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed.filter(c => (c.kategori === "Cash and Bank" || c.report_class === "cash" || c.subtype === "AST-CB" || c.account_group === 1) && c.status !== "Nonaktif" && (String(c.nama).toLowerCase().includes('bank') || String(c.nama).toLowerCase().includes('kas'))).forEach(c => {
+          const matchNo = (c.rekeningDetail || c.nama || "").match(/\b[\d-]{7,20}\b/);
+          const noRek = matchNo ? matchNo[0] : "";
+          const key = (noRek || c.nama).toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            accounts.push({ id: `coa-${c.kode || c.id}`, label: `[${c.kode}] ${c.nama}`, value: c.nama, noRek, bank: c.nama });
+          }
+        });
+      }
+    }
+  } catch (e) {}
+
+  // D. Fallback aman jika database & storage masih kosong
+  if (accounts.length === 0) {
+    accounts.push({
+      id: "default-bca",
+      label: "BCA (1832-918-428) - PT CREATIVA BRIDGING INTERN",
+      value: "BCA (1832-918-428)",
+      noRek: "1832-918-428",
+      bank: "BCA"
+    });
+  }
+
+  return accounts;
+}
+
 export default function IncomeTransactionsPage() {
+  const [rekeningList, setRekeningList] = useState(() => getRegisteredReceivingAccounts());
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_income_data");
@@ -91,7 +180,7 @@ export default function IncomeTransactionsPage() {
     tanggal: new Date().toISOString().slice(0, 10),
     siswa: "",
     kategori: "Biaya Kursus",
-    sumberDana: "BCA",
+    sumberDana: getRegisteredReceivingAccounts()[0]?.value || "BCA (1832-918-428)",
     nominal: "",
     status: "Lunas",
     deskripsi: "",
@@ -103,11 +192,12 @@ export default function IncomeTransactionsPage() {
 
   const handleOpenCreate = () => {
     setEditingItem(null);
+    const defaultRek = rekeningList[0]?.value || "BCA (1832-918-428)";
     setForm({
       tanggal: new Date().toISOString().slice(0, 10),
       siswa: "",
       kategori: "Biaya Kursus",
-      sumberDana: "BCA",
+      sumberDana: defaultRek,
       nominal: "",
       status: "Lunas",
       deskripsi: "",
@@ -115,6 +205,24 @@ export default function IncomeTransactionsPage() {
       buktiFoto: "",
       buktiNama: "",
       buktiLink: "",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenPay = (item) => {
+    setEditingItem(item);
+    setForm({
+      tanggal: new Date().toISOString().slice(0, 10),
+      siswa: item.siswa,
+      kategori: item.kategori,
+      sumberDana: item.sumberDana,
+      nominal: item.nominal,
+      status: "Lunas",
+      deskripsi: item.deskripsi || "",
+      buktiType: item.buktiLink ? "link" : "file",
+      buktiFoto: item.buktiFoto || "",
+      buktiNama: item.buktiNama || "",
+      buktiLink: item.buktiLink || "",
     });
     setIsModalOpen(true);
   };
@@ -188,8 +296,14 @@ export default function IncomeTransactionsPage() {
     Promise.all([
       accountingGet("ledger", { type: "income" }).catch(() => ({ data: { rows: [] } })),
       axios.get("/api/finance.php", { params: { type: "income", _t: Date.now() } }).catch(() => ({ data: { data: [] } })),
+      accountingGet("lookups").catch(() => ({ data: { accounts: [], banks: [] } })),
     ])
-      .then(([res, legacyRes]) => {
+      .then(([res, legacyRes, lookupRes]) => {
+        if (!active) return;
+        if (lookupRes?.data) {
+          const freshAccounts = getRegisteredReceivingAccounts(lookupRes.data);
+          setRekeningList(freshAccounts);
+        }
         if (!active) return;
         const apiRows = (res.data?.rows || [])
           .map((r, i) => ({
@@ -217,8 +331,29 @@ export default function IncomeTransactionsPage() {
           buktiFoto: r.photo_path ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.id)}` : "",
           buktiLink: r.drive_link || "",
         }));
-        const rowsById = new Map([...apiRows, ...legacyRows].map(row => [String(row.id), row]));
+        const savedRaw = localStorage.getItem("finance_income_data");
+        const existingLocal = savedRaw ? JSON.parse(savedRaw) : [];
+        const deletedIds = new Set(JSON.parse(localStorage.getItem("finance_income_deleted_ids") || "[]").map(String));
+
+        const rowsById = new Map();
+        // A. Baris dari API/Database
+        [...apiRows, ...legacyRows].forEach(row => {
+          if (!deletedIds.has(String(row.id))) {
+            rowsById.set(String(row.id), row);
+          }
+        });
+        // B. Baris yang diinput pengguna secara lokal (JANGAN DIHAPUS / OVERWRITE!)
+        if (Array.isArray(existingLocal)) {
+          existingLocal.forEach(row => {
+            const rId = String(row.id);
+            if (!deletedIds.has(rId) && !rowsById.has(rId)) {
+              rowsById.set(rId, row);
+            }
+          });
+        }
+
         const rows = [...rowsById.values()];
+        rows.sort((a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
         setData(rows);
         try {
           localStorage.setItem("finance_income_data", JSON.stringify(rows));
@@ -257,9 +392,9 @@ export default function IncomeTransactionsPage() {
       filteredData.map((d, idx) => ({
         No: idx + 1,
         Tanggal: d.tanggal,
-        Siswa: d.siswa,
+        "Diterima Dari": d.siswa,
         Kategori: d.kategori,
-        "Sumber Dana": d.sumberDana,
+        "Rekening Penerima": d.sumberDana,
         Nominal: d.nominal,
         Status: d.status,
         Bukti: d.buktiLink ? d.buktiLink : d.buktiFoto ? "Ada Bukti Foto" : "Tidak Ada",
@@ -288,7 +423,11 @@ export default function IncomeTransactionsPage() {
     };
 
     if (editingItem) {
-      setData(data.map(d => d.id === editingItem.id ? { ...d, ...payloadItem } : d));
+      const updated = data.map(d => d.id === editingItem.id ? { ...d, ...payloadItem } : d);
+      setData(updated);
+      try {
+        localStorage.setItem("finance_income_data", JSON.stringify(updated));
+      } catch (e) {}
       try {
         await accountingMutate({
           action: "update",
@@ -306,9 +445,15 @@ export default function IncomeTransactionsPage() {
       try { await saveLegacyProof(editingItem.id, form); } catch (proofError) { console.warn("Bukti pemasukan gagal disimpan", proofError); }
     } else {
       const newItem = {
-        id: Date.now(),
+        id: 'inc-' + Date.now(),
+        noTransaksi: 'TRX-' + (form.tanggal || new Date().toISOString().slice(0, 10)).replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000),
         ...payloadItem,
       };
+      const updated = [newItem, ...data];
+      setData(updated);
+      try {
+        localStorage.setItem("finance_income_data", JSON.stringify(updated));
+      } catch (e) {}
       try {
         await accountingMutate({
           action: "create",
@@ -322,7 +467,6 @@ export default function IncomeTransactionsPage() {
       } catch {
         // Local state update ensures immediate UX response
       }
-      setData([newItem, ...data]);
     }
 
     setBusy(false);
@@ -346,9 +490,9 @@ export default function IncomeTransactionsPage() {
   const columns = [
     { header: "No", accessor: "no", align: "center", className: "w-12 text-slate-400 font-medium", render: (_, i) => (page - 1) * perPage + i + 1 },
     { header: "Tanggal", accessor: "tanggal", className: "whitespace-nowrap font-medium" },
-    { header: "Siswa", accessor: "siswa", className: "font-semibold text-slate-900" },
+    { header: "Diterima Dari", accessor: "siswa", className: "font-semibold text-slate-900" },
     { header: "Kategori", accessor: "kategori" },
-    { header: "Sumber Dana", accessor: "sumberDana" },
+    { header: "Rekening Penerima", accessor: "sumberDana" },
     { header: "Nominal", accessor: "nominal", align: "right", className: "font-bold text-slate-900", render: (r) => formatRupiah(r.nominal) },
     { header: "Status", accessor: "status", align: "center", render: (r) => <FinanceBadge status={r.status} /> },
     {
@@ -403,6 +547,16 @@ export default function IncomeTransactionsPage() {
           >
             <Eye className="w-4 h-4" />
           </button>
+          {r.status !== 'Lunas' && (
+            <button
+              type="button"
+              onClick={() => handleOpenPay(r)}
+              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+              title="Catat Pelunasan (Ubah ke Lunas & Upload Bukti)"
+            >
+              <Zap className="w-4 h-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handleOpenEdit(r)}
@@ -429,7 +583,7 @@ export default function IncomeTransactionsPage() {
       <div className="p-4 md:p-7 max-w-7xl mx-auto">
         <FinancePageHeader
           title="Transaksi Pemasukan"
-          subtitle="Kelola pencatatan transaksi pemasukan dan sumber dana kas"
+          subtitle="Kelola pencatatan transaksi pemasukan dan rekening penerima kas"
           primaryLabel="+ Tambah Pemasukan"
           onPrimaryClick={handleOpenCreate}
           onSecondaryClick={handleExport}
@@ -442,17 +596,17 @@ export default function IncomeTransactionsPage() {
           setEndDate={setEndDate}
           search={search}
           setSearch={setSearch}
-          searchPlaceholder="Cari transaksi / siswa..."
+          searchPlaceholder="Cari transaksi / pihak pembayar..."
           dropdowns={[
             {
               value: sumber,
               onChange: setSumber,
               options: [
-                { value: "all", label: "Semua Sumber" },
-                { value: "BCA", label: "Bank BCA" },
-                { value: "Bank Mandiri", label: "Bank Mandiri" },
-                { value: "E-Wallet", label: "E-Wallet" },
-                { value: "Kas", label: "Kas Tunai" },
+                { value: "all", label: "Semua Rekening Penerima" },
+                ...rekeningList.map(rek => ({
+                  value: rek.value,
+                  label: rek.label
+                }))
               ],
             },
             {
@@ -460,7 +614,8 @@ export default function IncomeTransactionsPage() {
               onChange: setStatus,
               options: [
                 { value: "all", label: "Semua Status" },
-                { value: "Lunas", label: "Lunas" },
+                { value: "Lunas", label: "Lunas (Realisasi)" },
+                { value: "Belum Lunas", label: "Belum Lunas (Rencana / Proyeksi)" },
                 { value: "Pending", label: "Pending" },
               ],
             },
@@ -515,11 +670,11 @@ export default function IncomeTransactionsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Siswa / Pihak</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Diterima Dari</label>
               <input
                 type="text"
                 required
-                placeholder="Contoh: Andi Saputra"
+                placeholder="Contoh: Siswa Andi Saputra / Samit (Investor)"
                 value={form.siswa}
                 onChange={e => setForm({ ...form, siswa: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -541,17 +696,17 @@ export default function IncomeTransactionsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Sumber Dana (Rekening)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Rekening Penerima (Kas & Bank COA)</label>
               <select
                 value={form.sumberDana}
                 onChange={e => setForm({ ...form, sumberDana: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
               >
-                <option value="BCA">Rekening BCA</option>
-                <option value="Bank Mandiri">Rekening Bank Mandiri</option>
-                <option value="Bank BNI">Rekening Bank BNI</option>
-                <option value="E-Wallet">E-Wallet (Petty Cash)</option>
-                <option value="Kas">Kas Tunai Kantor</option>
+                {rekeningList.map((rek, idx) => (
+                  <option key={rek.id || idx} value={rek.value}>
+                    {rek.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -572,7 +727,8 @@ export default function IncomeTransactionsPage() {
                 onChange={e => setForm({ ...form, status: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               >
-                <option value="Lunas">Lunas (Paid)</option>
+                <option value="Lunas">Lunas (Paid / Realisasi)</option>
+                <option value="Belum Lunas">Belum Lunas (Rencana / Proyeksi)</option>
                 <option value="Pending">Pending (Menunggu Verifikasi)</option>
               </select>
             </div>
@@ -711,9 +867,9 @@ export default function IncomeTransactionsPage() {
 
               <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
                 <div className="flex justify-between"><span className="text-slate-500">Tanggal:</span><span className="font-semibold text-slate-800">{selectedItem.tanggal}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Siswa / Pihak:</span><span className="font-semibold text-slate-800">{selectedItem.siswa}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Diterima Dari:</span><span className="font-semibold text-slate-800">{selectedItem.siswa}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Kategori:</span><span className="font-semibold text-slate-800">{selectedItem.kategori}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Sumber Dana:</span><span className="font-semibold text-slate-800">{selectedItem.sumberDana}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Rekening Penerima:</span><span className="font-semibold text-slate-800">{selectedItem.sumberDana}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Nominal:</span><span className="font-bold text-blue-600 text-sm">{formatRupiah(selectedItem.nominal)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Status:</span><FinanceBadge status={selectedItem.status} /></div>
                 

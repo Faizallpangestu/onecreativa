@@ -10,6 +10,7 @@ try {
     $actor = session_actor($conn);
     if (!$actor) salary_fail('Silakan masuk kembali untuk mengakses penggajian.', 401);
     salary_require_access($actor);
+    salary_ensure_schema($conn);
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $csrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
         if (!$csrf || !hash_equals($_SESSION['csrf_token'] ?? '', $csrf)) salary_fail('Sesi tidak valid. Muat ulang halaman.', 403);
@@ -39,5 +40,5 @@ try {
     http_response_code(400); echo json_encode(['status'=>'error','message'=>'Format data penggajian tidak valid.']);
 } catch (Throwable $error) {
     error_log('Salary workflow: '.$error->getMessage()); http_response_code(500);
-    echo json_encode(['status'=>'error','message'=>'Penggajian gagal diproses. Data tidak diubah. Hubungi administrator.']);
+    echo json_encode(['status'=>'error','message'=>'Penggajian gagal diproses: '.$error->getMessage()]);
 }

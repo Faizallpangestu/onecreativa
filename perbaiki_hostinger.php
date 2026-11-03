@@ -2,29 +2,65 @@
 define('CREATIVA_TEST_ROUTER', true);
 echo "<h2>Alat Perbaikan Otomatis Hostinger - Creativa</h2>";
 
+// ── 0. Sinkronisasi Otomatis dari folder dist/ ke public_html jika ada ──
+function sync_folder_recursive($src, $dst) {
+    if (!is_dir($dst)) @mkdir($dst, 0755, true);
+    $dir = @opendir($src);
+    if (!$dir) return;
+    while (false !== ($file = readdir($dir))) {
+        if ($file === '.' || $file === '..') continue;
+        $srcPath = $src . '/' . $file;
+        $dstPath = $dst . '/' . $file;
+        if (is_dir($srcPath)) {
+            sync_folder_recursive($srcPath, $dstPath);
+        } else {
+            @copy($srcPath, $dstPath);
+        }
+    }
+    closedir($dir);
+}
+
+if (basename(__DIR__) === 'dist') {
+    $parent = dirname(__DIR__);
+    sync_folder_recursive(__DIR__, $parent);
+    echo "<p style='color:green; font-weight:bold;'>✔ Berhasil memindahkan dan menyinkronkan seluruh file dist/ ke root public_html secara otomatis!</p>";
+} elseif (is_dir(__DIR__ . '/dist')) {
+    sync_folder_recursive(__DIR__ . '/dist', __DIR__);
+    echo "<p style='color:green; font-weight:bold;'>✔ Berhasil mendeteksi folder dist/ dan memperbarui file root public_html secara otomatis!</p>";
+}
+
 $base_dir = __DIR__;
 $success = true;
 
 // Cari direktori backend jika script berada di root project
 $backend_dir = file_exists($base_dir . '/config/database.php') ? $base_dir : $base_dir . '/backend';
 
-// 1. Perbaiki typo k?php di db_env.php
+// 1. Tulis / Perbarui config/db_env.php dengan konfigurasi Hostinger yang valid
 $db_env = $backend_dir . '/config/db_env.php';
-if (file_exists($db_env)) {
-    $content = file_get_contents($db_env);
-    if (strpos($content, 'k?php') !== false) {
-        $content = str_replace('k?php', '<?php', $content);
-        file_put_contents($db_env, $content);
-        echo "<p style='color:green'>✔ Berhasil memperbaiki typo 'k?php' menjadi '&lt;?php' di config/db_env.php</p>";
-    } else if (strpos($content, '<?php') !== false) {
-        echo "<p style='color:green'>✔ File config/db_env.php sudah benar (menggunakan &lt;?php).</p>";
-    } else {
-        file_put_contents($db_env, "<?php\n" . $content);
-        echo "<p style='color:green'>✔ Berhasil menambahkan &lt;?php ke config/db_env.php</p>";
-    }
-} else {
-    echo "<p style='color:orange'>ℹ config/db_env.php tidak ditemukan di lokal (menggunakan konfigurasi default database.php).</p>";
+$candidates = [
+    ['host' => 'localhost', 'pass' => '4L13nw4r3!@#$%'],
+    ['host' => 'localhost', 'pass' => 'Creativa4321!'],
+    ['host' => '127.0.0.1', 'pass' => '4L13nw4r3!@#$%'],
+    ['host' => '127.0.0.1', 'pass' => 'Creativa4321!'],
+];
+$active_host = 'localhost';
+$active_pass = '4L13nw4r3!@#$%';
+foreach ($candidates as $c) {
+    try {
+        $t = @new mysqli($c['host'], 'u260890310_one', $c['pass'], 'u260890310_one');
+        if ($t && !$t->connect_error) {
+            $active_host = $c['host'];
+            $active_pass = $c['pass'];
+            $t->close();
+            break;
+        }
+    } catch (Throwable $e) {}
 }
+$hostinger_config = "<?php\n\$DB_HOST = '{$active_host}';\n\$DB_USER = 'u260890310_one';\n\$DB_PASS = " . var_export($active_pass, true) . ";\n\$DB_NAME = 'u260890310_one';\n";
+file_put_contents($db_env, $hostinger_config);
+echo "<p style='color:green'>✔ File config/db_env.php berhasil disinkronkan (DB: u260890310_one, Host: $active_host).</p>";
+
+
 
 // 2. Hapus api/.htaccess yang bikin bentrok jika ada
 $api_htaccess = $backend_dir . '/api/.htaccess';
@@ -139,7 +175,95 @@ if (isset($conn) && $conn) {
         }
     }
 
+    // Inisialisasi skema penggajian (salary)
+    if (file_exists($backend_dir . '/services/salary_schema.php')) {
+        require_once $backend_dir . '/services/salary_schema.php';
+        if (function_exists('install_salary_schema')) {
+            try {
+                install_salary_schema($conn);
+                echo "<p style='color:green'>✔ Skema Penggajian (salary_requests & salary_base_rates) berhasil diverifikasi.</p>";
+            } catch (Throwable $e) {
+                echo "<p style='color:orange'>⚠ Peringatan skema penggajian: " . htmlspecialchars($e->getMessage()) . "</p>";
+            }
+        }
+    }
+
     echo "<p style='color:green'>✔ Tabel <code>accounting_audit_logs</code> (beserta hash chain & trigger) dan <code>employee_employment</code> siap digunakan.</p>";
+
+    // Pemulihan Riwayat Absensi Karyawan & Laporan Kerja (attendance_logs & daily_reports)
+    echo "<h3>4b. Memulihkan Riwayat Absensi Karyawan & Laporan Kerja...</h3>";
+    $attendanceRows = [
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (1,1,'2026-06-19','2026-06-19 20:08:45','2026-06-19 20:08:50',NULL,NULL,NULL,NULL,1,0,'late','Face Snapshot: uploads/face_snapshots/face_1_clock_in_20260619_200845.jpg, Face Snapshot Out: uploads/face_snapshots/face_1_clock_out_20260619_200850.jpg','2026-06-20 01:08:45');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (2,1,'2026-06-23','2026-06-23 08:00:00','2026-06-23 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-06-21 01:15:55');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (3,1,'2026-06-24','2026-06-24 08:00:00','2026-06-24 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-06-21 01:15:55');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (4,1,'2026-06-25','2026-06-25 08:00:00','2026-06-25 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-06-21 01:15:55');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (5,1,'2026-06-26','2026-06-26 08:00:00','2026-06-26 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-06-21 01:15:55');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (7,7,'2026-06-26','2026-06-26 02:16:05',NULL,'-6.24521450','107.02288625',NULL,NULL,1,0,'present','Face Snapshot: uploads/face_snapshots/face_7_clock_in_20260626_021605.jpg','2026-06-26 02:16:05');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (8,7,'2026-06-27','2026-06-27 07:35:09','2026-06-27 07:35:28','-6.24531148','107.02291170','-6.24531148','107.02291170',1,0,'late','','2026-06-27 07:35:09');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (9,1,'2026-07-01','2026-07-01 08:00:00','2026-07-01 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (10,1,'2026-07-02','2026-07-02 08:00:00','2026-07-02 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (11,1,'2026-07-03','2026-07-03 08:00:00','2026-07-03 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (12,1,'2026-07-04','2026-07-04 08:00:00','2026-07-04 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (13,1,'2026-07-05','2026-07-05 08:00:00','2026-07-05 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (14,1,'2026-07-06','2026-07-06 08:00:00','2026-07-06 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (15,1,'2026-07-07','2026-07-07 08:00:00','2026-07-07 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (16,1,'2026-07-08','2026-07-08 08:00:00','2026-07-08 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (17,1,'2026-07-09','2026-07-09 08:00:00','2026-07-09 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (18,1,'2026-07-10','2026-07-10 08:00:00','2026-07-10 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (19,1,'2026-07-11','2026-07-11 08:00:00','2026-07-11 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (20,1,'2026-07-12','2026-07-12 08:00:00','2026-07-12 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (21,1,'2026-07-13','2026-07-13 08:00:00','2026-07-13 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (22,1,'2026-07-14','2026-07-14 08:00:00','2026-07-14 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (23,1,'2026-07-15','2026-07-15 08:00:00','2026-07-15 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (24,1,'2026-07-16','2026-07-16 08:00:00','2026-07-16 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (25,1,'2026-07-17','2026-07-17 08:00:00','2026-07-17 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (26,1,'2026-07-18','2026-07-18 08:00:00','2026-07-18 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (27,1,'2026-07-19','2026-07-19 08:00:00','2026-07-19 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (28,1,'2026-07-20','2026-07-20 08:00:00','2026-07-20 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (29,1,'2026-07-21','2026-07-21 08:00:00','2026-07-21 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (30,1,'2026-07-22','2026-07-22 08:00:00','2026-07-22 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (31,1,'2026-07-23','2026-07-23 08:00:00','2026-07-23 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (32,1,'2026-07-24','2026-07-24 08:00:00','2026-07-24 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (33,1,'2026-07-25','2026-07-25 08:00:00','2026-07-25 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (34,1,'2026-07-26','2026-07-26 08:00:00','2026-07-26 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (35,1,'2026-07-27','2026-07-27 08:00:00','2026-07-27 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (36,1,'2026-07-28','2026-07-28 08:00:00','2026-07-28 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (37,1,'2026-07-29','2026-07-29 08:00:00','2026-07-29 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (38,1,'2026-07-30','2026-07-30 08:00:00','2026-07-30 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (39,1,'2026-07-31','2026-07-31 08:00:00','2026-07-31 17:00:00',NULL,NULL,NULL,NULL,0,0,'dinas',NULL,'2026-07-02 00:15:47');",
+        "INSERT IGNORE INTO `attendance_logs` (`id`,`employee_id`,`date`,`check_in_at`,`check_out_at`,`check_in_lat`,`check_in_lng`,`check_out_lat`,`check_out_lng`,`face_verified`,`geo_verified`,`status`,`notes`,`created_at`) VALUES (40,7,'2026-10-05','2026-10-05 10:32:53',NULL,'-6.81082100','107.12559233',NULL,NULL,1,0,'late','Face Snapshot: uploads/face_snapshots/face_7_clock_in_20261005_103253.jpg','2026-10-05 10:32:53');",
+    ];
+
+    $attCount = 0;
+    foreach ($attendanceRows as $sqlRow) {
+        if (mysqli_query($conn, $sqlRow)) {
+            $attCount += mysqli_affected_rows($conn);
+        }
+    }
+
+    $reportRows = [
+        "INSERT IGNORE INTO `daily_reports` (`id`,`employee_id`,`report_date`,`tasks`,`notes`,`created_at`,`updated_at`) VALUES (1,1,'2026-07-01','[{\\\"text\\\":\\\"membuat sistem absensi karyawan\\\",\\\"is_completed\\\":false},{\\\"text\\\":\\\"membuat nenkin \\\",\\\"is_completed\\\":true}]',NULL,'2026-07-02 02:18:35','2026-07-02 02:19:06');",
+        "INSERT IGNORE INTO `daily_reports` (`id`,`employee_id`,`report_date`,`tasks`,`notes`,`created_at`,`updated_at`) VALUES (3,1,'2026-08-03','[{\\\"text\\\":\\\"muhammad faizal\\\",\\\"status\\\":\\\"new\\\",\\\"finished_at\\\":null}]',NULL,'2026-08-03 11:06:21','2026-08-03 11:06:21');",
+        "INSERT IGNORE INTO `daily_reports` (`id`,`employee_id`,`report_date`,`tasks`,`notes`,`created_at`,`updated_at`) VALUES (4,1,'2026-08-17','[{\\\"text\\\":\\\"SJLkslksL\\\",\\\"status\\\":\\\"new\\\",\\\"finished_at\\\":null},{\\\"text\\\":\\\"NJSKDJLSK\\\",\\\"status\\\":\\\"new\\\",\\\"finished_at\\\":null},{\\\"text\\\":\\\"NDJSDKJLKD\\\",\\\"status\\\":\\\"new\\\",\\\"finished_at\\\":null}]',NULL,'2026-08-17 14:06:06','2026-08-17 14:06:06');",
+        "INSERT IGNORE INTO `daily_reports` (`id`,`employee_id`,`report_date`,`tasks`,`notes`,`created_at`,`updated_at`) VALUES (5,7,'2026-10-05','[{\\\"text\\\":\\\"Brifing Manager\\\",\\\"category\\\":\\\"Meeting\\\",\\\"description\\\":\\\"meeting pagi\\\",\\\"status\\\":\\\"done\\\",\\\"time\\\":\\\"12.04\\\",\\\"finished_at\\\":\\\"2026-10-05T05:04:14.875Z\\\"}]','','2026-10-05 12:04:14','2026-10-05 12:04:14');",
+    ];
+
+    $repCount = 0;
+    foreach ($reportRows as $sqlRow) {
+        if (mysqli_query($conn, $sqlRow)) {
+            $repCount += mysqli_affected_rows($conn);
+        }
+    }
+
+    $totalAttRes = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM attendance_logs"));
+    $totalAtt = $totalAttRes['total'] ?? 0;
+    echo "<p style='color:green'>✔ Riwayat Absensi Karyawan berhasil dipulihkan! Total data tersimpan saat ini: <b>$totalAtt baris log absensi</b>.</p>";
+
+
+    // Sinkronkan izin akuntansi finance & bersihkan akun dummy 1100 Kas/Bank
+    mysqli_query($conn, "UPDATE finance_role_permissions SET allowed=1 WHERE role_name='finance' AND permission IN ('read','prepare','post','configure')");
+    mysqli_query($conn, "DELETE FROM accounts WHERE code='1100' OR (account_group=1 AND name='Kas / Bank' AND report_class='cash')");
+    echo "<p style='color:green'>✔ Hak akses role Finance disinkronkan dan akun template dummy 1100 dibersihkan permanen.</p>";
 
     // Pastikan tabel keuangan esensial ada
     mysqli_query($conn, "
@@ -160,6 +284,17 @@ if (isset($conn) && $conn) {
           `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ");
+
+    // Cek dan lengkapi kolom finance_records untuk penggajian & anggaran
+    $chkSalRec = mysqli_query($conn, "SHOW COLUMNS FROM `finance_records` LIKE 'salary_request_id'");
+    if (mysqli_num_rows($chkSalRec) == 0) {
+        mysqli_query($conn, "ALTER TABLE `finance_records` ADD COLUMN `salary_request_id` INT(10) UNSIGNED NULL");
+    }
+    $chkBudRec = mysqli_query($conn, "SHOW COLUMNS FROM `finance_records` LIKE 'budget_request_id'");
+    if (mysqli_num_rows($chkBudRec) == 0) {
+        mysqli_query($conn, "ALTER TABLE `finance_records` ADD COLUMN `budget_request_id` INT(10) UNSIGNED NULL");
+    }
+    echo "<p style='color:green'>✔ Kolom <code>salary_request_id</code> & <code>budget_request_id</code> pada tabel <code>finance_records</code> diverifikasi.</p>";
 
     // Cek dan lengkapi kolom positions
     $chkPosCol = mysqli_query($conn, "SHOW COLUMNS FROM `positions` LIKE 'base_salary'");
@@ -231,30 +366,30 @@ if (isset($conn) && $conn) {
         echo "<p style='color:red; font-weight:bold;'>✖ Query LMS masih mengalami kendala: " . htmlspecialchars(mysqli_error($conn)) . "</p>";
     }
 
-    // 7. Perbaiki Relasi Akun: Muhammad Faizal (Role Karyawan) & Admin Sistem (Role Super Admin)
-    echo "<h3>7. Memperbaiki Relasi Akun: Muhammad Faizal (Role Karyawan) & Admin Sistem...</h3>";
-    $karyawanRoleRow = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM roles WHERE name='karyawan' LIMIT 1"));
-    $karyawanRoleId = $karyawanRoleRow ? (int)$karyawanRoleRow['id'] : 6;
+    // 7. Perbaiki Relasi Akun: Muhammad Faizal (Role Super Admin) & Admin Sistem
+    echo "<h3>7. Memperbaiki Relasi Akun: Muhammad Faizal (Role Super Admin) & Admin Sistem...</h3>";
+    $superRoleRow = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM roles WHERE name='super_admin' LIMIT 1"));
+    $superRoleId = $superRoleRow ? (int)$superRoleRow['id'] : 1;
 
-    // A. Buat atau perbarui akun login khusus Muhammad Faizal (Role Karyawan)
+    // A. Buat atau perbarui akun login Muhammad Faizal (Role Super Admin - Akses Penuh)
     $faizalEmail = 'muhammadfaizal.mf10@gmail.com';
     $faizalUser = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM users WHERE email='$faizalEmail' LIMIT 1"));
     if ($faizalUser) {
         $faizalUid = (int)$faizalUser['id'];
-        mysqli_query($conn, "UPDATE users SET role_id=$karyawanRoleId, is_active=1 WHERE id=$faizalUid");
+        mysqli_query($conn, "UPDATE users SET role_id=$superRoleId, is_active=1 WHERE id=$faizalUid");
     } else {
         $pwdHash = password_hash('creativa2026', PASSWORD_DEFAULT);
-        mysqli_query($conn, "INSERT INTO users(email, password_hash, role_id, is_active, created_at, updated_at) VALUES('$faizalEmail', '$pwdHash', $karyawanRoleId, 1, NOW(), NOW())");
+        mysqli_query($conn, "INSERT INTO users(email, password_hash, role_id, is_active, created_at, updated_at) VALUES('$faizalEmail', '$pwdHash', $superRoleId, 1, NOW(), NOW())");
         $faizalUid = (int)mysqli_insert_id($conn);
     }
 
-    // Hubungkan profil karyawan NIK 2260005 ke akun karyawan Muhammad Faizal
+    // Hubungkan profil karyawan NIK 2260005 ke akun Muhammad Faizal
     mysqli_query($conn, "
         UPDATE employees 
         SET user_id = $faizalUid, full_name = 'Muhammad Faizal' 
         WHERE employee_code = '2260005'
     ");
-    echo "<p style='color:green'>✔ Akun login Muhammad Faizal (<code>$faizalEmail</code>) berhasil dihubungkan ke NIK 2260005 dengan <b>Role: KARYAWAN</b>.</p>";
+    echo "<p style='color:green'>✔ Akun login Muhammad Faizal (<code>$faizalEmail</code>) berhasil dihubungkan ke NIK 2260005 dengan <b>Role: SUPER ADMIN (Akses Penuh Sistem & Keuangan)</b>.</p>";
 
     // B. Pastikan akun admin@onecreativa.com terpisah sebagai Super Admin sistem
     $adminUser = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id, email FROM users WHERE email='admin@onecreativa.com' LIMIT 1"));

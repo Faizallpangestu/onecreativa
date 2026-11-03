@@ -39,6 +39,15 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }catch(AccountingException $e){http_response_code($e->getCode()?:422);echo json_encode(['status'=>'error','message'=>$e->getMessage()]);exit;}
   catch(Throwable $e){error_log('Finance proof upload: '.$e->getMessage());http_response_code(500);echo json_encode(['status'=>'error','message'=>'Bukti transaksi gagal disimpan.']);exit;}
 }
+if($_SERVER['REQUEST_METHOD']==='DELETE'){
+  try{
+    if(!ac_can($conn,$actor,'prepare')&&!ac_can($conn,$actor,'configure'))ac_fail('Akses ditolak.',403);
+    $id=ac_id($_GET['id']??null,'ID transaksi');
+    ac_query($conn,'DELETE FROM finance_records WHERE id=?',[$id]);
+    echo json_encode(['status'=>'success','message'=>'Transaksi berhasil dihapus secara permanen.']);exit;
+  }catch(AccountingException $e){http_response_code($e->getCode()?:422);echo json_encode(['status'=>'error','message'=>$e->getMessage()]);exit;}
+  catch(Throwable $e){http_response_code(500);echo json_encode(['status'=>'error','message'=>'Gagal menghapus transaksi.']);exit;}
+}
 if($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(409);echo json_encode(['status'=>'error','message'=>'Gunakan Buku Transaksi untuk transaksi baru.']);exit;}
 try{
   if(($_GET['view']??'')==='photo'){

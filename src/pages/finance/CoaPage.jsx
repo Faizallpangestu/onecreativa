@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import axios from "axios";
 import Layout from "../../components/Layout";
 import { 
   FinancePageHeader, 
@@ -9,33 +10,102 @@ import {
   formatRupiah, 
   exportToExcel 
 } from "./FinancePageComponents";
-import { accountingGet, accountingMutate } from "../../utils/accountingApi";
-import { Plus, Landmark, Wallet, CreditCard, ChevronRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-
-const INITIAL_COA = [];
+import { accountingGet, accountingMutate, accountingError } from "../../utils/accountingApi";
+import { Plus, Landmark, Wallet, CreditCard, ChevronRight, MoreHorizontal, Pencil, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const TABS = [
-  { key: "Assets", label: "Assets" },
-  { key: "Liabilities & Credit Cards", label: "Liabilities & Credit Cards" },
-  { key: "Income", label: "Income" },
-  { key: "Expenses", label: "Expenses" },
-  { key: "Equity", label: "Equity" },
+  { key: "Assets", label: "Assets (Aset)", group: 1 },
+  { key: "Liabilities & Credit Cards", label: "Liabilities (Kewajiban)", group: 2 },
+  { key: "Equity", label: "Equity (Ekuitas)", group: 3 },
+  { key: "Income", label: "Income (Pendapatan)", group: 4 },
+  { key: "Expenses", label: "Expenses (Beban)", group: 5 },
 ];
+
+const GROUP_MAP = {
+  "Assets": 1,
+  "Liabilities & Credit Cards": 2,
+  "Equity": 3,
+  "Income": 4,
+  "Expenses": 5
+};
+
+const CLASS_OPTIONS = {
+  1: [
+    { value: "cash", label: "Kas dan Bank (Cash & Bank)" },
+    { value: "receivable", label: "Piutang Usaha (Accounts Receivable)" },
+    { value: "inventory", label: "Persediaan (Inventory)" },
+    { value: "fixed_asset", label: "Aset Tetap (Fixed Assets)" },
+    { value: "prepayment", label: "Uang Muka / Dibayar di Muka (Prepayments)" },
+    { value: "other_asset", label: "Aset Lainnya (Other Assets)" },
+  ],
+  2: [
+    { value: "payable", label: "Utang Usaha / Vendor (Accounts Payable)" },
+    { value: "payroll_payable", label: "Utang Gaji (Payroll Payable)" },
+    { value: "loan", label: "Utang Pinjaman (Loan Payable)" },
+    { value: "deferred_revenue", label: "Pendapatan Diterima di Muka (Deferred Revenue)" },
+    { value: "reimbursement_payable", label: "Utang Reimbursement (Reimbursement Payable)" },
+    { value: "tax_payable", label: "Utang Pajak (Tax Payable)" },
+    { value: "other_liability", label: "Kewajiban Lainnya (Other Liabilities)" },
+  ],
+  3: [
+    { value: "capital", label: "Modal Pemilik / Saham (Paid-in Capital)" },
+    { value: "retained_earnings", label: "Laba Ditahan (Retained Earnings)" },
+    { value: "other_equity", label: "Ekuitas Lainnya (Other Equity)" },
+  ],
+  4: [
+    { value: "revenue", label: "Pendapatan Operasional (Operating Revenue)" },
+    { value: "other_income", label: "Pendapatan Non-Operasional (Other Income)" },
+  ],
+  5: [
+    { value: "cost_of_services", label: "Beban Pokok Pendapatan (Cost of Services / HPP)" },
+    { value: "operating_expense", label: "Beban Operasional & Administrasi (OPEX)" },
+    { value: "other_expense", label: "Beban Non-Operasional / Bunga (Other Expenses)" },
+    { value: "income_tax", label: "Beban Pajak Penghasilan (Income Tax)" },
+  ]
+};
+
+const CLASS_LABELS = {
+  cash: "Cash and Bank",
+  receivable: "Accounts Receivable",
+  inventory: "Inventory",
+  fixed_asset: "Fixed Assets",
+  prepayment: "Prepayments",
+  other_asset: "Other Assets",
+  payable: "Accounts Payable",
+  payroll_payable: "Payroll Payable",
+  loan: "Loan Payable",
+  deferred_revenue: "Deferred Revenue",
+  reimbursement_payable: "Reimbursement Payable",
+  tax_payable: "Tax Payable",
+  other_liability: "Other Liabilities",
+  capital: "Owner's Equity / Capital",
+  retained_earnings: "Retained Earnings",
+  other_equity: "Other Equity",
+  revenue: "Operating Revenue",
+  other_income: "Other Income",
+  cost_of_services: "Cost of Services",
+  operating_expense: "Operating Expenses",
+  other_expense: "Other Expenses",
+  income_tax: "Income Tax"
+};
 
 export default function CoaPage() {
   const [data, setData] = useState(() => {
     try {
       const saved = localStorage.getItem("finance_coa_data");
       if (saved) {
-        let parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasMock = parsed.some(c => c.saldo === 145200000 || c.saldo === 215000000);
-          if (!hasMock) return parsed;
+          const clean = parsed.filter(a => a.status !== 'Nonaktif' && a.kode !== '1100');
+          localStorage.setItem("finance_coa_data", JSON.stringify(clean));
+          return clean;
         }
       }
-    } catch (e) {}
+    } catch {}
     return [];
   });
+
+  const [csrfToken, setCsrfToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("Assets");
   const [search, setSearch] = useState("");
@@ -43,79 +113,109 @@ export default function CoaPage() {
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  // Sync to localStorage whenever data changes
-  useEffect(() => {
-    try {
-      localStorage.setItem("finance_coa_data", JSON.stringify(data));
-    } catch (e) {}
-  }, [data]);
+  const typeMap = {
+    1: "Assets",
+    2: "Liabilities & Credit Cards",
+    3: "Equity",
+    4: "Income",
+    5: "Expenses"
+  };
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    axios.get("/api/accounting.php?view=lookups")
-      .then(res => {
-        if (!active) return;
-        const raw = res.data?.data?.accounts || res.data?.accounts || [];
-        const typeMap = {
-          1: "Assets",
-          2: "Liabilities & Credit Cards",
-          3: "Equity",
-          4: "Income",
-          5: "Expenses"
-        };
-        const catMap = {
-          cash: "Cash and Bank",
-          receivable: "Accounts Receivable",
-          payable: "Accounts Payable",
-          revenue: "Operating Revenue",
-          expense: "Operating Expenses"
-        };
-        const apiCoa = raw.map(a => ({
+  const transformAccounts = (rawAccounts, rawBanks = []) => {
+    const bankMap = {};
+    rawBanks.forEach(b => {
+      bankMap[b.account_id] = `${b.name} (${b.bank_name || ''} ${b.account_number || ''})`.trim();
+    });
+
+    return rawAccounts
+      .filter(a => Number(a.is_active) !== 0 && a.code !== '1100')
+      .map(a => {
+        const grp = Number(a.account_group) || 1;
+        const rClass = a.report_class || "other_asset";
+        return {
           id: a.id,
           kode: a.code,
           nama: a.name,
-          tipe: typeMap[a.account_group] || "Assets",
-          kategori: catMap[a.report_class] || a.report_class || "General",
-          rekeningDetail: a.report_class === 'cash' ? "Akun Kas & Bank Riil" : `Klasifikasi: ${a.report_class}`,
+          account_group: grp,
+          normal_balance: a.normal_balance || (grp === 1 || grp === 5 ? "debit" : "credit"),
+          report_class: rClass,
+          tipe: typeMap[grp] || "Assets",
+          kategori: CLASS_LABELS[rClass] || rClass,
+          subtype: `GRP-${grp}-${rClass}`,
+          rekeningDetail: bankMap[a.id] || (rClass === 'cash' ? "Akun Kas & Bank Riil" : `Klasifikasi: ${rClass}`),
           saldo: Number(a.balance || 0),
-          status: Number(a.is_active) === 0 ? "Nonaktif" : "Aktif"
-        }));
-        if (apiCoa.length > 0) {
-          setData(apiCoa);
-          try {
-            localStorage.setItem("finance_coa_data", JSON.stringify(apiCoa));
-          } catch (e) {}
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
+          status: "Aktif"
+        };
       });
-    return () => { active = false; };
+  };
+
+  const fetchAccounts = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const res = await accountingGet("lookups");
+      if (res?.csrf_token) setCsrfToken(res.csrf_token);
+      const rawAccounts = res?.data?.accounts || [];
+      const rawBanks = res?.data?.banks || [];
+      if (rawAccounts.length > 0) {
+        const transformed = transformAccounts(rawAccounts, rawBanks);
+        setData(transformed);
+        localStorage.setItem("finance_coa_data", JSON.stringify(transformed));
+      }
+    } catch (err) {
+      console.warn("Gagal mengambil data akun dari server:", err);
+      // Fallback: jika localStorage kosong, coba panggil API langsung
+      try {
+        const alt = await axios.get("/api/accounting.php?view=lookups");
+        if (alt.data?.csrf_token) setCsrfToken(alt.data.csrf_token);
+        const altAccounts = alt.data?.data?.accounts || alt.data?.accounts || [];
+        if (altAccounts.length > 0) {
+          const transformed = transformAccounts(altAccounts, alt.data?.data?.banks || []);
+          setData(transformed);
+          localStorage.setItem("finance_coa_data", JSON.stringify(transformed));
+        }
+      } catch (e) {
+        const msg = e?.response?.data?.message || err?.response?.data?.message || e?.message || err?.message || "Tidak dapat terhubung ke server akuntansi.";
+        setErrorMsg(`${msg} (Periksa koneksi atau silakan login ulang jika sesi berakhir).`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
   }, []);
 
   const [form, setForm] = useState({
     kode: "",
     nama: "",
-    subtype: "AST-CB",
     tipe: "Assets",
-    kategori: "Cash and Bank",
+    reportClass: "cash",
     rekeningDetail: "",
+    bankName: "",
+    accountNumber: "",
     saldo: "0",
     status: "Aktif",
   });
 
   const handleOpenCreate = () => {
     setEditingItem(null);
+    setErrorMsg("");
+    setSuccessMsg("");
+    const grp = GROUP_MAP[activeTab] || 1;
+    const defaultClass = CLASS_OPTIONS[grp]?.[0]?.value || "cash";
     setForm({
-      kode: "",
+      kode: `${grp}000`,
       nama: "",
-      subtype: activeTab === "Assets" ? "AST-CB" : activeTab === "Liabilities & Credit Cards" ? "LIA-AP" : activeTab === "Income" ? "INC-OP" : activeTab === "Expenses" ? "EXP-OP" : "EQ-CAP",
       tipe: activeTab,
-      kategori: activeTab === "Assets" ? "Cash and Bank" : "General",
+      reportClass: defaultClass,
       rekeningDetail: "",
+      bankName: "",
+      accountNumber: "",
       saldo: "0",
       status: "Aktif",
     });
@@ -124,72 +224,132 @@ export default function CoaPage() {
 
   const handleOpenEdit = (item) => {
     setEditingItem(item);
+    setErrorMsg("");
+    setSuccessMsg("");
     setForm({
       kode: item.kode,
       nama: item.nama,
-      subtype: item.subtype || "AST-CB",
       tipe: item.tipe,
-      kategori: item.kategori,
+      reportClass: item.report_class,
       rekeningDetail: item.rekeningDetail || "",
+      bankName: "",
+      accountNumber: "",
       saldo: item.saldo,
       status: item.status,
     });
     setIsModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (!deletingItem) return;
-    const targetId = String(deletingItem.id);
-    const updated = data.filter(d => String(d.id) !== targetId);
-    setData(updated);
-    try {
-      localStorage.setItem("finance_coa_data", JSON.stringify(updated));
-      await accountingMutate({
-        action: "delete",
-        id: deletingItem.id,
-        type: "coa",
-      });
-    } catch (e) {
-      // Local state is already updated and saved to localStorage
+  const handleTypeChange = (newType) => {
+    const grp = GROUP_MAP[newType] || 1;
+    const defaultClass = CLASS_OPTIONS[grp]?.[0]?.value || "cash";
+    let newCode = form.kode;
+    if (!newCode || newCode.length < 2 || !newCode.startsWith(String(grp))) {
+      newCode = `${grp}000`;
     }
-    setDeletingItem(null);
+    setForm({
+      ...form,
+      tipe: newType,
+      reportClass: defaultClass,
+      kode: newCode
+    });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.kode || !form.nama) return;
-    setBusy(true);
-
-    if (editingItem) {
-      setData(data.map(d => d.id === editingItem.id ? {
-        ...d,
-        kode: form.kode,
-        nama: form.nama,
-        subtype: form.subtype,
-        tipe: form.tipe,
-        kategori: form.kategori,
-        rekeningDetail: form.rekeningDetail,
-        saldo: Number(form.saldo || 0),
-        status: form.status,
-      } : d));
-    } else {
-      const newAccount = {
-        id: Date.now(),
-        kode: form.kode,
-        nama: form.nama,
-        subtype: form.subtype || "AST-CB",
-        tipe: form.tipe,
-        kategori: form.kategori,
-        rekeningDetail: form.rekeningDetail,
-        saldo: Number(form.saldo || 0),
-        status: form.status,
-      };
-      setData([...data, newAccount]);
+    if (!form.kode || !form.nama) {
+      setErrorMsg("Kode akun dan nama akun wajib diisi.");
+      return;
     }
 
-    setBusy(false);
-    setIsModalOpen(false);
-    setEditingItem(null);
+    setBusy(true);
+    setErrorMsg("");
+
+    const grp = GROUP_MAP[form.tipe] || 1;
+    let cleanCode = form.kode.trim();
+    if (!cleanCode.startsWith(String(grp))) {
+      cleanCode = `${grp}${cleanCode.replace(/^\d/, '')}`;
+    }
+
+    const payload = {
+      action: "account",
+      id: editingItem?.id ? Number(editingItem.id) : undefined,
+      code: cleanCode,
+      name: form.nama.trim(),
+      account_group: grp,
+      normal_balance: grp === 1 || grp === 5 ? "debit" : "credit",
+      report_class: form.reportClass,
+      saldo: Number(form.saldo || 0),
+      is_detail: 1,
+      is_active: form.status === "Aktif" ? 1 : 0
+    };
+
+    try {
+      const savedAcc = await accountingMutate(payload, csrfToken);
+      
+      // Jika akun kas/bank baru dan ada detail bank, daftarkan juga ke cash_bank_accounts
+      if (!editingItem && form.reportClass === 'cash' && (form.bankName || form.accountNumber)) {
+        try {
+          await accountingMutate({
+            action: "bank",
+            name: form.nama.trim(),
+            account_id: savedAcc.id,
+            bank_name: form.bankName.trim() || "Bank",
+            account_number: form.accountNumber.trim() || "-"
+          }, csrfToken);
+        } catch (bankErr) {
+          console.warn("Gagal mendaftarkan rekening bank:", bankErr);
+        }
+      }
+
+      setSuccessMsg(`Akun ${cleanCode} - ${form.nama} berhasil disimpan.`);
+      setIsModalOpen(false);
+      setEditingItem(null);
+      await fetchAccounts();
+    } catch (err) {
+      console.error("Gagal simpan akun:", err);
+      setErrorMsg(accountingError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingItem) return;
+    setBusy(true);
+    setErrorMsg("");
+
+    try {
+      await accountingMutate({
+        action: "delete_account",
+        id: Number(deletingItem.id)
+      }, csrfToken);
+
+      setSuccessMsg(`Akun ${deletingItem.kode} - ${deletingItem.nama} berhasil dihapus permanen.`);
+      
+      const targetId = String(deletingItem.id);
+      const updated = data.filter(d => String(d.id) !== targetId && String(d.kode) !== String(deletingItem.kode));
+      setData(updated);
+      try {
+        localStorage.setItem("finance_coa_data", JSON.stringify(updated));
+      } catch (e) {}
+
+      setDeletingItem(null);
+      await fetchAccounts();
+    } catch (err) {
+      console.error("Gagal menghapus akun:", err);
+      // Fallback: hapus dari state lokal jika akun tidak ditemukan atau sudah terhapus di server
+      const targetId = String(deletingItem.id);
+      const updated = data.filter(d => String(d.id) !== targetId && String(d.kode) !== String(deletingItem.kode));
+      setData(updated);
+      try {
+        localStorage.setItem("finance_coa_data", JSON.stringify(updated));
+      } catch (e) {}
+      setErrorMsg(accountingError(err));
+      setDeletingItem(null);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleExport = () => {
@@ -199,7 +359,7 @@ export default function CoaPage() {
         "Nama Akun": d.nama,
         Tipe: d.tipe,
         Kategori: d.kategori,
-        Subtype: d.subtype,
+        "Normal Balance": d.normal_balance,
         Keterangan: d.rekeningDetail,
         Saldo: d.saldo,
         Status: d.status,
@@ -208,44 +368,69 @@ export default function CoaPage() {
     );
   };
 
-  // Filter tab & search
-  const filteredData = data.filter(item => {
-    if (activeTab !== "all" && item.tipe !== activeTab) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        item.kode.toLowerCase().includes(q) ||
-        item.nama.toLowerCase().includes(q) ||
-        (item.rekeningDetail && item.rekeningDetail.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      if (activeTab !== "all" && item.tipe !== activeTab) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          item.kode.toLowerCase().includes(q) ||
+          item.nama.toLowerCase().includes(q) ||
+          (item.rekeningDetail && item.rekeningDetail.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [data, activeTab, search]);
 
-  // Group by category (e.g. Cash and Bank, Fixed Assets, etc.)
-  const groupedAccounts = filteredData.reduce((acc, curr) => {
-    const group = curr.kategori || "Lainnya";
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(curr);
-    return acc;
-  }, {});
+  const groupedAccounts = useMemo(() => {
+    return filteredData.reduce((acc, curr) => {
+      const group = curr.kategori || "Lainnya";
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(curr);
+      return acc;
+    }, {});
+  }, [filteredData]);
+
+  const activeGroupNum = GROUP_MAP[activeTab] || 1;
+  const currentClassOptions = CLASS_OPTIONS[GROUP_MAP[form.tipe] || 1] || [];
 
   return (
     <Layout>
       <div className="p-4 md:p-7 max-w-7xl mx-auto space-y-6">
         <FinancePageHeader
-          title="Chart of Accounts"
-          subtitle="Dashboard • Accounting • Chart of Accounts"
-          primaryLabel="+ Add a New Account"
+          title="Chart of Accounts (COA)"
+          subtitle="Bagan Akun Standar Akuntansi Internasional & PSAK • LPK Creativa Bridging"
+          primaryLabel="+ Tambah Akun Baru"
           onPrimaryClick={handleOpenCreate}
           onSecondaryClick={handleExport}
         />
 
-        {/* Pill Navigation Tabs matching reference mockup */}
+        {errorMsg && (
+          <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button onClick={() => setErrorMsg("")} className="text-rose-400 hover:text-rose-700 font-bold ml-2">×</button>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+            <button onClick={() => setSuccessMsg("")} className="text-emerald-400 hover:text-emerald-700 font-bold ml-2">×</button>
+          </div>
+        )}
+
+        {/* Pill Navigation Tabs */}
         <div className="bg-white p-2 rounded-2xl border border-slate-200/80 shadow-2xs">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
             {TABS.map((tab) => {
-              const count = data.filter(d => d.tipe === tab.key).length;
+              const count = data.filter(d => d.tipe === tab.key && d.status === "Aktif").length;
               const isActive = activeTab === tab.key;
               return (
                 <button
@@ -270,38 +455,52 @@ export default function CoaPage() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center gap-3">
+        {/* Search Bar & Refresh */}
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3">
           <input
             type="text"
-            placeholder="Cari akun..."
+            placeholder="Cari kode akun, nama akun, atau nomor rekening..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full text-xs text-slate-800 placeholder-slate-400 outline-none px-2"
           />
+          <button
+            type="button"
+            onClick={fetchAccounts}
+            disabled={loading}
+            className="text-xs font-semibold text-slate-600 hover:text-blue-600 border border-slate-200 rounded-lg px-3 py-1.5 transition whitespace-nowrap"
+          >
+            {loading ? "Memuat..." : "Refresh"}
+          </button>
         </div>
 
-        {/* Grouped Account Cards matching exact screenshot */}
+        {/* Grouped Account Cards */}
         <div className="space-y-6">
-          {Object.keys(groupedAccounts).length === 0 ? (
+          {loading && data.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-slate-400 text-xs">
-              Tidak ada akun ditemukan untuk kategori ini.
+              Sedang memuat data akun dari server...
+            </div>
+          ) : Object.keys(groupedAccounts).length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-slate-400 text-xs">
+              Tidak ada akun ditemukan untuk kelompok ini.
             </div>
           ) : (
             Object.entries(groupedAccounts).map(([groupName, items]) => (
               <div key={groupName} className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-                {/* Group Header */}
                 <div className="px-5 py-3.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    {groupName === "Cash and Bank" ? <Landmark className="w-4 h-4 text-blue-500" /> : <Wallet className="w-4 h-4 text-emerald-500" />}
+                    {groupName.includes("Cash") || groupName.includes("Bank") ? (
+                      <Landmark className="w-4 h-4 text-blue-500" />
+                    ) : (
+                      <Wallet className="w-4 h-4 text-emerald-500" />
+                    )}
                     {groupName}
                   </h3>
                   <span className="text-[11px] font-semibold text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded-full">
-                    {items.length} accounts
+                    {items.length} akun
                   </span>
                 </div>
 
-                {/* Account Rows */}
                 <div className="divide-y divide-slate-100">
                   {items.map((acc) => (
                     <div
@@ -314,13 +513,20 @@ export default function CoaPage() {
                             {acc.kode}
                           </span>
                           <span className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition">
-                            {acc.nama} (IDR)
+                            {acc.nama}
                           </span>
+                          {acc.status === "Nonaktif" && (
+                            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                              Nonaktif
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                          <span className="text-emerald-600 font-semibold">Active account record</span>
+                          <span className={acc.status === "Aktif" ? "text-emerald-600 font-semibold" : "text-rose-500 font-semibold"}>
+                            {acc.status === "Aktif" ? "Akun Aktif" : "Nonaktif"}
+                          </span>
                           <span>•</span>
-                          <span>Subtype: {acc.subtype}</span>
+                          <span>Normal: <b className="capitalize">{acc.normal_balance}</b></span>
                           {acc.rekeningDetail && (
                             <>
                               <span>•</span>
@@ -339,13 +545,6 @@ export default function CoaPage() {
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleOpenCreate()}
-                            className="text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-lg px-2.5 py-1.5 transition"
-                          >
-                            + Add Child
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => handleOpenEdit(acc)}
                             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
                             title="Edit Akun"
@@ -356,7 +555,7 @@ export default function CoaPage() {
                             type="button"
                             onClick={() => setDeletingItem(acc)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                            title="Hapus Akun"
+                            title="Nonaktifkan Akun"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -378,79 +577,94 @@ export default function CoaPage() {
             setEditingItem(null);
           }}
           title={editingItem ? "Edit Akun Akuntansi" : "Tambah Akun Akuntansi (COA)"}
-          subtitle={editingItem ? "Perbarui informasi kode akun pembukuan" : "Buat akun rekening, kas kecil, aset, pendapatan, atau beban baru"}
+          subtitle={editingItem ? "Perbarui informasi akun pembukuan di database" : "Buat akun aset, kewajiban, ekuitas, pendapatan, atau beban baru"}
           onSubmit={handleSave}
           submitText={editingItem ? "Perbarui Akun" : "Simpan Akun"}
           busy={busy}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Kode Akun</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Klasifikasi Utama</label>
+              <select
+                value={form.tipe}
+                onChange={e => handleTypeChange(e.target.value)}
+                disabled={Boolean(editingItem)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                <option value="Assets">1 - Assets (Aset: Kas, Bank, Piutang, Aset Tetap)</option>
+                <option value="Liabilities & Credit Cards">2 - Liabilities (Kewajiban: Utang, Akrual)</option>
+                <option value="Equity">3 - Equity (Ekuitas: Modal, Laba Ditahan)</option>
+                <option value="Income">4 - Income (Pendapatan: Pelatihan, Layanan)</option>
+                <option value="Expenses">5 - Expenses (Beban: Operasional, Gaji, Pajak)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Sub Kategori / Klasifikasi IFRS</label>
+              <select
+                value={form.reportClass}
+                onChange={e => setForm({ ...form, reportClass: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                {currentClassOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Kode Akun <span className="text-slate-400 font-normal">(Awali angka {GROUP_MAP[form.tipe] || 1})</span>
+              </label>
               <input
                 type="text"
                 required
-                placeholder="Contoh: 1001, 1002"
+                placeholder={`Contoh: ${GROUP_MAP[form.tipe] || 1}110, ${GROUP_MAP[form.tipe] || 1}200`}
                 value={form.kode}
                 onChange={e => setForm({ ...form, kode: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Akun / Rekening</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Akun</label>
               <input
                 type="text"
                 required
-                placeholder="Contoh: Petty Cash (IDR) / Bank BCA Operasional"
+                placeholder="Contoh: Kas Kecil Operasional / Bank BNI"
                 value={form.nama}
                 onChange={e => setForm({ ...form, nama: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
+
+            {form.reportClass === "cash" && !editingItem && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Bank (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Bank BCA / Mandiri / Kasir"
+                    value={form.bankName}
+                    onChange={e => setForm({ ...form, bankName: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nomor Rekening (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: 1832-918-428"
+                    value={form.accountNumber}
+                    onChange={e => setForm({ ...form, accountNumber: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </>
+            )}
+
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Klasifikasi Utama</label>
-              <select
-                value={form.tipe}
-                onChange={e => setForm({ ...form, tipe: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                <option value="Assets">Assets (Kas, Bank, Piutang, Aset Tetap)</option>
-                <option value="Liabilities & Credit Cards">Liabilities & Credit Cards (Utang, Kartu Kredit)</option>
-                <option value="Income">Income (Pendapatan Kursus & Jasa)</option>
-                <option value="Expenses">Expenses (Beban Operasional & Gaji)</option>
-                <option value="Equity">Equity (Modal & Laba Ditahan)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Sub Kategori</label>
-              <input
-                type="text"
-                placeholder="Contoh: Cash and Bank, Accounts Receivable, dll"
-                value={form.kategori}
-                onChange={e => setForm({ ...form, kategori: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Detail Rekening / Catatan (Opsional)</label>
-              <input
-                type="text"
-                placeholder="Contoh: BCA a/n PT LPK Creativa 883-131-8732"
-                value={form.rekeningDetail}
-                onChange={e => setForm({ ...form, rekeningDetail: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Saldo Awal (Rp)</label>
-              <input
-                type="number"
-                value={form.saldo}
-                onChange={e => setForm({ ...form, saldo: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Status Akun</label>
               <select
                 value={form.status}
                 onChange={e => setForm({ ...form, status: e.target.value })}
@@ -463,21 +677,22 @@ export default function CoaPage() {
           </div>
         </FinanceModal>
 
-        {/* Modal Konfirmasi Hapus */}
+        {/* Modal Konfirmasi Hapus Permanen Akun */}
         {deletingItem && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
             <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-150">
               <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3.5">
                 <Trash2 className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 text-center mb-1">Hapus Akun COA?</h3>
+              <h3 className="text-base font-bold text-slate-900 text-center mb-1">Hapus Permanen Akun COA?</h3>
               <p className="text-xs text-slate-500 text-center mb-5 leading-relaxed">
-                Apakah Anda yakin ingin menghapus akun <strong className="text-slate-800">{deletingItem.kode} - {deletingItem.nama}</strong>?
+                Apakah Anda yakin ingin menghapus akun <strong className="text-slate-800">{deletingItem.kode} - {deletingItem.nama}</strong> secara permanen? Data akun akan dihapus dari sistem.
               </p>
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   onClick={() => setDeletingItem(null)}
+                  disabled={busy}
                   className="flex-1 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition"
                 >
                   Batal
@@ -485,9 +700,10 @@ export default function CoaPage() {
                 <button
                   type="button"
                   onClick={confirmDelete}
+                  disabled={busy}
                   className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 rounded-xl hover:bg-rose-700 shadow-sm transition active:scale-95"
                 >
-                  Ya, Hapus
+                  {busy ? "Menghapus..." : "Ya, Hapus Permanen"}
                 </button>
               </div>
             </div>

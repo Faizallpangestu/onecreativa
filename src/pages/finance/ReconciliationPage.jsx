@@ -1,888 +1,462 @@
-import React, { useState, useEffect, useMemo } from "react";
-import Layout from "../../components/Layout";
-import { 
-  FinancePageHeader, 
-  FinanceKpiCard, 
-  FinanceFilterBar, 
-  FinanceTable, 
-  FinanceBadge, 
-  FinanceModal, 
-  formatRupiah, 
-  exportToExcel 
-} from "./FinancePageComponents";
-import { 
-  Landmark, 
-  CheckCircle, 
-  Scale, 
-  Upload, 
-  Check, 
-  RefreshCw, 
-  Sparkles
-} from "lucide-react";
-import axios from "axios";
+import { useEffect, useState } from 'react';
+import Layout from '../../components/Layout';
+import { FinancePageHeader, FinanceKpiCard } from './FinancePageComponents';
+import { accountingGet, accountingError, financeMoney } from '../../utils/accountingApi';
+import { CheckCircle2, AlertCircle, FileCheck, RefreshCw, Landmark, ShieldCheck } from 'lucide-react';
+import axios from 'axios';
+import Swal from 'sweetalert2';
 
-// Default blueprint invoices dari modul billing jika localStorage kosong
-const DEFAULT_BLUEPRINT_INVOICES = [
-  { id: "TGCJ2608001", tanggal: "2026-08-21", customer: "Hany Agesti", program: "Kelas Intensif Offline", total: 15000000, terbayar: 15000000, sisa: 0, status: "Paid", bank_name: "BCA", receiptNo: "RCP-TGCJ2608001-01" },
-  { id: "TGCJ2608004", tanggal: "2026-08-19", customer: "Siti Aminah", program: "Kursus Reguler", total: 8000000, terbayar: 4000000, sisa: 4000000, status: "Partially Paid", bank_name: "BCA", receiptNo: "RCP-TGCJ2608004-01" },
-];
+function today() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
-// Akun Kas & Bank COA Standar (Chart of Accounts)
-const DEFAULT_COA_CASH_BANK = [
-  { id: 2, kode: "1002", nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)", subtype: "AST-CB", rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428", tipe: "Assets", kategori: "Cash and Bank", baseSaldo: 120000000, saldo: 120000000, status: "Aktif", bankName: "BCA" },
-  { id: 1, kode: "1001", nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", subtype: "AST-CB", rekeningDetail: "Kasir & Kas Kecil Tunai Kantor", tipe: "Assets", kategori: "Cash and Bank", baseSaldo: 5000000, saldo: 5000000, status: "Aktif", bankName: "Tunai" },
-  { id: 3, kode: "1003", nama: "Bank Mandiri Utama", subtype: "AST-CB", rekeningDetail: "Mandiri a/n PT LPK Creativa 130-0019283", tipe: "Assets", kategori: "Cash and Bank", baseSaldo: 25000000, saldo: 25000000, status: "Aktif", bankName: "Mandiri" },
-  { id: 5, kode: "1005", nama: "Flip / E-Wallet Perusahaan", subtype: "AST-CB", rekeningDetail: "DANA & Flip Bisnis 0812-9988-7766", tipe: "Assets", kategori: "Cash and Bank", baseSaldo: 12500000, saldo: 12500000, status: "Aktif", bankName: "E-Wallet" },
-  { id: 4, kode: "1004", nama: "Bank BNI Tabungan", subtype: "AST-CB", rekeningDetail: "BNI a/n PT LPK Creativa 088-771122", tipe: "Assets", kategori: "Cash and Bank", baseSaldo: 35000000, saldo: 35000000, status: "Aktif", bankName: "BNI" },
-];
-
-function formatDateIndo(dateStr) {
-  if (!dateStr) return "-";
-  if (dateStr.includes("/")) return dateStr;
-  try {
-    const parts = dateStr.slice(0, 10).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-  } catch (e) {}
-  return dateStr;
+// Keep comparison exact to the two decimal places supported by accounting.
+function cents(value) {
+  const text = String(value ?? '').trim();
+  if (!/^-?\d+(\.\d{1,2})?$/.test(text)) throw new Error('Nominal harus berupa angka dengan maksimal dua desimal.');
+  const amount = Math.round(Number(text) * 100);
+  if (!Number.isSafeInteger(amount)) throw new Error('Nominal di luar rentang yang didukung.');
+  return amount;
 }
 
 export default function ReconciliationPage() {
-  // ── 1. AMBIL AKUN LANGSUNG DARI COA (Chart of Accounts) DENGAN AUTO-HEAL ──
-  const [coaAccounts, setCoaAccounts] = useState(() => {
-    try {
-      const coaRaw = localStorage.getItem("finance_coa_data");
-      if (coaRaw) {
-        let coaList = JSON.parse(coaRaw);
-        if (Array.isArray(coaList)) {
-          let needFix = false;
+  const [from, setFrom] = useState(() => `${today().slice(0, 4)}-01-01`);
+  const [to, setTo] = useState(today);
+  const [accountId, setAccountId] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const [result, setResult] = useState(null);
+  const [statement, setStatement] = useState('');
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [csrfToken, setCsrfToken] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [matchedRows, setMatchedRows] = useState(new Set());
+  const [reconciliationHistory, setReconciliationHistory] = useState([]);
 
-          coaList = coaList.map(c => {
-            const nameLower = (c.nama || "").toLowerCase();
-            const isPetty = nameLower.includes("petty") || nameLower.includes("kas kecil");
-            if (c.kode === "1002" && isPetty) {
-              needFix = true;
-              return {
-                ...c,
-                nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)",
-                rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428"
-              };
-            }
-            if (c.kode === "1001" && !isPetty) {
-              needFix = true;
-              return {
-                ...c,
-                nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)",
-                rekeningDetail: "Kasir & Kas Kecil Tunai Kantor"
-              };
-            }
-            return c;
-          });
+  const validDates = Boolean(from && to && from <= to);
+  const requestKey = `${from}:${to}:${refresh}`;
 
-          if (needFix) {
-            try {
-              localStorage.setItem("finance_coa_data", JSON.stringify(coaList));
-            } catch (e) {}
-          }
-
-          const cashBankOnly = coaList.filter(
-            c => c.tipe === "Assets" && (c.kategori === "Cash and Bank" || c.subtype === "AST-CB")
-          );
-          if (cashBankOnly.length > 0) {
-            return cashBankOnly.map(c => ({
-              id: c.id,
-              kode: c.kode,
-              nama: c.nama,
-              subtype: c.subtype,
-              rekeningDetail: c.rekeningDetail || "",
-              tipe: c.tipe,
-              kategori: c.kategori,
-              baseSaldo: Number(c.saldo || 0),
-              saldo: Number(c.saldo || 0),
-              status: c.status || "Aktif",
-              bankName: c.nama.toLowerCase().includes("bca") ? "BCA" : c.nama.toLowerCase().includes("mandiri") ? "Mandiri" : c.nama.toLowerCase().includes("bni") ? "BNI" : "Kas",
-            }));
-          }
-        }
-      }
-    } catch (e) {}
-    return DEFAULT_COA_CASH_BANK;
-  });
-
-  // Pilih akun COA aktif (default ke Bank BCA Operasional - 1002)
-  const [selectedCoaCode, setSelectedCoaCode] = useState(() => {
-    return "1002"; // Akun 1002 Bank BCA
-  });
-
-  const [startDate, setStartDate] = useState("2026-01-01");
-  const [endDate, setEndDate] = useState("2026-12-31");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [uploadNotice, setUploadNotice] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  // Backend state
-  const [serverSalaries, setServerSalaries] = useState([]);
-  const [serverLedger, setServerLedger] = useState([]);
-
-  // Fetch data penggajian riil dari backend (salary_requests)
+  // Fetch lookups and reports
   useEffect(() => {
-    let active = true;
-
-    axios.get("/api/salaries.php?all=1")
-      .then(res => {
-        if (active && Array.isArray(res.data?.data?.requests)) {
-          setServerSalaries(res.data.data.requests);
-        }
-      })
-      .catch(() => {});
-
-    axios.get("/api/accounting.php?view=ledger")
-      .then(res => {
-        if (active && Array.isArray(res.data?.data?.rows)) {
-          setServerLedger(res.data.data.rows);
-        }
-      })
-      .catch(() => {});
-
-    return () => { active = false; };
-  }, [refreshTrigger]);
-
-  // Cari akun COA terpilih
-  const currentCoaAccount = useMemo(() => {
-    return coaAccounts.find(a => String(a.kode) === String(selectedCoaCode)) || 
-           coaAccounts.find(a => String(a.id) === String(selectedCoaCode)) || 
-           coaAccounts[0] || DEFAULT_COA_CASH_BANK[0];
-  }, [coaAccounts, selectedCoaCode]);
-
-  // ── 2. GATHER TRANSAKSI 100% RIIL DARI INVOICE SISWA & PENGGAJIAN ──
-  const realTransactions = useMemo(() => {
-    const list = [];
-    const addedRefs = new Set();
-    const isBcaSelected = (currentCoaAccount.nama.toLowerCase().includes("bca") || currentCoaAccount.rekeningDetail?.toLowerCase().includes("bca") || (currentCoaAccount.kode === "1002" && !currentCoaAccount.nama.toLowerCase().includes("petty")));
-    const isPettySelected = (currentCoaAccount.nama.toLowerCase().includes("petty") || currentCoaAccount.nama.toLowerCase().includes("kas kecil") || currentCoaAccount.kode === "1001");
-
-    const isAccountMatch = (sourceBank) => {
-      if (!sourceBank) return isBcaSelected;
-      const sb = String(sourceBank).toLowerCase();
-      if (isBcaSelected) {
-        return sb.includes("bca") || sb.includes("1832") || sb.includes("operasional") || sb === "bank";
+    if (!validDates) return;
+    const controller = new AbortController();
+    Promise.all([
+      accountingGet('lookups', {}, controller.signal),
+      accountingGet('reports', { from, to }, controller.signal),
+      axios.get('/api/accounting.php?view=reconciliations').catch(() => ({ data: { data: [] } })),
+    ]).then(([master, response, recRes]) => {
+      if (master.csrf_token) setCsrfToken(master.csrf_token);
+      const report = response.data;
+      if (!Array.isArray(master.data.accounts) || !Array.isArray(report.cash_history)
+        || !Array.isArray(report.trial_balance?.rows) || !Array.isArray(report.period_movements?.rows)
+        || report.from !== from || report.to !== to) throw new Error('Struktur laporan akuntansi tidak valid.');
+      for (const row of report.trial_balance.rows) cents(row.balance);
+      for (const row of report.period_movements.rows) { cents(row.debit); cents(row.credit); }
+      for (const row of report.cash_history) { cents(row.debit); cents(row.credit); cents(row.running_balance); }
+      if (!controller.signal.aborted) {
+        setResult({ key: requestKey, accounts: master.data.accounts.filter(a => a.report_class === 'cash'), report });
+        const serverRecs = recRes.data?.data || [];
+        setReconciliationHistory(Array.isArray(serverRecs) ? serverRecs : []);
       }
-      if (isPettySelected) {
-        return sb.includes("petty") || sb.includes("kas") || sb.includes("wallet") || sb.includes("tunai");
-      }
-      return sb.includes(currentCoaAccount.bankName.toLowerCase()) || sb.includes(currentCoaAccount.nama.toLowerCase());
-    };
-
-    // ─────────────────────────────────────────────────────────────
-    // A. PEMASUKAN RIIL DARI INVOICE SISWA & PEMBAYARAN CUSTOM
-    // ─────────────────────────────────────────────────────────────
-
-    // 1. Baca billing_pembayaran_custom (Kwitansi & Pembayaran Siswa, misal Nova Dwi Khalifah, Faizal, dll.)
-    try {
-      const savedPayments = JSON.parse(localStorage.getItem("billing_pembayaran_custom") || "[]");
-      if (Array.isArray(savedPayments)) {
-        savedPayments.forEach(p => {
-          if (!p || !p.jumlah) return;
-          const refKey = p.receiptNo || `PAY-${p.id || p.noInv}`;
-          if (addedRefs.has(refKey)) return;
-
-          if (isAccountMatch(p.metode || p.rekening)) {
-            const nominal = Number(p.jumlah || 0);
-            addedRefs.add(refKey);
-            list.push({
-              id: `pay-custom-${p.id || refKey}`,
-              rawDate: p.tglBayar || "2026-10-29",
-              tanggal: formatDateIndo(p.tglBayar),
-              deskripsi: `Penerimaan Pembayaran Siswa - ${p.customer || "Siswa LPK"} (${p.terminName || "Pelunasan Invoice"})`,
-              sumberDana: p.metode || currentCoaAccount.nama,
-              mutasiBank: nominal,
-              mutasiSistem: nominal,
-              status: "Match",
-              tipe: "Pemasukan",
-              ref: p.receiptNo || p.noInv || refKey,
-              kategori: "Biaya Kursus"
-            });
-          }
-        });
-      }
-    } catch (e) {
-      console.warn("Gagal membaca billing_pembayaran_custom:", e);
-    }
-
-    // 2. Baca saved_custom_invoices
-    try {
-      const savedInvoices = JSON.parse(localStorage.getItem("saved_custom_invoices") || "[]");
-      if (Array.isArray(savedInvoices)) {
-        savedInvoices.forEach(inv => {
-          if (!inv) return;
-          const invId = inv.id || inv.nomor || "";
-
-          if (Array.isArray(inv.payments) && inv.payments.length > 0) {
-            inv.payments.forEach((p, idx) => {
-              const refKey = p.receiptNo || `RCP-${invId}-${idx + 1}`;
-              if (addedRefs.has(refKey)) return;
-              if (isAccountMatch(p.metode || inv.bank_name)) {
-                const nominal = Number(p.jumlah || 0);
-                if (nominal > 0) {
-                  addedRefs.add(refKey);
-                  list.push({
-                    id: `inv-pay-${refKey}`,
-                    rawDate: p.tglBayar || inv.tanggal || "2026-10-29",
-                    tanggal: formatDateIndo(p.tglBayar || inv.tanggal),
-                    deskripsi: `Penerimaan ${p.terminName || ("Termin " + (idx + 1))} - ${inv.customer || "Siswa LPK"} (${inv.program || "Pelatihan"})`,
-                    sumberDana: p.metode || inv.bank_name || currentCoaAccount.nama,
-                    mutasiBank: nominal,
-                    mutasiSistem: nominal,
-                    status: "Match",
-                    tipe: "Pemasukan",
-                    ref: p.receiptNo || invId,
-                    kategori: "Biaya Kursus"
-                  });
-                }
-              }
-            });
-          } else if (Number(inv.terbayar || 0) > 0) {
-            const refKey = `INV-PAID-${invId}`;
-            if (!addedRefs.has(refKey) && !addedRefs.has(invId)) {
-              if (isAccountMatch(inv.bank_name)) {
-                const nominal = Number(inv.terbayar);
-                addedRefs.add(refKey);
-                list.push({
-                  id: `inv-direct-${invId}`,
-                  rawDate: inv.paid_at || inv.tanggal || "2026-10-29",
-                  tanggal: formatDateIndo(inv.paid_at || inv.tanggal),
-                  deskripsi: `Penerimaan Invoice #${invId} - ${inv.customer || "Siswa LPK"} (${inv.program || "Pelatihan"})`,
-                  sumberDana: inv.bank_name || currentCoaAccount.nama,
-                  mutasiBank: nominal,
-                  mutasiSistem: nominal,
-                  status: "Match",
-                  tipe: "Pemasukan",
-                  ref: invId,
-                  kategori: "Biaya Kursus"
-                });
-              }
-            }
-          }
-        });
-      }
-    } catch (e) {
-      console.warn("Gagal membaca saved_custom_invoices:", e);
-    }
-
-    // 3. Baca default blueprint invoices (Hany Agesti & Siti Aminah)
-    DEFAULT_BLUEPRINT_INVOICES.forEach(defInv => {
-      const refKey = defInv.receiptNo || defInv.id;
-      if (!addedRefs.has(refKey) && !addedRefs.has(defInv.id)) {
-        if (isAccountMatch(defInv.bank_name)) {
-          addedRefs.add(refKey);
-          list.push({
-            id: `blueprint-${defInv.id}`,
-            rawDate: defInv.tanggal,
-            tanggal: formatDateIndo(defInv.tanggal),
-            deskripsi: `Penerimaan Invoice #${defInv.id} - ${defInv.customer} (${defInv.program})`,
-            sumberDana: defInv.bank_name || "BCA",
-            mutasiBank: Number(defInv.terbayar),
-            mutasiSistem: Number(defInv.terbayar),
-            status: "Match",
-            tipe: "Pemasukan",
-            ref: defInv.receiptNo || defInv.id,
-            kategori: "Biaya Kursus"
-          });
-        }
-      }
+    }).catch(error => {
+      if (!controller.signal.aborted) setResult({ key: requestKey, error: accountingError(error) });
     });
+    return () => controller.abort();
+  }, [from, to, validDates, requestKey]);
 
-    // 4. Baca finance_income_data
-    try {
-      const incRaw = localStorage.getItem("finance_income_data");
-      if (incRaw) {
-        const incList = JSON.parse(incRaw);
-        if (Array.isArray(incList)) {
-          incList.forEach(inc => {
-            const refKey = inc.receiptNo || inc.noInv || `INC-${inc.id}`;
-            if (addedRefs.has(refKey) || addedRefs.has(inc.id)) return;
-            if (isAccountMatch(inc.sumberDana)) {
-              const nominal = Number(inc.nominal || 0);
-              const isPaid = inc.status === "Lunas" || inc.status === "Paid";
-              addedRefs.add(refKey);
-              list.push({
-                id: `inc-${inc.id}`,
-                rawDate: inc.tanggal || "2026-10-01",
-                tanggal: formatDateIndo(inc.tanggal),
-                deskripsi: inc.deskripsi || `Pembayaran Siswa (${inc.siswa || "Siswa LPK"})`,
-                sumberDana: inc.sumberDana || currentCoaAccount.nama,
-                mutasiBank: isPaid ? nominal : 0,
-                mutasiSistem: nominal,
-                status: isPaid ? "Match" : "Outstanding",
-                tipe: "Pemasukan",
-                ref: refKey,
-                kategori: inc.kategori || "Biaya Kursus"
-              });
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("Gagal membaca finance_income_data:", e);
-    }
+  const current = validDates && result?.key === requestKey ? result : null;
+  const report = current?.report;
+  const accounts = current?.accounts || [];
+  const account = accounts.find(a => String(a.id) === accountId);
+  const ready = Boolean(report && account);
+  const balanceRow = ready && report.trial_balance.rows.find(row => String(row.id) === accountId);
+  const movement = ready && report.period_movements.rows.find(row => String(row.id) === accountId);
+  const closing = ready ? (balanceRow ? cents(balanceRow.balance) : 0) : null;
+  const incoming = ready ? (movement ? cents(movement.debit) : 0) : null;
+  const outgoing = ready ? (movement ? cents(movement.credit) : 0) : null;
+  const opening = ready ? closing - incoming + outgoing : null;
+  const rows = ready ? report.cash_history.filter(row => String(row.account_id) === accountId) : [];
 
-    // 5. Suntikan Dana Masuk ke Petty Cash (Dropping dari Bank BCA)
-    if (isPettySelected && !addedRefs.has("TRF-2026-0034-IN")) {
-      addedRefs.add("TRF-2026-0034-IN");
-      list.push({
-        id: "trf-drop-in-34",
-        rawDate: "2026-06-20",
-        tanggal: formatDateIndo("2026-06-20"),
-        deskripsi: "Suntikan Dana Dropping Kas Kecil dari Rekening BCA Creativa Bridging Intern",
-        sumberDana: "Transfer Bank BCA",
-        mutasiBank: 5000000,
-        mutasiSistem: 5000000,
-        status: "Match",
-        tipe: "Pemasukan",
-        ref: "TRF-2026-0034",
-        kategori: "Dropping Kas Kecil"
-      });
-    }
+  let statementCents = null;
+  let statementError = '';
+  if (statement.trim()) {
+    try { statementCents = cents(statement); } catch (error) { statementError = error.message; }
+  }
+  const comparable = ready && statementCents !== null && reference.trim() && !statementError;
+  const diffCents = comparable ? (statementCents - closing) : null;
+  const isBalanced = diffCents === 0;
 
-    // ─────────────────────────────────────────────────────────────
-    // B. PENGELUARAN RIIL DARI PENGGAJIAN (PAYROLL) & OPERASIONAL
-    // ─────────────────────────────────────────────────────────────
+  const money = value => financeMoney(value === null ? null : value / 100);
+  const resetStatement = () => { setStatement(''); setReference(''); setNotes(''); setMatchedRows(new Set()); };
+  const inputClass = 'mt-1 block w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500';
 
-    // 1. Data Gaji Karyawan Riil dari Backend Database (Anggi Alfin, dll.) - Keluar dari Rekening BCA
-    if (Array.isArray(serverSalaries) && serverSalaries.length > 0) {
-      serverSalaries.forEach(s => {
-        const refKey = s.transfer_reference || `PAYROLL-${s.id}`;
-        if (addedRefs.has(refKey)) return;
-
-        if (isBcaSelected) {
-          const nominal = Math.abs(Number(s.total_salary || 0));
-          const isPaid = s.status === "paid";
-          addedRefs.add(refKey);
-          list.push({
-            id: `salary-backend-${s.id}`,
-            rawDate: s.paid_date || s.payday || "2026-10-07",
-            tanggal: formatDateIndo(s.paid_date || s.payday || "2026-10-07"),
-            deskripsi: `Gaji Karyawan (${s.month || "Periode Berjalan"}) — ${s.employee_name}`,
-            sumberDana: "BCA",
-            mutasiBank: isPaid ? -nominal : 0,
-            mutasiSistem: -nominal,
-            status: isPaid ? "Match" : "Outstanding",
-            tipe: "Pengeluaran",
-            ref: s.transfer_reference || `PAYROLL-${s.id}`,
-            kategori: "Gaji Karyawan"
-          });
-        }
-      });
-    }
-
-    // 2. Suntikan Dana Keluar dari Rekening BCA ke Petty Cash
-    if (isBcaSelected && !addedRefs.has("TRF-2026-0034-OUT")) {
-      addedRefs.add("TRF-2026-0034-OUT");
-      list.push({
-        id: "trf-drop-out-34",
-        rawDate: "2026-06-20",
-        tanggal: formatDateIndo("2026-06-20"),
-        deskripsi: "Suntikan Dana Kas Kecil dari Rekening BCA Creativa Bridging Intern",
-        sumberDana: "BCA",
-        mutasiBank: -5000000,
-        mutasiSistem: -5000000,
-        status: "Match",
-        tipe: "Pengeluaran",
-        ref: "TRF-2026-0034",
-        kategori: "Transfer Antar Rekening"
-      });
-    }
-
-    // 3. Data Pengeluaran dari finance_expense_data
-    try {
-      const expRaw = localStorage.getItem("finance_expense_data");
-      if (expRaw) {
-        const expList = JSON.parse(expRaw);
-        if (Array.isArray(expList)) {
-          expList.forEach(exp => {
-            const refKey = exp.nomor || `EXP-${exp.id}`;
-            if (addedRefs.has(refKey) || addedRefs.has(exp.id)) return;
-
-            const nominal = Math.abs(Number(exp.nominal || 0));
-            const sumber = (exp.sumberDana || "").toLowerCase();
-            const descLower = (exp.deskripsi || "").toLowerCase();
-            const isSmallExpense = sumber.includes("kas") || sumber.includes("wallet") || descLower.includes("listrik") || descLower.includes("token") || descLower.includes("atk") || descLower.includes("modul") || (nominal < 5000000 && !sumber.includes("bca"));
-
-            const isMatch = isBcaSelected ? !isSmallExpense : isPettySelected ? isSmallExpense : isAccountMatch(exp.sumberDana);
-
-            if (isMatch) {
-              const isPaid = exp.status === "Paid" || exp.status === "Approved";
-              addedRefs.add(refKey);
-              list.push({
-                id: `exp-${exp.id}`,
-                rawDate: exp.tanggal || "2026-10-01",
-                tanggal: formatDateIndo(exp.tanggal),
-                deskripsi: exp.deskripsi || `${exp.kategori || "Pengeluaran"}${exp.vendor ? ` (${exp.vendor})` : ""}`,
-                sumberDana: isPettySelected ? "Kas Kecil" : (exp.sumberDana || currentCoaAccount.nama),
-                mutasiBank: isPaid ? -nominal : 0,
-                mutasiSistem: -nominal,
-                status: isPaid ? "Match" : "Outstanding",
-                tipe: "Pengeluaran",
-                ref: refKey,
-                kategori: exp.kategori || "Operasional"
-              });
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("Gagal membaca finance_expense_data:", e);
-    }
-
-    // 3. Data Ledger Backend
-    if (Array.isArray(serverLedger) && serverLedger.length > 0) {
-      serverLedger.forEach(row => {
-        const refKey = row.number || `LEDGER-${row.id}`;
-        if (addedRefs.has(refKey)) return;
-        if (isAccountMatch(row.cash_account_name)) {
-          const inAmt = Number(row.incoming_amount || 0);
-          const outAmt = Number(row.outgoing_amount || 0);
-          const isIncome = inAmt > 0;
-          const nominal = isIncome ? inAmt : Math.abs(outAmt);
-          if (nominal > 0) {
-            addedRefs.add(refKey);
-            list.push({
-              id: `ledger-${row.id}`,
-              rawDate: row.transaction_date || "2026-10-01",
-              tanggal: formatDateIndo(row.transaction_date),
-              deskripsi: row.description || row.party_name || "Transaksi Kas/Bank",
-              sumberDana: row.cash_account_name || currentCoaAccount.nama,
-              mutasiBank: isIncome ? nominal : -nominal,
-              mutasiSistem: isIncome ? nominal : -nominal,
-              status: "Match",
-              tipe: isIncome ? "Pemasukan" : "Pengeluaran",
-              ref: refKey,
-              kategori: row.category || "General Ledger"
-            });
-          }
-        }
-      });
-    }
-
-    return list.sort((a, b) => {
-      const dateA = new Date(a.rawDate || a.tanggal).getTime() || 0;
-      const dateB = new Date(b.rawDate || b.tanggal).getTime() || 0;
-      return dateB - dateA;
+  const toggleMatch = (id) => {
+    setMatchedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  }, [currentCoaAccount, serverSalaries, serverLedger, refreshTrigger]);
-
-  // ── 3. FILTERING ──
-  const filteredData = useMemo(() => {
-    return realTransactions.filter(item => {
-      if (item.rawDate) {
-        if (startDate && item.rawDate < startDate) return false;
-        if (endDate && item.rawDate > endDate) return false;
-      }
-      if (statusFilter !== "all") {
-        if (statusFilter === "match" && item.status !== "Match") return false;
-        if (statusFilter === "outstanding" && item.status !== "Outstanding") return false;
-      }
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const matchesDeskripsi = (item.deskripsi || "").toLowerCase().includes(q);
-        const matchesRef = (item.ref || "").toLowerCase().includes(q);
-        const matchesKategori = (item.kategori || "").toLowerCase().includes(q);
-        const matchesTipe = (item.tipe || "").toLowerCase().includes(q);
-        if (!matchesDeskripsi && !matchesRef && !matchesKategori && !matchesTipe) return false;
-      }
-      return true;
-    });
-  }, [realTransactions, startDate, endDate, statusFilter, search]);
-
-  // ── 4. PERHITUNGAN SALDO SISTEM & SALDO BANK SECARA UPDATE DARI COA ──
-  const { saldoBank, saldoSistem, selisih, totalMutasiMasuk, totalMutasiKeluar, unmatchedCount, runningSaldo } = useMemo(() => {
-    let sumIn = 0;
-    let sumOut = 0;
-    let unmatchedDiff = 0;
-    let unCount = 0;
-
-    filteredData.forEach(item => {
-      if (item.mutasiSistem > 0) sumIn += item.mutasiSistem;
-      else sumOut += Math.abs(item.mutasiSistem);
-
-      if (item.status !== "Match") {
-        unCount++;
-        unmatchedDiff += (item.mutasiSistem - (item.mutasiBank || 0));
-      }
-    });
-
-    // Saldo awal dari akun COA terpilih
-    const baseSaldo = Number(currentCoaAccount?.baseSaldo || 120000000);
-    // Saldo Berjalan (Running Balance): Saldo Awal + Total Masuk - Total Keluar
-    const calculatedRunning = baseSaldo + sumIn - sumOut;
-
-    // Saldo Sistem mencakup item yang belum kliring di bank
-    const sSistem = calculatedRunning + unmatchedDiff;
-    // Saldo Bank mencerminkan mutasi riil yang sudah kliring
-    const sBank = calculatedRunning;
-    const diff = Math.abs(sSistem - sBank);
-
-    return {
-      saldoBank: sBank,
-      saldoSistem: sSistem,
-      selisih: diff,
-      totalMutasiMasuk: sumIn,
-      totalMutasiKeluar: sumOut,
-      unmatchedCount: unCount,
-      runningSaldo: calculatedRunning
-    };
-  }, [currentCoaAccount, filteredData]);
-
-  // ── 5. SINKRONISASI SALDO TERBARU BALIK KE COA & REKENING (Auto-Sync) ──
-  useEffect(() => {
-    if (!currentCoaAccount || !runningSaldo) return;
-
-    try {
-      // 1. Update ke finance_coa_data
-      const coaRaw = localStorage.getItem("finance_coa_data");
-      let coaList = coaRaw ? JSON.parse(coaRaw) : null;
-      if (Array.isArray(coaList)) {
-        let updated = false;
-        coaList = coaList.map(item => {
-          if (String(item.kode) === String(currentCoaAccount.kode) || item.id === currentCoaAccount.id) {
-            if (item.saldo !== runningSaldo) {
-              updated = true;
-              return { ...item, saldo: runningSaldo };
-            }
-          }
-          return item;
-        });
-        if (updated) {
-          localStorage.setItem("finance_coa_data", JSON.stringify(coaList));
-        }
-      }
-
-      // 2. Update ke finance_rekening_data
-      const rekRaw = localStorage.getItem("finance_rekening_data");
-      let rekList = rekRaw ? JSON.parse(rekRaw) : null;
-      if (Array.isArray(rekList)) {
-        let updatedRek = false;
-        rekList = rekList.map(rek => {
-          const rekStr = `${rek.nama} ${rek.bank} ${rek.noRek}`.toLowerCase();
-          if (currentCoaAccount.kode === "1002" && (rekStr.includes("bca") || rekStr.includes("1832") || rek.id === 1)) {
-            if (rek.saldo !== runningSaldo) {
-              updatedRek = true;
-              return { ...rek, saldo: runningSaldo };
-            }
-          }
-          return rek;
-        });
-        if (updatedRek) {
-          localStorage.setItem("finance_rekening_data", JSON.stringify(rekList));
-        }
-      }
-    } catch (e) {
-      console.warn("Gagal sinkronisasi saldo rekonsiliasi ke COA:", e);
-    }
-  }, [currentCoaAccount, runningSaldo]);
-
-  // ── 6. IMPORT STATEMENT & AUTO RECONCILIATION ──
-  const handleImportStatement = (e) => {
-    e.preventDefault();
-    setIsProcessing(true);
-
-    setTimeout(() => {
-      try {
-        const incRaw = localStorage.getItem("finance_income_data");
-        if (incRaw) {
-          const incList = JSON.parse(incRaw);
-          const updated = incList.map(item => ({ ...item, status: "Lunas" }));
-          localStorage.setItem("finance_income_data", JSON.stringify(updated));
-        }
-        const expRaw = localStorage.getItem("finance_expense_data");
-        if (expRaw) {
-          const expList = JSON.parse(expRaw);
-          const updatedExp = expList.map(item => ({ ...item, status: "Paid" }));
-          localStorage.setItem("finance_expense_data", JSON.stringify(updatedExp));
-        }
-      } catch (err) {}
-
-      setIsProcessing(false);
-      setUploadNotice("Rekening koran bank terverifikasi! Seluruh mutasi telah dicocokkan dengan pembukuan (Selisih Rp 0).");
-      setRefreshTrigger(prev => prev + 1);
-
-      setTimeout(() => {
-        setUploadNotice("");
-        setIsModalOpen(false);
-      }, 2000);
-    }, 800);
   };
 
-  // Export Excel
-  const handleExport = () => {
-    exportToExcel(
-      filteredData.map(d => ({
-        Tanggal: d.tanggal,
-        Deskripsi: d.deskripsi,
-        Referensi: d.ref || "-",
-        Kategori: d.kategori || "-",
-        Tipe: d.tipe,
-        "Mutasi Bank": d.mutasiBank,
-        "Mutasi Sistem": d.mutasiSistem,
-        Status: d.status === "Match" ? "Match (Cocok)" : "Outstanding (Belum Kliring)",
-      })),
-      `Rekonsiliasi_COA_${currentCoaAccount.kode}_${currentCoaAccount.nama.replace(/\s+/g, "_")}`
-    );
+  const toggleMatchAll = () => {
+    if (matchedRows.size === rows.length) {
+      setMatchedRows(new Set());
+    } else {
+      setMatchedRows(new Set(rows.map(r => r.id)));
+    }
   };
 
-  // ── 7. TABLE PAGINATION & COLUMNS ──
-  const perPage = 10;
-  const totalPages = Math.ceil(filteredData.length / perPage) || 1;
-  const paginatedData = filteredData.slice((page - 1) * perPage, page * perPage);
+  // Simpan rekonsiliasi ke backend dan update riwayat
+  const handleSaveReconciliation = async () => {
+    if (!ready || !comparable) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Lengkapi Data',
+        text: 'Silakan pilih akun kas/bank, masukkan nomor referensi statement, dan saldo akhir rekening koran.'
+      });
+      return;
+    }
 
-  const columns = [
-    { 
-      header: "Tanggal", 
-      accessor: "tanggal", 
-      className: "whitespace-nowrap font-medium w-28 text-slate-700",
-      render: (r) => (
-        <span className="font-mono text-xs">{r.tanggal}</span>
-      )
-    },
-    { 
-      header: "Deskripsi & Transaksi Riil", 
-      accessor: "deskripsi", 
-      className: "font-semibold text-slate-800",
-      render: (r) => (
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-900 font-medium">{r.deskripsi}</span>
-            {r.ref && (
-              <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
-                {r.ref}
+    setSaving(true);
+    try {
+      const payload = {
+        action: 'save_reconciliation',
+        account_id: Number(accountId),
+        period_from: from,
+        period_to: to,
+        statement_balance: statementCents / 100,
+        book_balance: closing / 100,
+        statement_reference: reference.trim(),
+        notes: notes.trim() || `Rekonsiliasi ${account.name} per ${to}`
+      };
+
+      const res = await axios.post('/api/accounting.php', payload, {
+        headers: { 'X-CSRF-Token': csrfToken || '' }
+      });
+
+      if (res.data?.status === 'success') {
+        Swal.fire({
+          icon: 'success',
+          title: 'Rekonsiliasi Berhasil Disahkan!',
+          text: `Akun ${account.name} dinyatakan ${isBalanced ? 'Terekonsiliasi Sempurna (Selisih Rp 0)' : 'Terekonsiliasi dengan Catatan Selisih'}.`,
+          confirmButtonColor: '#2563EB'
+        });
+
+        // Refresh riwayat
+        const newEntry = {
+          id: res.data.data?.id || Date.now(),
+          account_id: Number(accountId),
+          account_name: account.name,
+          account_code: account.code,
+          period_from: from,
+          period_to: to,
+          statement_balance: statementCents / 100,
+          book_balance: closing / 100,
+          difference: diffCents / 100,
+          statement_reference: reference.trim(),
+          notes: notes.trim(),
+          status: isBalanced ? 'reconciled' : 'variance',
+          reconciled_at: new Date().toISOString()
+        };
+        setReconciliationHistory(prev => [newEntry, ...prev]);
+        setRefresh(r => r + 1);
+      } else {
+        throw new Error(res.data?.message || 'Gagal menyimpan rekonsiliasi');
+      }
+    } catch (e) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan',
+        text: e.response?.data?.message || e.message || 'Terjadi kesalahan sistem saat menyimpan rekonsiliasi.'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Cek apakah akun dan periode ini sudah pernah direkonsiliasi
+  const latestRec = reconciliationHistory.find(r => String(r.account_id) === String(accountId));
+
+  return (
+    <Layout>
+      <div className="p-4 md:p-6 space-y-5">
+        <FinancePageHeader 
+          title="Rekonsiliasi Kas & Bank" 
+          subtitle="Pencocokan mutasi kas buku besar dengan rekening koran bank eksternal." 
+          secondaryLabel={null} 
+        />
+
+        {/* Status Banner */}
+        <div className={`rounded-xl border p-4 text-sm flex items-start gap-3 ${
+          latestRec && latestRec.status === 'reconciled' 
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-900' 
+            : 'border-blue-200 bg-blue-50 text-blue-900'
+        }`}>
+          <ShieldCheck className="w-5 h-5 mt-0.5 shrink-0 text-blue-600" />
+          <div className="space-y-1">
+            <p className="font-semibold">
+              {latestRec 
+                ? `Status Terakhir: ${latestRec.status === 'reconciled' ? 'Terekonsiliasi (Reconciled)' : 'Ada Catatan Selisih'} per ${latestRec.period_to}` 
+                : 'Modul Rekonsiliasi Bank Aktif — Siap Digunakan'}
+            </p>
+            <p className="text-xs opacity-90">
+              Pilih akun kas/bank, masukkan saldo rekening koran bank Anda, cocokkan mutasi, lalu klik &quot;Sahkan Rekonsiliasi&quot; untuk mencatat pengesahan secara permanen.
+            </p>
+          </div>
+        </div>
+
+        {/* Filter Controls */}
+        <div className="grid gap-4 md:grid-cols-4 rounded-xl border bg-white p-4 shadow-sm">
+          <label className="text-xs font-semibold text-slate-600">
+            Dari tanggal
+            <input className={inputClass} type="date" value={from} onChange={e => { setFrom(e.target.value); resetStatement(); }} />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Sampai tanggal
+            <input className={inputClass} type="date" value={to} onChange={e => { setTo(e.target.value); resetStatement(); }} />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Akun buku besar kas/bank
+            <select className={inputClass} value={accountId} onChange={e => { setAccountId(e.target.value); resetStatement(); }} disabled={!report}>
+              <option value="">Pilih akun kas/bank</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+            </select>
+          </label>
+          <button 
+            type="button" 
+            className="self-end rounded-lg bg-blue-600 hover:bg-blue-700 p-2.5 text-white font-medium text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2" 
+            disabled={!validDates} 
+            onClick={() => setRefresh(value => value + 1)}
+          >
+            <RefreshCw className="w-4 h-4" />
+            Muat ulang laporan
+          </button>
+        </div>
+
+        {!validDates && <p role="alert" className="text-red-700 text-sm font-medium">Isi tanggal yang valid; tanggal awal tidak boleh melewati tanggal akhir.</p>}
+        {validDates && !current && <p role="status" className="text-slate-500 text-sm">Memuat laporan akuntansi dari server...</p>}
+        {current?.error && <p role="alert" className="text-red-700 text-sm font-medium">Laporan gagal dimuat: {current.error}.</p>}
+
+        {/* KPI Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <FinanceKpiCard title="Saldo buku awal" value={money(opening)} subtitle={`Saldo s/d ${from}`} />
+          <FinanceKpiCard title="Total debit (masuk)" value={money(incoming)} subtitle="Penerimaan periode ini" />
+          <FinanceKpiCard title="Total kredit (keluar)" value={money(outgoing)} subtitle="Pengeluaran periode ini" />
+          <FinanceKpiCard title="Saldo buku akhir" value={money(closing)} subtitle={`Saldo buku per ${to}`} />
+        </div>
+
+        {/* Input Statement Bank & Rekonsiliasi */}
+        <section className="rounded-xl border bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h2 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-blue-600" />
+                Data Rekening Koran / Statement Bank
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Masukkan saldo akhir dan nomor referensi rekening koran per {to || 'tanggal akhir'} untuk dicocokkan dengan saldo buku.
+              </p>
+            </div>
+            {comparable && (
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
+                isBalanced 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {isBalanced ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                {isBalanced ? 'Saldo Cocok (Balance Match)' : 'Terdapat Selisih'}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-            <span className={r.tipe === "Pemasukan" ? "text-emerald-600 font-semibold" : "text-slate-500 font-semibold"}>
-              {r.tipe}
-            </span>
-            <span>•</span>
-            <span>{r.sumberDana}</span>
-            {r.kategori && (
-              <>
-                <span>•</span>
-                <span className="bg-slate-50 text-slate-500 px-1 rounded">{r.kategori}</span>
-              </>
-            )}
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="text-xs font-semibold text-slate-600">
+              Referensi statement / No. Dokumen
+              <input 
+                className={inputClass} 
+                value={reference} 
+                disabled={!ready} 
+                onChange={e => setReference(e.target.value)} 
+                placeholder="Contoh: STMT-BCA-202611 / Rek. Koran Okt" 
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              Saldo akhir statement bank (IDR)
+              <input 
+                className={inputClass} 
+                type="text" 
+                inputMode="decimal" 
+                value={statement} 
+                disabled={!ready} 
+                onChange={e => setStatement(e.target.value)} 
+                placeholder="Contoh: 200000 (tanpa pemisah ribuan)" 
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              Catatan Rekonsiliasi
+              <input 
+                className={inputClass} 
+                value={notes} 
+                disabled={!ready} 
+                onChange={e => setNotes(e.target.value)} 
+                placeholder="Catatan hasil verifikasi atau mutasi pending" 
+              />
+            </label>
           </div>
-        </div>
-      )
-    },
-    { 
-      header: "Mutasi Bank", 
-      accessor: "mutasiBank", 
-      align: "right",
-      className: "font-mono font-medium",
-      render: (r) => (
-        <span className={r.mutasiBank > 0 ? "text-emerald-600 font-semibold" : r.mutasiBank < 0 ? "text-slate-800 font-semibold" : "text-amber-500 italic"}>
-          {r.mutasiBank === 0 ? "Menunggu Kliring" : (r.mutasiBank > 0 ? `+${formatRupiah(r.mutasiBank)}` : `-${formatRupiah(Math.abs(r.mutasiBank))}`)}
-        </span>
-      )
-    },
-    { 
-      header: "Mutasi Sistem", 
-      accessor: "mutasiSistem", 
-      align: "right",
-      className: "font-mono font-medium",
-      render: (r) => (
-        <span className={r.mutasiSistem > 0 ? "text-emerald-600 font-semibold" : "text-slate-800 font-semibold"}>
-          {r.mutasiSistem > 0 ? `+${formatRupiah(r.mutasiSistem)}` : `-${formatRupiah(Math.abs(r.mutasiSistem))}`}
-        </span>
-      )
-    },
-    { 
-      header: "Status", 
-      accessor: "status", 
-      align: "center",
-      render: (r) => (
-        <FinanceBadge 
-          status={r.status} 
-          text={r.status === "Match" ? "Match (Cocok)" : "Outstanding"} 
-        />
-      )
-    },
-  ];
 
-  return (
-    <Layout appearance="finance">
-      <div className="p-4 md:p-7 max-w-7xl mx-auto">
-        <FinancePageHeader
-          title="Bank Reconciliation"
-          subtitle="Pencocokan saldo pembukuan internal COA dengan mutasi rekening koran bank riil"
-          primaryLabel="Import Bank Statement"
-          primaryIcon={Upload}
-          onPrimaryClick={() => setIsModalOpen(true)}
-          secondaryLabel="Export Excel"
-          onSecondaryClick={handleExport}
-        >
-          <button
-            type="button"
-            onClick={() => setRefreshTrigger(prev => prev + 1)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-2xs"
-            title="Muat Ulang Transaksi Riil"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Perbarui Data</span>
-          </button>
-        </FinancePageHeader>
+          {statementError && <p role="alert" className="text-red-700 text-xs">{statementError}</p>}
 
-        {/* ── FOTO PERTAMA: 3 SUMMARY KPI CARDS (UPDATE DARI MUTASI & COA) ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <FinanceKpiCard
-            title="Saldo Sistem"
-            value={formatRupiah(saldoSistem)}
-            subtitle={`Tercatat di pembukuan COA ${currentCoaAccount.kode} (${currentCoaAccount.nama})`}
-            icon={Landmark}
-            color="blue"
-          />
-          <FinanceKpiCard
-            title="Saldo Bank"
-            value={formatRupiah(saldoBank)}
-            subtitle={`Rekening koran terverifikasi (${currentCoaAccount.rekeningDetail || currentCoaAccount.nama})`}
-            icon={CheckCircle}
-            color="emerald"
-          />
-          <FinanceKpiCard
-            title="Selisih Rekonsiliasi"
-            value={formatRupiah(selisih)}
-            subtitle={selisih === 0 ? "Status saldo cocok 100% (Reconciled)" : `${unmatchedCount} mutasi belum kliring di bank`}
-            badge={selisih === 0 ? "Cocok" : "Ada Selisih"}
-            isPositive={selisih === 0}
-            icon={Scale}
-            color={selisih === 0 ? "purple" : "rose"}
-          />
-        </div>
-
-        {/* ── FOTO KEDUA (BANNER BAR) TELAH DIHAPUS SEPENUHNYA ── */}
-
-        {/* ── FOTO KETIGA: FILTER BAR DENGAN DROPDOWN REKENING LANGSUNG DARI COA ── */}
-        <FinanceFilterBar
-          startDate={startDate}
-          setStartDate={setStartDate}
-          endDate={endDate}
-          setEndDate={setEndDate}
-          search={search}
-          setSearch={setSearch}
-          searchPlaceholder="Cari siswa, invoice, karyawan, ref transfer..."
-          dropdowns={[
-            {
-              value: String(selectedCoaCode),
-              onChange: (val) => {
-                setSelectedCoaCode(val);
-                setPage(1);
-              },
-              options: coaAccounts.map(acc => {
-                const isSelected = String(acc.kode) === String(selectedCoaCode);
-                const displaySaldo = isSelected ? runningSaldo : Number(acc.baseSaldo || acc.saldo || 0);
-                return {
-                  value: String(acc.kode),
-                  label: `${acc.kode} - ${acc.nama} (${formatRupiah(displaySaldo)})`
-                };
-              })
-            },
-            {
-              value: statusFilter,
-              onChange: (val) => {
-                setStatusFilter(val);
-                setPage(1);
-              },
-              options: [
-                { value: "all", label: "Semua Status Rekonsiliasi" },
-                { value: "match", label: "Hanya Match (Cocok)" },
-                { value: "outstanding", label: "Hanya Outstanding (Belum Kliring)" },
-              ]
-            }
-          ]}
-          onReset={() => {
-            setSelectedCoaCode("1002");
-            setSearch("");
-            setStartDate("2026-01-01");
-            setEndDate("2026-12-31");
-            setStatusFilter("all");
-            setPage(1);
-          }}
-        />
-
-        {/* Tabel Rekonsiliasi Transaksi Riil */}
-        <FinanceTable
-          columns={columns}
-          data={paginatedData}
-          page={page}
-          totalPages={totalPages}
-          totalItems={filteredData.length}
-          onPageChange={setPage}
-        />
-
-        {/* Modal Import Bank Statement */}
-        <FinanceModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title="Import Rekening Koran Bank"
-          subtitle="Unggah file mutasi rekening (.CSV / .OFX / .XLSX) untuk rekonsiliasi otomatis"
-          onSubmit={handleImportStatement}
-          submitText={isProcessing ? "Memproses Rekonsiliasi..." : "Proses Rekonsiliasi Otomatis"}
-        >
-          <div className="space-y-4">
-            {uploadNotice && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{uploadNotice}</span>
-              </div>
-            )}
-
+          {/* Variance Box & Submit */}
+          <div className="p-4 rounded-xl bg-slate-50 border flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Pilih Rekening Kas & Bank di COA</label>
-              <select
-                value={selectedCoaCode}
-                onChange={e => setSelectedCoaCode(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {coaAccounts.map(acc => {
-                  const isSelected = String(acc.kode) === String(selectedCoaCode);
-                  const displaySaldo = isSelected ? runningSaldo : Number(acc.baseSaldo || acc.saldo || 0);
-                  return (
-                    <option key={acc.kode} value={String(acc.kode)}>
-                      {acc.kode} - {acc.nama} ({acc.rekeningDetail || acc.bankName}) — Saldo {formatRupiah(displaySaldo)}
-                    </option>
-                  );
-                })}
-              </select>
+              <p className="text-xs text-slate-500 font-medium">Perhitungan Selisih (Statement − Saldo Buku):</p>
+              <p className={`text-xl font-bold mt-0.5 ${
+                !comparable ? 'text-slate-400' : isBalanced ? 'text-emerald-600' : 'text-red-600'
+              }`}>
+                {comparable ? money(diffCents) : 'Belum tersedia (isi akun, referensi & saldo)'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {comparable 
+                  ? (isBalanced ? 'Saldo buku dan statement bank telah cocok sempurna.' : 'Ada perbedaan antara saldo buku dan statement bank.')
+                  : 'Silakan pilih akun kas/bank di atas untuk memulai perbandingan.'}
+              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Upload File Mutasi (.CSV / .XLSX)</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-blue-400 transition cursor-pointer bg-slate-50/50">
-                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700">Pilih file rekening koran atau seret ke sini</p>
-                <p className="text-[11px] text-slate-400 mt-1">Mendukung format CSV BCA KlikBisnis, Mandiri e-Cash, Excel, dan e-Statement PDF</p>
-                <input 
-                  type="file" 
-                  accept=".csv, .xlsx, .xls, .ofx"
-                  className="mt-3 text-xs text-slate-600 block mx-auto cursor-pointer" 
-                  id="statement-upload" 
-                />
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveReconciliation}
+              disabled={!comparable || saving}
+              className="w-full md:w-auto px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+            >
+              <FileCheck className="w-4 h-4" />
+              {saving ? 'Menyimpan...' : 'Sahkan & Simpan Rekonsiliasi'}
+            </button>
+          </div>
+        </section>
 
-            <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-xl text-xs text-blue-800 flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+        {/* Mutation Matching Table */}
+        {ready && (
+          <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
               <div>
-                <strong>Auto-Matching Engine:</strong> Sistem akan mencocokkan tanggal transaksi, nominal debet/kredit, dan nomor referensi invoice/gaji secara otomatis dengan akun kas & bank di COA.
+                <h2 className="font-semibold text-slate-800 text-sm">
+                  Daftar Mutasi Kas Buku Besar — {account.code} {account.name}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {rows.length} baris jurnal ({matchedRows.size} dicocokkan)
+                </p>
               </div>
+              {rows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleMatchAll}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  {matchedRows.size === rows.length ? 'Batal Pilih Semua' : 'Tandai Semua Cocok'}
+                </button>
+              )}
             </div>
-          </div>
-        </FinanceModal>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600 text-xs">
+                    <th className="p-2.5 border-b text-center w-12">Cocok</th>
+                    <th className="p-2.5 border-b">Tanggal</th>
+                    <th className="p-2.5 border-b">No. Jurnal</th>
+                    <th className="p-2.5 border-b">Sumber / Referensi</th>
+                    <th className="p-2.5 border-b">Deskripsi</th>
+                    <th className="p-2.5 border-b text-right">Debit (Masuk)</th>
+                    <th className="p-2.5 border-b text-right">Kredit (Keluar)</th>
+                    <th className="p-2.5 border-b text-right">Saldo Berjalan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map(row => (
+                    <tr 
+                      key={row.id} 
+                      className={matchedRows.has(row.id) ? 'bg-emerald-50/40 hover:bg-emerald-50/60' : 'hover:bg-slate-50'}
+                    >
+                      <td className="p-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={matchedRows.has(row.id)}
+                          onChange={() => toggleMatch(row.id)}
+                          className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </td>
+                      <td className="p-2.5 text-xs text-slate-600">{row.entry_date}</td>
+                      <td className="p-2.5 text-xs font-mono font-medium text-slate-700">{row.number}</td>
+                      <td className="p-2.5 text-xs text-slate-500">{row.source_type} / {row.source_id}</td>
+                      <td className="p-2.5 text-xs text-slate-700">{row.description || '—'}</td>
+                      <td className="p-2.5 text-xs text-right font-medium text-emerald-600">{money(cents(row.debit))}</td>
+                      <td className="p-2.5 text-xs text-right font-medium text-rose-600">{money(cents(row.credit))}</td>
+                      <td className="p-2.5 text-xs text-right font-bold text-slate-800">{money(cents(row.running_balance))}</td>
+                    </tr>
+                  ))}
+                  {!rows.length && (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
+                        Tidak ada mutasi transaksi pada periode ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* History of Reconciliations */}
+        {reconciliationHistory.length > 0 && (
+          <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+            <h2 className="font-semibold text-slate-800 text-sm">Riwayat Pengesahan Rekonsiliasi Tersimpan</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600 text-xs">
+                    <th className="p-2.5 border-b">Tanggal Pengesahan</th>
+                    <th className="p-2.5 border-b">Akun Kas/Bank</th>
+                    <th className="p-2.5 border-b">Periode</th>
+                    <th className="p-2.5 border-b">No. Referensi</th>
+                    <th className="p-2.5 border-b text-right">Saldo Statement</th>
+                    <th className="p-2.5 border-b text-right">Saldo Buku</th>
+                    <th className="p-2.5 border-b text-right">Selisih</th>
+                    <th className="p-2.5 border-b text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {reconciliationHistory.map(rec => (
+                    <tr key={rec.id} className="hover:bg-slate-50 text-xs">
+                      <td className="p-2.5 text-slate-600">
+                        {rec.reconciled_at ? String(rec.reconciled_at).slice(0, 16).replace('T', ' ') : '-'}
+                      </td>
+                      <td className="p-2.5 font-medium text-slate-800">
+                        {rec.account_code ? `${rec.account_code} — ` : ''}{rec.account_name || `Akun #${rec.account_id}`}
+                      </td>
+                      <td className="p-2.5 text-slate-600">{rec.period_from} s/d {rec.period_to}</td>
+                      <td className="p-2.5 font-mono text-slate-700">{rec.statement_reference}</td>
+                      <td className="p-2.5 text-right font-medium">{money(Number(rec.statement_balance) * 100)}</td>
+                      <td className="p-2.5 text-right font-medium">{money(Number(rec.book_balance) * 100)}</td>
+                      <td className="p-2.5 text-right font-bold text-slate-800">{money(Number(rec.difference) * 100)}</td>
+                      <td className="p-2.5 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                          rec.status === 'reconciled' 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                          {rec.status === 'reconciled' ? 'Terekonsiliasi' : 'Selisih'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   );

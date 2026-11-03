@@ -5,7 +5,7 @@ function api_entry_policy(mysqli $db):void{
  $endpoint=basename($_SERVER['SCRIPT_NAME']??'');
  if(in_array($endpoint,['login.php'],true))return;
  if(preg_match('/^(test|debug|check|fix_|schema_dump|show_tables|migrate|db_|add_status_col|assets_migrate|resolve_map)/i',$endpoint)){http_response_code(404);exit;}
- $deferred=['accounting.php','budgets.php','salaries.php','salary_slips.php','finance.php','finance_dashboard.php','billing.php','invoice.php','reimbursements.php','employees.php','employee_stats.php','profile.php','upload_photo.php','positions.php','attendance.php','leaves.php','session.php','logout.php','dashboard_stats.php','dashboard_karyawan.php','payroll.php','save_payroll.php','publish_payroll.php','relationships.php','student_billing.php','lpk_matching.php'];
+ $deferred=['accounting.php','budgets.php','salaries.php','salary_slips.php','finance.php','finance_dashboard.php','financial_reports.php','billing.php','invoice.php','reimbursements.php','employees.php','employee_stats.php','profile.php','upload_photo.php','positions.php','attendance.php','leaves.php','session.php','logout.php','dashboard_stats.php','dashboard_karyawan.php','payroll.php','save_payroll.php','publish_payroll.php','relationships.php','student_billing.php','lpk_matching.php','sync_students_web.php','webhook_registration.php'];
  if(in_array($endpoint,$deferred,true)||str_starts_with($endpoint,'lms_')||str_starts_with($endpoint,'lpk_')||$endpoint==='sensei_dashboard_stats.php')return;
  $a=ed_start($db);$method=$_SERVER['REQUEST_METHOD'];$hr=ed_hr($a);$admin=in_array($a['role'],['admin','super_admin'],true);
  if(in_array($endpoint,['daily_reports.php','overtime.php','face_clock.php','face_enroll.php'],true)){

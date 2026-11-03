@@ -46,10 +46,10 @@ export default defineConfig({
             urlPattern: ({url, sameOrigin}) => sameOrigin && url.pathname.startsWith('/assets/'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'creativa-assets-v3',
+              cacheName: 'creativa-assets-v5',
               expiration: {
                 maxEntries: 150,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 hari
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 hari
               },
               cacheableResponse: {
                 statuses: [0, 200]

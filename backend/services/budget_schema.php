@@ -1,6 +1,12 @@
 <?php
 function install_budget_schema(mysqli $db): void {
-    if (!$db->query("SHOW COLUMNS FROM finance_records LIKE 'source'")->num_rows) $db->query('ALTER TABLE finance_records ADD COLUMN source VARCHAR(255) NULL');
+    if (function_exists('ac_table') ? ac_table($db, 'finance_records') : (bool)$db->query("SHOW TABLES LIKE 'finance_records'")->num_rows) {
+        try {
+            if (!$db->query("SHOW COLUMNS FROM finance_records LIKE 'source'")->num_rows) {
+                $db->query('ALTER TABLE finance_records ADD COLUMN source VARCHAR(255) NULL');
+            }
+        } catch (Throwable $ignored) {}
+    }
     $db->query("CREATE TABLE IF NOT EXISTS budget_requests (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         request_key CHAR(36) NOT NULL UNIQUE,
@@ -16,7 +22,11 @@ function install_budget_schema(mysqli $db): void {
         INDEX idx_budget_period_status(period,status), INDEX idx_budget_submitted(submitted_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
     foreach (['attachment_key' => 'CHAR(32) NULL', 'attachment_name' => 'VARCHAR(255) NULL', 'attachment_link' => 'VARCHAR(2048) NULL'] as $name => $definition) {
-        if (!$db->query("SHOW COLUMNS FROM budget_requests LIKE '$name'")->num_rows) $db->query("ALTER TABLE budget_requests ADD COLUMN $name $definition");
+        try {
+            if (!$db->query("SHOW COLUMNS FROM budget_requests LIKE '$name'")->num_rows) {
+                $db->query("ALTER TABLE budget_requests ADD COLUMN $name $definition");
+            }
+        } catch (Throwable $ignored) {}
     }
     $db->query("CREATE TABLE IF NOT EXISTS budget_request_items (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, budget_request_id INT UNSIGNED NOT NULL,
@@ -33,10 +43,14 @@ function install_budget_schema(mysqli $db): void {
         CONSTRAINT fk_budget_history_request FOREIGN KEY(budget_request_id) REFERENCES budget_requests(id),
         INDEX idx_budget_history_request(budget_request_id,id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-    $column = $db->query("SHOW COLUMNS FROM finance_records LIKE 'budget_request_id'");
-    if (!$column->num_rows) {
-        $db->query("ALTER TABLE finance_records ADD COLUMN budget_request_id INT UNSIGNED NULL,
-            ADD UNIQUE KEY uq_finance_budget_request(budget_request_id),
-            ADD CONSTRAINT fk_finance_budget_request FOREIGN KEY(budget_request_id) REFERENCES budget_requests(id)");
+    if (function_exists('ac_table') ? ac_table($db, 'finance_records') : (bool)$db->query("SHOW TABLES LIKE 'finance_records'")->num_rows) {
+        try {
+            $column = $db->query("SHOW COLUMNS FROM finance_records LIKE 'budget_request_id'");
+            if (!$column->num_rows) {
+                $db->query("ALTER TABLE finance_records ADD COLUMN budget_request_id INT UNSIGNED NULL,
+                    ADD UNIQUE KEY uq_finance_budget_request(budget_request_id),
+                    ADD CONSTRAINT fk_finance_budget_request FOREIGN KEY(budget_request_id) REFERENCES budget_requests(id)");
+            }
+        } catch (Throwable $ignored) {}
     }
 }

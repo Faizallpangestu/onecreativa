@@ -50,17 +50,79 @@ if ($method === 'GET') {
         $data['pembayaran'][] = $r;
     }
 
-    // Siswa (calculate jmlInv and total on the fly)
-    $res = mysqli_query($conn, "SELECT * FROM billing_siswa ORDER BY created_at DESC");
+    // Siswa (Union peserta_intensif dan billing_siswa dengan penghitungan invoice aktif)
     $data['siswa'] = [];
-    while ($r = mysqli_fetch_assoc($res)) {
-        // count from invoices where customer = nama
-        $cname = mysqli_real_escape_string($conn, $r['nama']);
-        $cres = mysqli_query($conn, "SELECT COUNT(*) as jml, SUM(total) as tot FROM billing_invoices WHERE customer = '$cname'");
-        $crow = mysqli_fetch_assoc($cres);
-        $r['jmlInv'] = (int)$crow['jml'];
-        $r['total'] = (float)$crow['tot'];
-        $data['siswa'][] = $r;
+    try {
+        $pCols = [];
+        $hasPeserta = false;
+        $chk = mysqli_query($conn, "SHOW TABLES LIKE 'peserta_intensif'");
+        if ($chk && mysqli_num_rows($chk) > 0) {
+            $hasPeserta = true;
+            $cRes = mysqli_query($conn, "SHOW COLUMNS FROM peserta_intensif");
+            if ($cRes) {
+                while ($cRow = mysqli_fetch_assoc($cRes)) {
+                    $pCols[] = strtolower($cRow['Field']);
+                }
+            }
+            // Auto self-heal: Tambahkan kolom yang belum ada jika tabel lama
+            $missingCols = [
+                'nis' => "VARCHAR(50) NULL",
+                'program' => "VARCHAR(150) DEFAULT 'Program Pelatihan Jepang'",
+                'kota' => "VARCHAR(100) DEFAULT 'Cianjur'",
+                'source' => "VARCHAR(50) DEFAULT 'manual'",
+                'status' => "VARCHAR(50) DEFAULT 'Aktif'"
+            ];
+            foreach ($missingCols as $col => $def) {
+                if (!in_array($col, $pCols, true)) {
+                    @mysqli_query($conn, "ALTER TABLE peserta_intensif ADD COLUMN `$col` $def");
+                    $pCols[] = $col;
+                }
+            }
+        }
+
+        if ($hasPeserta) {
+            $selNis = in_array('nis', $pCols, true) ? "p.nis" : "'' AS nis";
+            $selProg = in_array('program', $pCols, true) ? "p.program" : "'Program Pelatihan Jepang' AS program";
+            $selKota = in_array('kota', $pCols, true) ? "p.kota" : "'Cianjur' AS kota";
+            $selStatus = in_array('status', $pCols, true) ? "p.status" : "'Aktif' AS status";
+            $selSource = in_array('source', $pCols, true) ? "p.source" : "'manual' AS source";
+            $selPhone = in_array('no_wa', $pCols, true) ? "p.no_wa AS phone" : (in_array('phone', $pCols, true) ? "p.phone" : "'' AS phone");
+            $selEmail = in_array('email', $pCols, true) ? "p.email" : "'' AS email";
+            $selName = in_array('nama_lengkap', $pCols, true) ? "p.nama_lengkap AS nama" : (in_array('nama', $pCols, true) ? "p.nama" : "'Siswa' AS nama");
+
+            $sql = "
+                SELECT p.id, $selName, $selPhone, $selEmail, $selNis, $selProg, $selKota, $selStatus, $selSource,
+                       COALESCE((SELECT COUNT(*) FROM billing_invoices bi WHERE bi.customer = $selName), 0) AS jmlInv,
+                       COALESCE((SELECT SUM(bi.total) FROM billing_invoices bi WHERE bi.customer = $selName), 0) AS total
+                FROM peserta_intensif p
+            ";
+
+            $hasBillingSiswa = false;
+            $chkBs = mysqli_query($conn, "SHOW TABLES LIKE 'billing_siswa'");
+            if ($chkBs && mysqli_num_rows($chkBs) > 0) {
+                $hasBillingSiswa = true;
+                $sql .= "
+                    UNION
+                    SELECT b.id, b.nama, COALESCE(b.telp, '') AS phone, COALESCE(b.email, '') AS email, '' AS nis, 'Kelas Reguler' AS program, 'Cianjur' AS kota, COALESCE(b.status, 'Aktif') AS status, 'manual' AS source,
+                           COALESCE((SELECT COUNT(*) FROM billing_invoices bi WHERE bi.customer = b.nama), 0) AS jmlInv,
+                           COALESCE((SELECT SUM(bi.total) FROM billing_invoices bi WHERE bi.customer = b.nama), 0) AS total
+                    FROM billing_siswa b
+                    WHERE NOT EXISTS (SELECT 1 FROM peserta_intensif p2 WHERE p2.nama_lengkap = b.nama)
+                ";
+            }
+            $sql .= " ORDER BY nama ASC";
+
+            $res = mysqli_query($conn, $sql);
+            if ($res) {
+                while ($r = mysqli_fetch_assoc($res)) {
+                    $r['jmlInv'] = (int)$r['jmlInv'];
+                    $r['total'] = (float)$r['total'];
+                    $data['siswa'][] = $r;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Error loading siswa for billing: ' . $e->getMessage());
     }
 
     respond(200, ['status' => 'success', 'data' => $data]);

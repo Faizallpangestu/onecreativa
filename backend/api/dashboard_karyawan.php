@@ -4,7 +4,7 @@ header('Cache-Control: no-store, private, max-age=0');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -53,6 +53,30 @@ $month = date('m');
 $year  = date('Y');
 $today = date('Y-m-d');
 
+// Support month in format YYYY-MM or separate month and year
+if (!empty($_GET['month'])) {
+    $rawMonth = trim($_GET['month']);
+    if (preg_match('/^(\d{4})-(\d{1,2})$/', $rawMonth, $mMatches)) {
+        $year = $mMatches[1];
+        $month = str_pad($mMatches[2], 2, '0', STR_PAD_LEFT);
+    } elseif (preg_match('/^\d{1,2}$/', $rawMonth)) {
+        $month = str_pad($rawMonth, 2, '0', STR_PAD_LEFT);
+    }
+}
+if (!empty($_GET['year']) && preg_match('/^\d{4}$/', trim($_GET['year']))) {
+    $year = trim($_GET['year']);
+}
+
+// Calculate actual working days in the requested month (Monday-Friday)
+$daysInMonth = (int)date('t', strtotime("$year-$month-01"));
+$calcWorkDays = 0;
+for ($d = 1; $d <= $daysInMonth; $d++) {
+    $dow = (int)date('N', strtotime(sprintf('%04d-%02d-%02d', $year, $month, $d)));
+    if ($dow <= 5) {
+        $calcWorkDays++;
+    }
+}
+
 // Default Stats
 $stats = [
     'hadir_hari_ini'  => '--:--',
@@ -61,7 +85,7 @@ $stats = [
     'izin_cuti'       => 0,
     'terlambat'       => 0,
     'alpa'            => 0,
-    'total_hari_kerja'=> 22
+    'total_hari_kerja'=> $calcWorkDays > 0 ? $calcWorkDays : 22
 ];
 
 // 1. Hadir Hari Ini — from attendance_logs
@@ -153,44 +177,55 @@ if ($qCal) {
     }
 }
 
-// 5. Slip Gaji Terbaru — try payslips first, then payroll
+// 5. Slip Gaji — prioritize selected month, then fallback to latest published
 $gaji = null;
-$checkPayslips = mysqli_query($conn, "SHOW TABLES LIKE 'payslips'");
-if (mysqli_num_rows($checkPayslips) > 0) {
-    $qGaji = mysqli_query($conn, "
-        SELECT employee_id, month as period_label, total_salary as net_salary, status, published_at as created_at
-        FROM payslips 
-        WHERE employee_id = $emp_id AND status = 'published'
-        ORDER BY id DESC LIMIT 1
-    ");
-    if ($qGaji && mysqli_num_rows($qGaji) > 0) {
-        $gaji = mysqli_fetch_assoc($qGaji);
+$selectedPeriodStr = sprintf('%04d-%02d', $year, $month);
+
+if (mysqli_query($conn, "SHOW TABLES LIKE 'salary_requests'")->num_rows) {
+    // 1. Try slip for the exact requested month first
+    $targetSalary = mysqli_query($conn, "SELECT s.employee_id,s.month AS period_label,s.total_salary AS net_salary,
+        IF(s.status='paid','Sudah Ditransfer','Disetujui · Menunggu Transfer') AS status,s.status AS payment_status,
+        ss.published_at AS created_at,s.paid_date,s.id AS salary_request_id
+        FROM salary_requests s JOIN salary_slips ss ON ss.salary_request_id=s.id
+        WHERE s.employee_id=$emp_id AND ss.user_id=$user_id AND s.status IN ('approved','paid') AND s.month='$selectedPeriodStr' LIMIT 1")->fetch_assoc();
+    if ($targetSalary) {
+        $gaji = $targetSalary;
+    } else {
+        // Fallback to latest published slip
+        $paidSalary = mysqli_query($conn, "SELECT s.employee_id,s.month AS period_label,s.total_salary AS net_salary,
+            IF(s.status='paid','Sudah Ditransfer','Disetujui · Menunggu Transfer') AS status,s.status AS payment_status,
+            ss.published_at AS created_at,s.paid_date,s.id AS salary_request_id
+            FROM salary_requests s JOIN salary_slips ss ON ss.salary_request_id=s.id
+            WHERE s.employee_id=$emp_id AND ss.user_id=$user_id AND s.status IN ('approved','paid') ORDER BY s.month DESC,s.id DESC LIMIT 1")->fetch_assoc();
+        if ($paidSalary) $gaji = $paidSalary;
     }
 }
+
 if (!$gaji) {
-    $checkPayroll = mysqli_query($conn, "SHOW TABLES LIKE 'payroll'");
-    if (mysqli_num_rows($checkPayroll) > 0) {
-        $qGaji2 = mysqli_query($conn, "
-            SELECT period_month, period_year, net_salary, is_published as status, created_at
-            FROM payroll 
-            WHERE employee_id = $emp_id
+    $checkPayslips = mysqli_query($conn, "SHOW TABLES LIKE 'payslips'");
+    if (mysqli_num_rows($checkPayslips) > 0) {
+        $qGaji = mysqli_query($conn, "
+            SELECT employee_id, month as period_label, total_salary as net_salary, status, published_at as created_at
+            FROM payslips 
+            WHERE employee_id = $emp_id AND status = 'published' AND month = '$selectedPeriodStr'
             ORDER BY id DESC LIMIT 1
         ");
-        if ($qGaji2 && mysqli_num_rows($qGaji2) > 0) {
-            $gaji = mysqli_fetch_assoc($qGaji2);
+        if ($qGaji && mysqli_num_rows($qGaji) > 0) {
+            $gaji = mysqli_fetch_assoc($qGaji);
+        } else {
+            $qGajiLatest = mysqli_query($conn, "
+                SELECT employee_id, month as period_label, total_salary as net_salary, status, published_at as created_at
+                FROM payslips 
+                WHERE employee_id = $emp_id AND status = 'published'
+                ORDER BY id DESC LIMIT 1
+            ");
+            if ($qGajiLatest && mysqli_num_rows($qGajiLatest) > 0) {
+                $gaji = mysqli_fetch_assoc($qGajiLatest);
+            }
         }
     }
 }
 
-// Only slips checked and published by Finance appear on the employee dashboard.
-if (mysqli_query($conn, "SHOW TABLES LIKE 'salary_requests'")->num_rows) {
-    $paidSalary = mysqli_query($conn, "SELECT s.employee_id,s.month AS period_label,s.total_salary AS net_salary,
-        IF(s.status='paid','Sudah Ditransfer','Disetujui · Menunggu Transfer') AS status,s.status AS payment_status,
-        ss.published_at AS created_at,s.paid_date,s.id AS salary_request_id
-        FROM salary_requests s JOIN salary_slips ss ON ss.salary_request_id=s.id
-        WHERE s.employee_id=$emp_id AND ss.user_id=$user_id AND s.status IN ('approved','paid') ORDER BY s.month DESC,s.id DESC LIMIT 1")->fetch_assoc();
-    if ($paidSalary && (!$gaji || $paidSalary['period_label'] >= ($gaji['period_label'] ?? sprintf('%04d-%02d',$gaji['period_year'] ?? 0,$gaji['period_month'] ?? 0)))) $gaji=$paidSalary;
-}
 if ($gaji && !empty($gaji['period_label'])) {
     $gaji['period_month'] = (int)substr($gaji['period_label'],5,2);
     $gaji['period_year'] = (int)substr($gaji['period_label'],0,4);
@@ -237,6 +272,11 @@ if (mysqli_num_rows($checkTasks) > 0) {
 echo json_encode([
     "status" => "success",
     "data"   => [
+        "period"   => [
+            "month" => (int)$month,
+            "year"  => (int)$year,
+            "label" => sprintf('%04d-%02d', $year, $month)
+        ],
         "stats"    => $stats,
         "calendar" => $calendar,
         "gaji"     => $gaji,

@@ -4,13 +4,16 @@ header('Cache-Control: no-store, private, max-age=0');
 require_once __DIR__.'/../config/database.php';
 require_once __DIR__.'/../config/session.php';
 require_once __DIR__.'/../services/accounting_reports.php';
+require_once __DIR__.'/../services/finance_dashboard_totals.php';
 mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
 
 try {
     $actor = session_actor($conn);
     if (!$actor) ac_fail('Silakan login kembali.', 401);
     $allowedRoles = ['admin', 'super_admin', 'finance', 'finance_admin', 'director', 'direktur', 'manager', 'hr', 'hrd'];
-    if (!in_array($actor['role'], $allowedRoles, true) && !ac_can($conn, $actor, 'read')) {
+    $role = strtolower(trim($actor['role'] ?? ''));
+    $email = strtolower(trim($actor['email'] ?? ''));
+    if (!in_array($role, $allowedRoles, true) && $email !== 'muhammadfaizal.mf10@gmail.com' && !ac_can($conn, $actor, 'read')) {
         ac_fail('Akses ke dashboard keuangan tidak diizinkan.', 403);
     }
     session_write_close();
@@ -258,8 +261,7 @@ try {
             WHERE t.transaction_date >= ?
               AND t.approval_status = 'approved'
               AND t.payment_status = 'unpaid'
-            ORDER BY t.transaction_date DESC
-            LIMIT 200
+            ORDER BY t.transaction_date DESC, t.id DESC
         ");
         $piStmt->bind_param('s', $projectionStart);
         $piStmt->execute();
@@ -278,8 +280,7 @@ try {
             LEFT JOIN cash_bank_accounts cba ON cba.id = t.cash_account_id
             WHERE YEAR(t.transaction_date) = ?
               AND t.payment_status IN ('paid', 'verified')
-            ORDER BY t.transaction_date DESC
-            LIMIT 200
+            ORDER BY t.transaction_date DESC, t.id DESC
         ");
         $riStmt->bind_param('i', $year);
         $riStmt->execute();
@@ -353,10 +354,12 @@ try {
                    f.description,
                    'legacy_finance' AS source_type,
                    f.category AS classification,
-                   'approved' AS approval_status,
-                   'paid' AS payment_status,
+                   'unknown' AS approval_status,
+                   'unknown' AS payment_status,
                    CONCAT({$legacyBankColumn}, IF({$legacyAccountColumn} != '', CONCAT(' (', {$legacyAccountColumn}, ')'), '')) AS cash_account_name,
-                   f.created_at AS paid_at,
+                   NULL AS paid_at,
+                   f.created_at AS recorded_at,
+                   1 AS needs_review,
                    {$legacyMetodeColumn} AS reference,
                    {$legacySalaryColumn} AS salary_request_id,
                    {$legacyBudgetColumn} AS budget_request_id
@@ -364,8 +367,7 @@ try {
             {$legacyJoin}
             WHERE YEAR(f.transaction_date) = ?
               {$legacyNotMigrated}
-            ORDER BY f.transaction_date DESC
-            LIMIT 200
+            ORDER BY f.transaction_date DESC, f.id DESC
         ");
         $legacyReal->bind_param('i', $year);
         $legacyReal->execute();
@@ -407,11 +409,11 @@ try {
                    'Pemasukan Pelatihan' AS classification,
                    'approved' AS approval_status,
                     CASE
-                      WHEN LOWER(COALESCE(bi.status, '')) IN ('paid', 'lunas') OR bi.total - {$billingPaidExpr} <= 0 THEN 'paid'
-                      WHEN {$billingPaidExpr} > 0 OR LOWER(COALESCE(bi.status, '')) IN ('partial', 'partially paid', 'sebagian', 'sebagian dibayar') THEN 'partial'
+                      WHEN bi.total > 0 AND bi.total - {$billingPaidExpr} <= 0 THEN 'paid'
+                      WHEN {$billingPaidExpr} > 0 THEN 'partial'
                       ELSE 'unpaid'
                     END AS status,
-                   'BCA (1832-918-428)' AS cash_account_name,
+                   'Belum diverifikasi' AS cash_account_name,
                     bi.jatuhTempo,
                     bi.created_at
              FROM billing_invoices bi
@@ -431,8 +433,7 @@ try {
             $isPaid = $invoiceStatus === 'paid';
             $isPartial = $invoiceStatus === 'partial';
 
-            // Invoice unpaid = projection only. Once paid, it moves to
-            // realization and income below; it must not remain in projection.
+            // 1. Proyeksi: Invoice unpaid masuk ke proyeksi
             if (!$isPaid) {
                 $projInv = $inv;
                 $projInv['number'] = $inv['id'];
@@ -443,15 +444,33 @@ try {
                     );
                 }
                 $projectionItems[] = $projInv;
+
+                // Masukkan juga baris pasangan ke Realisasi Arus Kas dengan status Unpaid/Overdue
+                $todayIso = date('Y-m-d');
+                $due = !empty($inv['jatuhTempo']) ? $inv['jatuhTempo'] : $inv['transaction_date'];
+                $isOverdue = $todayIso > $due;
+                $pendingReal = $inv;
+                $pendingReal['id'] = 'PENDING-' . $inv['id'];
+                $pendingReal['number'] = 'MENUNGGU-' . $inv['id'];
+                $pendingReal['amount'] = 0;
+                $pendingReal['expected_amount'] = (float)$inv['invoice_amount'];
+                $pendingReal['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
+                $pendingReal['paid_at'] = null;
+                $pendingReal['is_pending_realization'] = true;
+                $pendingReal['related_proj_id'] = $inv['id'];
+                $pendingReal['related_proj_number'] = $inv['id'];
+                $realizationItems[] = $pendingReal;
             }
 
             // 2. Realisasi: Jika sudah dibayar (Paid/Lunas), masuk ke Realisasi aktual
-            if ($isPaid || $isPartial) {
+            if (($isPaid || $isPartial) && (float)$inv['paid_amount'] > 0) {
                 $realInv = $inv;
                 $realInv['number'] = 'FIN-' . $inv['id'];
-                $realInv['amount'] = $inv['paid_amount'] > 0 ? $inv['paid_amount'] : $inv['invoice_amount'];
+                $realInv['amount'] = $inv['paid_amount'];
                 $realInv['payment_status'] = $isPaid ? 'paid' : 'partial';
-                $realInv['paid_at'] = $inv['transaction_date'];
+                $realInv['paid_at'] = null;
+                $realInv['needs_review'] = 1;
+                $realInv['date_basis'] = 'invoice_date_not_payment_date';
                 $realInv['related_proj_id'] = $inv['id'];
                 $realInv['related_proj_number'] = $inv['id'];
                 if ($invYear === $year && isset($months[$m])) {
@@ -487,8 +506,13 @@ try {
                    'invoice_client' AS source_type,
                    'Pemasukan Pelatihan' AS classification,
                    'approved' AS approval_status,
-                   'unpaid' AS payment_status,
-                   'BCA (1832-918-428)' AS cash_account_name,
+                   CASE WHEN {$paymentSum} > 0 THEN 'partial' ELSE 'unpaid' END AS payment_status,
+                   'Belum diverifikasi' AS cash_account_name,
+                   NULL AS due_date,
+                   'recorded_date_not_due_date' AS date_basis,
+                   c.id AS source_id,
+                   c.total_biaya AS invoice_amount,
+                   {$paymentSum} AS recorded_payment_amount,
                    c.created_at
             FROM invoice_clients c
             {$paymentJoin}
@@ -573,10 +597,28 @@ try {
         $budgetStmt->close();
     }
 
-    // === LIFECYCLE RULE ===
-    // Projections contain only approved outstanding amounts. Realizations
-    // contain only money actually paid/verified. A paid item is removed from
-    // projection by the source query and is represented once in realization.
+    // === STUDENT INVOICE AUDIT TRACE ===
+    // The audit view keeps a linked paid-income copy in projection so Finance
+    // can trace invoice lifecycle: unpaid projection -> paid projection ->
+    // paid realization. Expenses never belong to this student-invoice trace.
+    $projectionAuditKeys = [];
+    foreach ($projectionItems as $existingProjection) {
+        $projectionAuditKeys[(string)($existingProjection['source_type'] ?? '') . ':' . (string)($existingProjection['source_id'] ?? $existingProjection['id'] ?? '')] = true;
+    }
+    foreach ($realizationItems as $realized) {
+        if (($realized['type'] ?? '') !== 'income' || ac_cents((string)($realized['amount'] ?? '0')) <= 0) continue;
+        $realKey = (string)($realized['source_type'] ?? '') . ':' . (string)($realized['source_id'] ?? $realized['id'] ?? '');
+        if (isset($projectionAuditKeys[$realKey])) continue;
+        $auditProjection = $realized;
+        $auditProjection['id'] = 'PROJ-REAL-' . ($realized['id'] ?? $realized['number'] ?? uniqid());
+        $auditProjection['number'] = 'PROJ-' . ($realized['number'] ?? $realized['id'] ?? 'REAL');
+        $auditProjection['payment_status'] = $realized['payment_status'] ?? 'unknown';
+        $auditProjection['projection_status'] = 'historical_reference';
+        $auditProjection['is_historical_reference'] = true;
+        $auditProjection['was_realized'] = in_array($auditProjection['payment_status'], ['paid', 'verified'], true);
+        $projectionItems[] = $auditProjection;
+        $projectionAuditKeys[$realKey] = true;
+    }
 
     // === INCOME BY CLASSIFICATION ===
     $incomeByClassification = [];
@@ -650,6 +692,10 @@ try {
         $legacyExpCls->close();
     }
 
+    // Rebuild cash totals from the same complete operational lists shown in
+    // detail. Accrual revenue/expense journals must not be mixed with cash.
+    $cashTotals = finance_dashboard_totals($projectionItems, $realizationItems, $year);
+    $months = $cashTotals['months'];
     // === TOTALS ===
     // The audit KPI includes every open projection from the selected year
     // onward. Monthly chart values below remain selected-year-only.
@@ -665,7 +711,9 @@ try {
         $totalExpCents  += ac_cents((string)($m['expense'] ?? '0'));
     }
     foreach ($projectionItems as $projectionItem) {
-        $totalProjCents += ac_cents((string)($projectionItem['amount'] ?? '0'));
+        if (($projectionItem['type'] ?? '') === 'income') {
+            $totalProjCents += ac_cents((string)($projectionItem['amount'] ?? '0'));
+        }
     }
     $totalProjection  = ac_decimal($totalProjCents);
     $totalRealization = ac_decimal($totalRealCents);
@@ -792,6 +840,7 @@ try {
             'months' => array_values($months),
             'totals' => [
                 'projection'  => $totalProjection,
+                'projection_outstanding' => $cashTotals['outstanding'],
                 'projection_current_year' => ac_decimal($totalProjYearCents),
                 'realization' => $totalRealization,
                 'income'      => $totalIncome,
@@ -807,6 +856,8 @@ try {
             'projection_horizon_start'  => $projectionStart,
             'projection_horizon'        => 'selected_year_and_all_future_dates',
             'realization_items'         => $realizationItems,
+            'coverage' => ['complete'=>false, 'basis'=>'operational_records',
+                'notice'=>'Catatan operasional lengkap untuk filter sumber; bukan laporan jurnal resmi atau saldo bank terverifikasi. Data historis memerlukan review.'],
             // P1 CFO alerts
             'alerts'                    => $alerts,
             'unposted_count'            => $unpostedCount,

@@ -29,6 +29,9 @@ export default function SalaryRequestDetail({ request, permissions, busy, today,
     }));
   };
 
+  const status = SALARY_STATUS[request.status] || { label: "Draft", className: "bg-slate-100 text-slate-600" };
+  const draft = request.status === "draft" && permissions.can_prepare;
+
   return <div className="rab-modal-backdrop"><section className="rab-modal" role="dialog" aria-modal="true" aria-labelledby="salary-detail-title">
     <div className="rab-modal-heading"><div><p>{salaryReference(request.id)} · Absensi {formatBudgetMonth(request.month)}</p><h2 id="salary-detail-title">{request.employee_name}</h2><p>{request.employee_code} · {request.position_name}</p></div><button disabled={busy} onClick={onClose} aria-label="Tutup rincian"><X size={20} /></button></div>
     <div className="rab-detail-body"><div className="rab-detail-meta"><span className={`rab-status ${status.className}`}>{status.label}</span><span>Jadwal Gajian: <strong>{salaryDate(request.payday)}</strong></span></div>{error && <div role="alert" className="rab-error">{error}</div>}

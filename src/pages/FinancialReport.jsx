@@ -114,12 +114,12 @@ export default function FinancialReportPage() {
       ["Laba Bersih", pnl.netProfitOkt, pnl.netProfitSep, pnl.netProfitOkt - pnl.netProfitSep, `${kpis.profitGrowth}%`],
       [""],
       ["RINGKASAN NERACA", "ASET (IDR)", "LIABILITAS & EKUITAS (IDR)"],
-      ["Kas & Bank", balanceSheet.asetLancar[0].okt + balanceSheet.asetLancar[1].okt, "Utang Vendor", balanceSheet.liabilitasPendek[0].okt],
-      ["Piutang Siswa", balanceSheet.asetLancar[2].okt, "Utang Pajak", balanceSheet.liabilitasPendek[2].okt],
-      ["Persediaan & Dimuka", balanceSheet.asetLancar[3].okt + balanceSheet.asetLancar[4].okt, "Liabilitas Jangka Panjang", balanceSheet.liabilitasPanjang[0].okt],
-      ["Aset Tetap & Lainnya", balanceSheet.totAsetTidakLancarOkt, "Total Liabilitas", balanceSheet.totalLiabilitasOkt],
-      ["", "", "Total Ekuitas", balanceSheet.totalEkuitasOkt],
-      ["TOTAL ASET", balanceSheet.totalAsetOkt, "TOTAL LIABILITAS & EKUITAS", balanceSheet.totalLiabEkuitasOkt],
+      ["Kas & Bank", (balanceSheet?.asetLancar?.[0]?.okt || 0) + (balanceSheet?.asetLancar?.[1]?.okt || 0), "Utang Vendor", balanceSheet?.liabilitasPendek?.[0]?.okt || 0],
+      ["Piutang Siswa", balanceSheet?.asetLancar?.[2]?.okt || 0, "Utang Pajak", balanceSheet?.liabilitasPendek?.[2]?.okt || 0],
+      ["Persediaan & Dimuka", (balanceSheet?.asetLancar?.[3]?.okt || 0) + (balanceSheet?.asetLancar?.[4]?.okt || 0), "Liabilitas Jangka Panjang", balanceSheet?.liabilitasPanjang?.[0]?.okt || 0],
+      ["Aset Tetap & Lainnya", balanceSheet?.totAsetTidakLancarOkt || 0, "Total Liabilitas", balanceSheet?.totalLiabilitasOkt || 0],
+      ["", "", "Total Ekuitas", balanceSheet?.totalEkuitasOkt || 0],
+      ["TOTAL ASET", balanceSheet?.totalAsetOkt || 0, "TOTAL LIABILITAS & EKUITAS", balanceSheet?.totalLiabEkuitasOkt || 0],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(summaryRows);
@@ -641,51 +641,51 @@ export default function FinancialReportPage() {
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     <tr>
                       <td className="py-2 px-4">Kas &amp; Bank</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.asetLancar[0].okt + balanceSheet.asetLancar[1].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum((balanceSheet?.asetLancar?.[0]?.okt || 0) + (balanceSheet?.asetLancar?.[1]?.okt || 0))}</td>
                       <td className="py-2 px-4 border-l border-slate-100">Utang Vendor</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.liabilitasPendek[0].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet?.liabilitasPendek?.[0]?.okt || 0)}</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-4">Piutang Siswa</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.asetLancar[2].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet?.asetLancar?.[2]?.okt || 0)}</td>
                       <td className="py-2 px-4 border-l border-slate-100">Utang Pajak</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.liabilitasPendek[2].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet?.liabilitasPendek?.[2]?.okt || 0)}</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-4">Persediaan &amp; Dimuka</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.asetLancar[3].okt + balanceSheet.asetLancar[4].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum((balanceSheet?.asetLancar?.[3]?.okt || 0) + (balanceSheet?.asetLancar?.[4]?.okt || 0))}</td>
                       <td className="py-2 px-4 border-l border-slate-100">Liabilitas Jangka Panjang</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.liabilitasPanjang[0].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet?.liabilitasPanjang?.[0]?.okt || 0)}</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-4">Aset Tetap (Net)</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.asetTidakLancar[0].okt + balanceSheet.asetTidakLancar[1].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum((balanceSheet?.asetTidakLancar?.[0]?.okt || 0) + (balanceSheet?.asetTidakLancar?.[1]?.okt || 0))}</td>
                       <td className="py-2 px-4 border-l border-slate-100 font-bold text-blue-900 bg-blue-50/30">Total Liabilitas</td>
-                      <td className="py-2 px-3 text-right font-bold text-blue-900 bg-blue-50/30">{formatNum(balanceSheet.totalLiabilitasOkt)}</td>
+                      <td className="py-2 px-3 text-right font-bold text-blue-900 bg-blue-50/30">{formatNum(balanceSheet?.totalLiabilitasOkt || 0)}</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-4">Aset Lainnya</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.asetTidakLancar[2].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet?.asetTidakLancar?.[2]?.okt || 0)}</td>
                       <td className="py-2 px-4 border-l border-slate-100">Modal Pemilik</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.ekuitas[0].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet?.ekuitas?.[0]?.okt || 0)}</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-4 text-slate-400">-</td>
                       <td className="py-2 px-3 text-right text-slate-400">-</td>
                       <td className="py-2 px-4 border-l border-slate-100">Laba Ditahan &amp; Berjalan</td>
-                      <td className="py-2 px-3 text-right font-medium">{formatNum(balanceSheet.ekuitas[1].okt + balanceSheet.ekuitas[2].okt)}</td>
+                      <td className="py-2 px-3 text-right font-medium">{formatNum((balanceSheet?.ekuitas?.[1]?.okt || 0) + (balanceSheet?.ekuitas?.[2]?.okt || 0))}</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-4 text-slate-400">-</td>
                       <td className="py-2 px-3 text-right text-slate-400">-</td>
                       <td className="py-2 px-4 border-l border-slate-100 font-bold text-blue-900 bg-blue-50/30">Total Ekuitas</td>
-                      <td className="py-2 px-3 text-right font-bold text-blue-900 bg-blue-50/30">{formatNum(balanceSheet.totalEkuitasOkt)}</td>
+                      <td className="py-2 px-3 text-right font-bold text-blue-900 bg-blue-50/30">{formatNum(balanceSheet?.totalEkuitasOkt || 0)}</td>
                     </tr>
                     <tr className="bg-blue-50 font-bold text-blue-900">
                       <td className="py-2.5 px-4">Total Aset</td>
-                      <td className="py-2.5 px-3 text-right font-extrabold text-blue-950">{formatNum(balanceSheet.totalAsetOkt)}</td>
+                      <td className="py-2.5 px-3 text-right font-extrabold text-blue-950">{formatNum(balanceSheet?.totalAsetOkt || 0)}</td>
                       <td className="py-2.5 px-4 border-l border-blue-200">Total Liabilitas &amp; Ekuitas</td>
-                      <td className="py-2.5 px-3 text-right font-extrabold text-blue-950">{formatNum(balanceSheet.totalLiabEkuitasOkt)}</td>
+                      <td className="py-2.5 px-3 text-right font-extrabold text-blue-950">{formatNum(balanceSheet?.totalLiabEkuitasOkt || 0)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -895,11 +895,11 @@ export default function FinancialReportPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between py-1 border-b border-slate-100">
                       <span>Modal Awal Disetor</span>
-                      <span className="font-bold text-slate-900">{formatNum(balanceSheet.ekuitas[0].okt, true)}</span>
+                      <span className="font-bold text-slate-900">{formatNum(balanceSheet?.ekuitas?.[0]?.okt || 0, true)}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
                       <span>Laba Ditahan Sebelumnya</span>
-                      <span className="font-bold text-slate-900">{formatNum(balanceSheet.ekuitas[1].okt, true)}</span>
+                      <span className="font-bold text-slate-900">{formatNum(balanceSheet?.ekuitas?.[1]?.okt || 0, true)}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
                       <span>Laba Bersih Periode Berjalan</span>

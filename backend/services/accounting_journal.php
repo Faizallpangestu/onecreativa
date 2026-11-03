@@ -60,9 +60,39 @@ function ac_reverse(mysqli $db,array $actor,int $id,string $date,string $reason)
     return $result;
 }
 function ac_master_mutate(mysqli $db,array $actor,array $data):array {
-    $action=$data['action']??'';ac_require($db,$actor,'configure');
+    $action=$data['action']??'';
+    if(in_array($action,['account','delete_account','bank','delete_bank','vendor','delete_vendor','delete','delete_transaction'],true)) {
+        if(!ac_can($db,$actor,'configure') && !ac_can($db,$actor,'prepare') && !ac_can($db,$actor,'post')) {
+            ac_fail('Anda tidak berhak mengelola data master atau transaksi akuntansi.',403);
+        }
+    } else {
+        ac_require($db,$actor,'configure');
+    }
     if($action==='permission'&&$actor['role']!=='super_admin')ac_fail('Perubahan kebijakan izin hanya oleh Super Admin; administrator tidak dapat menambah hak approval sendiri.',403);
     return ac_atomic($db,function()use($db,$actor,$data,$action){
+        if($action==='delete_account' || ($action==='account' && !empty($data['delete_permanent']))){
+            $id=ac_id($data['id']??null);
+            $acc=ac_one($db,'SELECT * FROM accounts WHERE id=? FOR UPDATE',[$id]);
+            if(!$acc) ac_fail('Akun tidak ditemukan.',404);
+            if(ac_table($db,'journal_lines') && ac_one($db,'SELECT id FROM journal_lines WHERE account_id=? LIMIT 1',[$id])){
+                ac_fail('Akun tidak dapat dihapus karena sudah memiliki riwayat jurnal transaksi.',409);
+            }
+            if(ac_table($db,'cash_bank_accounts')){
+                ac_query($db,'DELETE FROM cash_bank_accounts WHERE account_id=?',[$id]);
+            }
+            ac_query($db,'UPDATE accounts SET parent_id=NULL WHERE parent_id=?',[$id]);
+            ac_query($db,'DELETE FROM accounts WHERE id=?',[$id]);
+            ac_audit($db,$actor,'account',(string)$id,'deleted_permanent',['code'=>$acc['code'],'name'=>$acc['name']]);
+            return ['id'=>$id,'deleted'=>true];
+        }
+        if($action==='delete_bank' || ($action==='bank' && !empty($data['delete_permanent']))){
+            $id=ac_id($data['id']??null);
+            $bank=ac_one($db,'SELECT * FROM cash_bank_accounts WHERE id=? FOR UPDATE',[$id]);
+            if(!$bank) ac_fail('Rekening tidak ditemukan.',404);
+            ac_query($db,'DELETE FROM cash_bank_accounts WHERE id=?',[$id]);
+            ac_audit($db,$actor,'bank',(string)$id,'deleted_permanent',['name'=>$bank['name'],'account_number'=>$bank['account_number']]);
+            return ['id'=>$id,'deleted'=>true];
+        }
         if($action==='account'){
             $id=isset($data['id'])?ac_id($data['id']):null;
             $code=ac_text($data['code']??'','Kode akun',20);$name=ac_text($data['name']??'','Nama akun',150);
@@ -76,6 +106,46 @@ function ac_master_mutate(mysqli $db,array $actor,array $data):array {
                 if(ac_one($db,'SELECT id FROM journal_lines WHERE account_id=? LIMIT 1',[$id])&&($old['code']!==$code||(int)$old['account_group']!==$group||$old['normal_balance']!==$normal||$old['report_class']!==$class||!$detail))ac_fail('Struktur akun yang sudah memiliki jurnal dikunci.',409);
                 ac_query($db,'UPDATE accounts SET code=?,name=?,account_group=?,normal_balance=?,parent_id=?,is_detail=?,is_active=?,report_class=? WHERE id=?',[$code,$name,$group,$normal,$parent,$detail,$active,$class,$id]);
             }else{ac_query($db,'INSERT INTO accounts(code,name,account_group,normal_balance,parent_id,is_detail,is_active,report_class) VALUES(?,?,?,?,?,?,?,?)',[$code,$name,$group,$normal,$parent,$detail,$active,$class]);$id=(int)$db->insert_id;}
+
+            $saldo = (float)($data['saldo'] ?? 0);
+            if ($saldo > 0 && ac_table($db, 'journal_entries') && ac_table($db, 'journal_lines')) {
+                $hasJrn = ac_one($db, "SELECT id FROM journal_lines WHERE account_id=? LIMIT 1", [$id]);
+                if (!$hasJrn) {
+                    $eqAcc = ac_one($db, "SELECT id FROM accounts WHERE (code LIKE '310%' OR report_class='capital') AND id<>? ORDER BY code LIMIT 1", [$id]);
+                    $eqId = $eqAcc ? (int)$eqAcc['id'] : null;
+                    if (!$eqId) {
+                        ac_query($db, "INSERT INTO accounts (code, name, account_group, normal_balance, is_detail, is_active, report_class) VALUES ('3100', 'Modal Disetor / Saldo Awal', 3, 'credit', 1, 1, 'capital')");
+                        $eqId = (int)$db->insert_id;
+                    }
+                    if ($eqId && $eqId !== $id) {
+                        $today = date('Y-m-d');
+                        $periodMonth = date('Y-m');
+                        ac_query($db, "INSERT IGNORE INTO accounting_periods (month, status) VALUES (?, 'open')", [$periodMonth]);
+                        $periodRow = ac_one($db, "SELECT id FROM accounting_periods WHERE month=?", [$periodMonth]);
+                        $periodId = (int)($periodRow['id'] ?? 1);
+                        $memo = 'Saldo Awal Akun ' . $code . ' - ' . $name;
+                        $entryNum = 'JRN-' . date('Y') . '-COA' . str_pad((string)$id, 6, '0', STR_PAD_LEFT);
+                        $actorId = (int)($actor['id'] ?? 1);
+
+                        $isDebit = ($normal === 'debit');
+                        $debitAcc = $isDebit ? $id : $eqId;
+                        $creditAcc = $isDebit ? $eqId : $id;
+
+                        ac_query($db, "INSERT INTO journal_entries (entry_date, period_id, source_type, source_id, event, description, created_by, status) VALUES (?, ?, 'account_opening', ?, 'opening_balance', ?, ?, 'draft')",
+                            [$today, $periodId, (string)$id, $memo, $actorId]);
+                        $jId = (int)$db->insert_id;
+
+                        ac_query($db, "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, cash_flow_class) VALUES (?, ?, ?, 0, 'financing')",
+                            [$jId, $debitAcc, $saldo]);
+                        ac_query($db, "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, cash_flow_class) VALUES (?, ?, 0, ?, 'noncash')",
+                            [$jId, $creditAcc, $saldo]);
+
+                        ac_query($db, "UPDATE journal_entries SET number=?, status='posted', posted_at=NOW() WHERE id=?",
+                            [$entryNum, $jId]);
+                    }
+                }
+            }
+
             ac_audit($db,$actor,'account',(string)$id,'saved',['code'=>$code]);return ac_one($db,'SELECT * FROM accounts WHERE id=?',[$id]);
         }
         if($action==='bank'){$account=ac_account($db,ac_id($data['account_id']??null));if($account['report_class']!=='cash')ac_fail('Rekening harus memakai COA kas/bank.');ac_query($db,'INSERT INTO cash_bank_accounts(name,account_id,bank_name,account_number) VALUES(?,?,?,?)',[ac_text($data['name']??'','Nama rekening',150),(int)$account['id'],ac_text($data['bank_name']??'','Bank',100,false),ac_text($data['account_number']??'','Nomor rekening',100,false)]);$id=(int)$db->insert_id;ac_audit($db,$actor,'bank',(string)$id,'created');return ['id'=>$id];}
@@ -91,6 +161,45 @@ function ac_master_mutate(mysqli $db,array $actor,array $data):array {
             if($permission==='configure'&&$role==='super_admin'&&empty($data['allowed']))ac_fail('Hak konfigurasi Super Admin harus dipertahankan.');
             ac_query($db,'INSERT INTO finance_role_permissions(role_name,permission,allowed) VALUES(?,?,?) ON DUPLICATE KEY UPDATE allowed=VALUES(allowed)',[$role,$permission,empty($data['allowed'])?0:1]);ac_audit($db,$actor,'permission',$role,'changed',$data);return ['role'=>$role];}
         if($action==='vendor'){ac_query($db,'INSERT INTO vendors(name) VALUES(?)',[ac_text($data['name']??'','Nama vendor')]);$id=(int)$db->insert_id;ac_audit($db,$actor,'vendor',(string)$id,'created');return ['id'=>$id];}
+        if($action==='delete_vendor'){
+            $id=ac_id($data['id']??null);
+            if(ac_table($db,'vendors')){
+                ac_query($db,'DELETE FROM vendors WHERE id=?',[$id]);
+            }
+            ac_audit($db,$actor,'vendor',(string)$id,'deleted_permanent');
+            return ['id'=>$id,'deleted'=>true];
+        }
+        if($action==='delete'||$action==='delete_transaction'){
+            $rawId = (string)($data['id']??'');
+            $id = (int)preg_replace('/[^0-9]/', '', $rawId);
+            if(!$id) ac_fail('ID transaksi tidak valid.');
+            if(ac_table($db,'finance_records')){
+                ac_query($db,'DELETE FROM finance_records WHERE id=?',[$id]);
+            }
+            if(ac_table($db,'accounting_transactions')){
+                $tx = ac_one($db,'SELECT * FROM accounting_transactions WHERE id=?',[$id]);
+                if($tx){
+                    if(ac_table($db,'payment_allocations')){
+                        ac_query($db,'DELETE FROM payment_allocations WHERE transaction_id=?',[$id]);
+                    }
+                    if(ac_table($db,'budget_realizations')){
+                        ac_query($db,'DELETE FROM budget_realizations WHERE transaction_id=?',[$id]);
+                    }
+                    if(!empty($tx['journal_entry_id'])){
+                        $jid = (int)$tx['journal_entry_id'];
+                        if(ac_table($db,'journal_lines')){
+                            ac_query($db,'DELETE FROM journal_lines WHERE journal_entry_id=?',[$jid]);
+                        }
+                        if(ac_table($db,'journal_entries')){
+                            ac_query($db,'DELETE FROM journal_entries WHERE id=?',[$jid]);
+                        }
+                    }
+                    ac_query($db,'DELETE FROM accounting_transactions WHERE id=?',[$id]);
+                }
+            }
+            ac_audit($db,$actor,'transaction',(string)$id,'deleted_permanent');
+            return ['id'=>$id,'deleted'=>true];
+        }
         ac_fail('Aksi master tidak dikenal.');
     });
 }

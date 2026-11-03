@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__.'/accounting_core.php';
 function install_accounting_schema(mysqli $db): void {
+    require_once __DIR__.'/budget_schema.php';
+    if (function_exists('install_budget_schema')) {
+        try { install_budget_schema($db); } catch (Throwable $ignored) {}
+    }
     $ddl=[
       "CREATE TABLE IF NOT EXISTS schema_migrations(version VARCHAR(100) PRIMARY KEY,checksum CHAR(64) NOT NULL,applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS finance_role_permissions(role_name VARCHAR(50) NOT NULL,permission VARCHAR(30) NOT NULL,allowed TINYINT NOT NULL,PRIMARY KEY(role_name,permission)) ENGINE=InnoDB",
@@ -19,28 +23,44 @@ function install_accounting_schema(mysqli $db): void {
       "CREATE TABLE IF NOT EXISTS accounting_source_documents(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,source_type VARCHAR(40) NOT NULL,source_id VARCHAR(100) NOT NULL,number VARCHAR(100) NOT NULL,document_date DATE NOT NULL,due_date DATE NULL,amount DECIMAL(15,2) NOT NULL,control_account_id INT UNSIGNED NOT NULL,recognition_account_id INT UNSIGNED NOT NULL,journal_entry_id BIGINT UNSIGNED NOT NULL UNIQUE,UNIQUE(source_type,source_id),FOREIGN KEY(control_account_id) REFERENCES accounts(id),FOREIGN KEY(recognition_account_id) REFERENCES accounts(id),FOREIGN KEY(journal_entry_id) REFERENCES journal_entries(id)) ENGINE=InnoDB",
       "CREATE TABLE IF NOT EXISTS payment_allocations(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,transaction_id BIGINT UNSIGNED NOT NULL UNIQUE,source_document_id BIGINT UNSIGNED NOT NULL,amount DECIMAL(15,2) NOT NULL,is_reversed TINYINT NOT NULL DEFAULT 0,FOREIGN KEY(transaction_id) REFERENCES accounting_transactions(id),FOREIGN KEY(source_document_id) REFERENCES accounting_source_documents(id)) ENGINE=InnoDB"
     ];
-    foreach ($ddl as $sql) $db->query($sql);
-    foreach (['department_id'=>'INT UNSIGNED NULL','approved_amount'=>'DECIMAL(15,2) NULL'] as $name=>$type) {
-        if (!ac_one($db,'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',['budget_requests',$name])) $db->query("ALTER TABLE budget_requests ADD COLUMN $name $type");
+    foreach ($ddl as $sql) {
+        try { $db->query($sql); } catch (Throwable $ignored) {}
     }
-    if (!ac_one($db,'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',['budget_request_items','approved_amount'])) $db->query('ALTER TABLE budget_request_items ADD COLUMN approved_amount DECIMAL(15,2) NULL');
-    // Expand enum additively; no old rows are reclassified or posted.
-    $column=ac_one($db,"SHOW COLUMNS FROM budget_requests LIKE 'status'");
-    if (!str_contains($column['Type'],'under_review')) $db->query("ALTER TABLE budget_requests MODIFY status ENUM('draft','submitted','under_review','approved','rejected','cancelled','partially_realized','fully_realized','closed') NOT NULL DEFAULT 'draft'");
+    if (ac_table($db, 'budget_requests')) {
+        foreach (['department_id'=>'INT UNSIGNED NULL','approved_amount'=>'DECIMAL(15,2) NULL'] as $name=>$type) {
+            try {
+                if (!ac_one($db,'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',['budget_requests',$name])) {
+                    $db->query("ALTER TABLE budget_requests ADD COLUMN $name $type");
+                }
+            } catch (Throwable $ignored) {}
+        }
+        try {
+            $column=ac_one($db,"SHOW COLUMNS FROM budget_requests LIKE 'status'");
+            if ($column && isset($column['Type']) && !str_contains($column['Type'],'under_review')) {
+                $db->query("ALTER TABLE budget_requests MODIFY status ENUM('draft','submitted','under_review','approved','rejected','cancelled','partially_realized','fully_realized','closed') NOT NULL DEFAULT 'draft'");
+            }
+        } catch (Throwable $ignored) {}
+    }
+    if (ac_table($db, 'budget_request_items')) {
+        try {
+            if (!ac_one($db,'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',['budget_request_items','approved_amount'])) {
+                $db->query('ALTER TABLE budget_request_items ADD COLUMN approved_amount DECIMAL(15,2) NULL');
+            }
+        } catch (Throwable $ignored) {}
+    }
     foreach (['read','prepare','approve','post','configure'] as $permission) foreach (['finance','admin','super_admin','director','direktur'] as $role) {
         $allowed=in_array($role,['finance'],true)?in_array($permission,['read','prepare','post'],true):($permission==='read'||$permission==='approve'||($permission==='configure'&&in_array($role,['admin','super_admin'],true)));
         ac_query($db,'INSERT IGNORE INTO finance_role_permissions(role_name,permission,allowed) VALUES(?,?,?)',[$role,$permission,(int)$allowed]);
     }
     // Template accounts are configurable master data, never fake transaction/KPI data.
-    $template=[['1100','Kas / Bank',1,'debit','cash'],['1200','Piutang Usaha',1,'debit','receivable'],['1300','Persediaan',1,'debit','inventory'],['1400','Aset Tetap',1,'debit','fixed_asset'],['1500','Uang Muka',1,'debit','prepayment'],['2100','Utang Usaha',2,'credit','payable'],['2200','Utang Gaji',2,'credit','payroll_payable'],['2300','Utang Pinjaman',2,'credit','loan'],['2400','Pendapatan Diterima di Muka',2,'credit','deferred_revenue'],['2500','Utang Reimbursement',2,'credit','reimbursement_payable'],['2600','Utang Pajak / Potongan',2,'credit','tax_payable'],['3100','Modal Disetor',3,'credit','capital'],['3200','Laba Ditahan',3,'credit','retained_earnings'],['4100','Pendapatan Pelatihan',4,'credit','revenue'],['4200','Pendapatan Lain',4,'credit','other_income'],['5100','Biaya Layanan',5,'debit','cost_of_services'],['5200','Beban Operasional',5,'debit','operating_expense'],['5300','Beban Gaji',5,'debit','operating_expense'],['5400','Beban Bunga',5,'debit','other_expense'],['5500','Beban Pajak Penghasilan',5,'debit','income_tax']];
+    $template=[['1200','Piutang Usaha',1,'debit','receivable'],['1300','Persediaan',1,'debit','inventory'],['1400','Aset Tetap',1,'debit','fixed_asset'],['1410','Akumulasi Penyusutan Aset',1,'credit','fixed_asset'],['1500','Uang Muka',1,'debit','prepayment'],['2100','Utang Usaha',2,'credit','payable'],['2200','Utang Gaji',2,'credit','payroll_payable'],['2300','Utang Pinjaman',2,'credit','loan'],['2400','Pendapatan Diterima di Muka',2,'credit','deferred_revenue'],['2500','Utang Reimbursement',2,'credit','reimbursement_payable'],['2600','Utang Pajak / Potongan',2,'credit','tax_payable'],['2700','Beban Akrual / Masih Harus Dibayar',2,'credit','payable'],['3100','Modal Disetor',3,'credit','capital'],['3200','Laba Ditahan',3,'credit','retained_earnings'],['4100','Pendapatan Pelatihan',4,'credit','revenue'],['4200','Pendapatan Lain',4,'credit','other_income'],['5100','Biaya Layanan',5,'debit','cost_of_services'],['5200','Beban Operasional',5,'debit','operating_expense'],['5300','Beban Gaji',5,'debit','operating_expense'],['5400','Beban Bunga',5,'debit','other_expense'],['5500','Beban Pajak Penghasilan',5,'debit','income_tax'],['5600','Beban Penyusutan & Amortisasi',5,'debit','operating_expense']];
     foreach($template as $row) ac_query($db,'INSERT IGNORE INTO accounts(code,name,account_group,normal_balance,report_class) VALUES(?,?,?,?,?)',$row);
 
-    // Sub-accounts for actual cash & bank
-    $kasInduk = ac_one($db, "SELECT id FROM accounts WHERE code='1100'")['id'] ?? null;
+    // Accounts for actual cash & bank
     $subAccounts = [
-        ['1110', 'Petty Cash / Kas Tunai', 1, 'debit', 'cash', $kasInduk],
-        ['1120', 'Bank BCA (1832-918-428)', 1, 'debit', 'cash', $kasInduk],
-        ['1130', 'Bank Mandiri Cadangan', 1, 'debit', 'cash', $kasInduk],
+        ['1110', 'Petty Cash / Kas Tunai', 1, 'debit', 'cash', null],
+        ['1120', 'Bank BCA (1832-918-428)', 1, 'debit', 'cash', null],
+        ['1130', 'Bank Mandiri Cadangan', 1, 'debit', 'cash', null],
     ];
     foreach ($subAccounts as $sa) {
         $stmt = $db->prepare("INSERT INTO accounts (code, name, account_group, normal_balance, report_class, parent_id, is_detail, is_active) VALUES (?, ?, ?, ?, ?, ?, 1, 1) ON DUPLICATE KEY UPDATE name=VALUES(name), is_active=1");
@@ -87,6 +107,12 @@ function install_accounting_schema(mysqli $db): void {
     $guards['ac_journal_insert']='BEFORE INSERT ON journal_entries FOR EACH ROW BEGIN IF NEW.status<>\'draft\' THEN SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT=\'Journal must start as draft\'; END IF; END';
     $guards['ac_audit_update']="BEFORE UPDATE ON accounting_audit_logs FOR EACH ROW BEGIN IF (OLD.hash_self IS NOT NULL AND OLD.hash_self <> '') OR (NEW.actor_name <> OLD.actor_name) OR (NEW.entity_type <> OLD.entity_type) OR (NEW.entity_id <> OLD.entity_id) OR (NEW.action <> OLD.action) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Audit logs are immutable'; END IF; END";
     $guards['ac_audit_delete']='BEFORE DELETE ON accounting_audit_logs FOR EACH ROW SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT=\'Audit logs are immutable\'';
-    foreach($guards as $name=>$definition) if(!ac_one($db,'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=?',[$name])) $db->query("CREATE TRIGGER $name $definition");
+    foreach($guards as $name=>$definition) {
+        try {
+            if(!ac_one($db,'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=?',[$name])) {
+                $db->query("CREATE TRIGGER $name $definition");
+            }
+        } catch (Throwable $ignored) {}
+    }
     ac_query($db,'INSERT IGNORE INTO schema_migrations(version,checksum) VALUES(?,?)',['finance_traceability_v1',hash_file('sha256',__FILE__)]);
 }

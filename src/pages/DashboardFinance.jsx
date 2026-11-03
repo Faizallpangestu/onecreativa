@@ -75,6 +75,15 @@ const DollarSign = (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 const BarChart3 = (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M18 20V10M12 20V4M6 20v-6" /></svg>;
 const Search = (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
 const FileCheck = (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><path d="M9 15l2 2 4-4" /></svg>;
+const FileTextIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+  </svg>
+);
 const WalletIcon = (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>;
 const ColumnsIcon = (p) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
@@ -94,6 +103,76 @@ const Sparkles = (p) => (
     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
   </svg>
 );
+const PlusIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+const ClockIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+const UserIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+const UploadCloudIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <polyline points="16 16 12 12 8 16" />
+    <line x1="12" y1="12" x2="12" y2="21" />
+    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+    <polyline points="16 16 12 12 8 16" />
+  </svg>
+);
+
+const LinkIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+);
+
+const ExternalLinkIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+
+const SAMPLE_SAMIT_RECEIPT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='560' viewBox='0 0 420 560'><rect width='420' height='560' fill='%23f8fafc'/><rect x='20' y='20' width='380' height='520' rx='16' fill='%23ffffff' stroke='%23e2e8f0' stroke-width='2'/><circle cx='210' cy='85' r='32' fill='%2310b981'/><path d='M198 85l8 8 16-16' stroke='%23ffffff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/><text x='210' y='145' font-family='sans-serif' font-size='16' font-weight='bold' fill='%231e293b' text-anchor='middle'>TRANSFER BERHASIL (M-BCA)</text><text x='210' y='180' font-family='sans-serif' font-size='24' font-weight='800' fill='%230f172a' text-anchor='middle'>Rp 21.000.000</text><line x1='45' y1='215' x2='375' y2='215' stroke='%23e2e8f0' stroke-dasharray='6 6'/><text x='50' y='250' font-family='sans-serif' font-size='12' fill='%2364748b'>Penerima:</text><text x='370' y='250' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>PT CREATIVA BRIDGING INTERN</text><text x='50' y='285' font-family='sans-serif' font-size='12' fill='%2364748b'>Rekening Tujuan:</text><text x='370' y='285' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>BCA 1832-918-428</text><text x='50' y='320' font-family='sans-serif' font-size='12' fill='%2364748b'>Pengirim:</text><text x='370' y='320' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>Samit (Investor)</text><text x='50' y='355' font-family='sans-serif' font-size='12' fill='%2364748b'>Waktu Transfer:</text><text x='370' y='355' font-family='sans-serif' font-size='12' font-weight='bold' fill='%231e293b' text-anchor='end'>21/11/2026 14:32:15 WIB</text><text x='50' y='390' font-family='sans-serif' font-size='12' fill='%2364748b'>Keterangan:</text><text x='370' y='390' font-family='sans-serif' font-size='11' font-weight='bold' fill='%232563eb' text-anchor='end'>Suntikan Modal Samit</text><rect x='45' y='425' width='330' height='55' rx='8' fill='%23f1f5f9'/><text x='210' y='458' font-family='sans-serif' font-size='11' fill='%2364748b' text-anchor='middle'>No. Referensi: BCA-20261121-992147</text></svg>";
+
+const CUSTOM_PROJECTIONS_STORAGE_KEY = 'finance_custom_projections';
+
+const DEFAULT_INITIAL_PROJECTIONS = [];
+
+function getStoredCustomProjections() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PROJECTIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const cleaned = Array.isArray(parsed) ? parsed.filter(p => p.number !== 'PLAN-SAMIT-01' && p.id !== 'NONINV-2026-001') : [];
+    if (parsed && parsed.length !== cleaned.length) {
+      localStorage.setItem(CUSTOM_PROJECTIONS_STORAGE_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredCustomProjections(list) {
+  try {
+    localStorage.setItem(CUSTOM_PROJECTIONS_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Gagal menyimpan custom projections:', e);
+  }
+}
 
 // ── Custom Tooltip ───────────────────────────────────────────
 function CustomTooltip({ active, payload, label, formatter }) {
@@ -214,6 +293,88 @@ function AuditModal({ item, related, onClose, onSwitchTab, currentTab }) {
             )}
           </div>
 
+          {/* Section Audit Trail Realisasi Khusus (5W1H) jika ada penyesuaian */}
+          {(item.adjusted_by || related?.adjusted_by || item.proof_file || related?.proof_file || item.target_bank_coa) && (
+            <div style={{ marginTop: 16, padding: 14, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                  Audit Trail Realisasi Kas (5W1H)
+                </span>
+                <span className="badge-bs badge-bs-success" style={{ fontSize: 9.5 }}>✓ Terverifikasi Riil</span>
+              </div>
+              <div className="fd-detail-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                <div className="fd-detail-item">
+                  <label>Petugas yang Meng-adjust</label>
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>{item.adjusted_by || related?.adjusted_by || 'Admin Finance'}</span>
+                </div>
+                <div className="fd-detail-item">
+                  <label>Waktu Penyesuaian (Timestamp)</label>
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>{item.adjusted_at || related?.adjusted_at || item.paid_at || '-'}</span>
+                </div>
+                <div className="fd-detail-item">
+                  <label>Rekening Penerima Masuk (COA)</label>
+                  <span style={{ fontWeight: 700, color: '#1e40af' }}>{item.target_bank_coa || related?.target_bank_coa || item.cash_account_name || 'BCA (1832-918-428)'}</span>
+                </div>
+                <div className="fd-detail-item">
+                  <label>Akun Lawan Kredit (COA)</label>
+                  <span style={{ fontWeight: 700, color: '#047857' }}>{item.credit_coa || related?.credit_coa || 'Modal Disetor (3-10002)'}</span>
+                </div>
+              </div>
+              {(item.proof_file || related?.proof_file || item.proof_link || related?.proof_link) && (
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #bbf7d0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: '#15803d', display: 'block' }}>Lampiran Bukti / Dokumen Terverifikasi:</label>
+                  {(item.proof_file || related?.proof_file) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <img
+                        src={item.proof_file || related?.proof_file}
+                        alt="Bukti Transfer"
+                        style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                        onClick={() => window.open(item.proof_file || related?.proof_file, '_blank')}
+                        title="Klik untuk membuka bukti bayar ukuran penuh"
+                      />
+                      <div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', display: 'block' }}>{item.proof_name || related?.proof_name || 'Slip Mutasi Bank'}</span>
+                        <a
+                          href={item.proof_file || related?.proof_file}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: 11, color: '#2563eb', textDecoration: 'underline', fontWeight: 600 }}
+                        >
+                          Lihat Bukti Foto Penuh ↗
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {(item.proof_link || related?.proof_link) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <a
+                        href={item.proof_link || related?.proof_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          border: '1px solid #bfdbfe'
+                        }}
+                      >
+                        🔗 Buka Link Dokumen / Drive ↗
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="fd-audit-match">
             {/* Kartu Proyeksi */}
             <div className="fd-audit-card fd-audit-card--projection">
@@ -333,6 +494,852 @@ function AuditModal({ item, related, onClose, onSwitchTab, currentTab }) {
   );
 }
 
+// ── Helper Lookup COA & Master Rekening Terdaftar ─────────────
+function getEffectiveBanks(registeredBanks) {
+  if (Array.isArray(registeredBanks) && registeredBanks.length > 0) {
+    const list = registeredBanks.map((b, idx) => {
+      const bName = b.bank || b.bank_name || (b.nama && b.nama.toLowerCase().includes('bca') ? 'BCA' : b.nama && b.nama.toLowerCase().includes('mandiri') ? 'Mandiri' : 'Bank');
+      const rekNum = b.noRek || b.account_number || '';
+      const accName = b.nama || b.name || `Bank ${bName}`;
+      const isAktif = b.status ? b.status === 'Aktif' : (b.is_active !== undefined ? Number(b.is_active) !== 0 : true);
+      const label = rekNum && rekNum !== '—'
+        ? `${bName} (${rekNum}) - ${accName}`
+        : `${accName}`;
+      return {
+        id: b.id || idx + 1,
+        name: accName,
+        bank_name: bName,
+        account_number: rekNum,
+        label: b.label || label,
+        is_active: isAktif
+      };
+    }).filter(b => b.is_active);
+
+    if (list.length > 0) return list;
+  }
+  return [
+    { id: 1, name: 'Bank BCA Operasional', bank_name: 'BCA', account_number: '1832-918-428', code: '1-10001', label: 'BCA (1832-918-428) - Rekening Operasional', is_active: true },
+    { id: 2, name: 'Bank Mandiri Operasional', bank_name: 'Mandiri', account_number: '130-0019283', code: '1-10002', label: 'Mandiri (130-0019283) - Rekening Operasional', is_active: true },
+    { id: 3, name: 'Kas Kecil / Petty Cash', bank_name: 'Kasir', account_number: 'CASH-01', code: '1-10003', label: 'Kas Kecil / Tunai (CASH-01)', is_active: true }
+  ];
+}
+
+function getEffectiveCoaAccounts(coaAccounts) {
+  if (Array.isArray(coaAccounts) && coaAccounts.length > 0) {
+    const list = coaAccounts.map((a, idx) => {
+      const code = a.kode || a.code || '';
+      const name = a.nama || a.name || '';
+      let grp = Number(a.account_group || a.group_id);
+      if (isNaN(grp) || grp === 0) {
+        const firstDigit = parseInt(code.charAt(0), 10);
+        if (!isNaN(firstDigit)) grp = firstDigit;
+        else if (a.tipe === 'Equity' || a.category?.includes('Modal') || a.kategori?.includes('Modal')) grp = 3;
+        else if (a.tipe === 'Liabilities' || a.category?.includes('Kewajiban') || a.kategori?.includes('Kewajiban')) grp = 2;
+        else if (a.tipe === 'Income' || a.category?.includes('Pendapatan') || a.kategori?.includes('Pendapatan')) grp = 4;
+        else grp = 1;
+      }
+      const isAktif = a.status ? a.status === 'Aktif' : (a.is_active !== undefined ? Number(a.is_active) !== 0 : true);
+      return {
+        id: a.id || idx + 1,
+        code,
+        name,
+        group_id: grp,
+        category: a.kategori || a.tipe || a.report_class || '',
+        is_active: isAktif
+      };
+    }).filter(a => a.is_active && a.code && a.name);
+
+    if (list.length > 0) return list;
+  }
+  return [
+    { id: 301, code: '3-10001', name: 'Modal Pemilik / Ekuitas Pendiri', group_id: 3, category: 'Modal / Ekuitas', is_active: true },
+    { id: 302, code: '3-10002', name: 'Modal Disetor - Samit (Investor)', group_id: 3, category: 'Modal / Ekuitas', is_active: true },
+    { id: 303, code: '3-10003', name: 'Laba Ditahan (Retained Earnings)', group_id: 3, category: 'Modal / Ekuitas', is_active: true },
+    { id: 201, code: '2-10100', name: 'Hutang Pemegang Saham / Pihak Berelasi', group_id: 2, category: 'Kewajiban / Pinjaman', is_active: true },
+    { id: 202, code: '2-10200', name: 'Hutang Bank / Pinjaman Usaha', group_id: 2, category: 'Kewajiban / Pinjaman', is_active: true },
+    { id: 203, code: '2-10300', name: 'Pendapatan Diterima di Muka (Deferred Revenue)', group_id: 2, category: 'Kewajiban Lancar', is_active: true },
+    { id: 401, code: '4-10100', name: 'Pendapatan Kursus & Pelatihan Siswa', group_id: 4, category: 'Pendapatan Operasional', is_active: true },
+    { id: 402, code: '4-10200', name: 'Pendapatan Pendaftaran & Sertifikasi', group_id: 4, category: 'Pendapatan Operasional', is_active: true },
+    { id: 801, code: '8-10000', name: 'Pendapatan Lain-lain / Hibah Non-Operasional', group_id: 8, category: 'Pendapatan Non-Operasional', is_active: true },
+  ];
+}
+
+// ── Adjust Inflow Modal (Audit Trail & Bukti Transfer) ──────────
+function AdjustInflowModal({ item, onClose, onSave, banks = [], coaAccounts = [] }) {
+  if (!item) return null;
+
+  const effectiveBanks = useMemo(() => getEffectiveBanks(banks), [banks]);
+  const effectiveCoa = useMemo(() => getEffectiveCoaAccounts(coaAccounts), [coaAccounts]);
+
+  const equityAccounts = useMemo(() => effectiveCoa.filter(a => Number(a.group_id) === 3), [effectiveCoa]);
+  const liabilityAccounts = useMemo(() => effectiveCoa.filter(a => Number(a.group_id) === 2), [effectiveCoa]);
+  const incomeAccounts = useMemo(() => effectiveCoa.filter(a => [4, 8].includes(Number(a.group_id))), [effectiveCoa]);
+  const otherAccounts = useMemo(() => effectiveCoa.filter(a => ![2, 3, 4, 8].includes(Number(a.group_id))), [effectiveCoa]);
+
+  const [realizedAmount, setRealizedAmount] = useState(Number(item.expected_amount || item.amount || 21000000));
+  const [adjustedBy, setAdjustedBy] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return u.name || u.full_name || u.username || 'Admin Finance (Faizal)';
+    } catch {
+      return 'Admin Finance (Faizal)';
+    }
+  });
+
+  const [adjustedAt, setAdjustedAt] = useState(() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  });
+
+  const [targetBankCoa, setTargetBankCoa] = useState(() => {
+    if (item.target_bank_coa) return item.target_bank_coa;
+    if (item.cash_account_name) return item.cash_account_name;
+    const match = effectiveBanks.find(b => (b.name || '').includes('BCA') || (b.label || '').includes('BCA'));
+    return match ? (match.label || match.name) : (effectiveBanks[0]?.label || 'BCA (1832-918-428) - Rekening Operasional');
+  });
+
+  const [creditCoa, setCreditCoa] = useState(() => {
+    if (item.credit_coa) return item.credit_coa;
+    if (item.source_category?.includes('[')) return item.source_category;
+    const isSamitOrModal = (item.party_name || '').toLowerCase().includes('samit') ||
+                           (item.classification || '').toLowerCase().includes('modal') ||
+                           (item.description || '').toLowerCase().includes('modal') ||
+                           (item.description || '').toLowerCase().includes('suntikan');
+    if (isSamitOrModal) {
+      const samitAcc = equityAccounts.find(a => (a.name || '').toLowerCase().includes('samit') || a.code === '3-10002');
+      if (samitAcc) return `[${samitAcc.code}] ${samitAcc.name}`;
+      if (equityAccounts[0]) return `[${equityAccounts[0].code}] ${equityAccounts[0].name}`;
+    }
+    return equityAccounts[0] ? `[${equityAccounts[0].code}] ${equityAccounts[0].name}` : (effectiveCoa[0] ? `[${effectiveCoa[0].code}] ${effectiveCoa[0].name}` : '[3-10001] Modal Pemilik / Ekuitas Pendiri');
+  });
+
+  useEffect(() => {
+    if (!targetBankCoa && effectiveBanks.length > 0) {
+      const match = effectiveBanks.find(b => (b.name || '').includes('BCA') || (b.label || '').includes('BCA'));
+      setTargetBankCoa(match ? (match.label || match.name) : (effectiveBanks[0]?.label || ''));
+    }
+  }, [effectiveBanks, targetBankCoa]);
+
+  useEffect(() => {
+    if (!creditCoa && equityAccounts.length > 0) {
+      setCreditCoa(`[${equityAccounts[0].code}] ${equityAccounts[0].name}`);
+    }
+  }, [equityAccounts, creditCoa]);
+
+  const [proofFile, setProofFile] = useState(item.proof_file || '');
+  const [proofName, setProofName] = useState(item.proof_name || '');
+  const [proofLink, setProofLink] = useState(item.proof_link || '');
+  const [notes, setNotes] = useState(`Dana dari ${item.party_name || 'rekanan'} telah diterima di rekening ${targetBankCoa} dan diverifikasi mutasi bank.`);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Ukuran file maksimal 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProofFile(reader.result);
+      setProofName(file.name);
+      setErrorMsg('');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUseSample = () => {
+    setProofFile(SAMPLE_SAMIT_RECEIPT);
+    setProofName('m-bca-transfer-21jt-samit.png');
+    setErrorMsg('');
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!realizedAmount || realizedAmount <= 0) {
+      setErrorMsg('Nominal realisasi harus lebih dari 0.');
+      return;
+    }
+    if (!proofFile && !proofLink.trim()) {
+      setErrorMsg('Bukti transfer (upload foto/slip atau tautkan link dokumen) wajib dilampirkan.');
+      return;
+    }
+    if (!adjustedBy.trim()) {
+      setErrorMsg('Nama petugas yang meng-adjust wajib diisi.');
+      return;
+    }
+
+    onSave({
+      id: item.related_proj_id || item.id,
+      number: item.related_proj_number || item.number,
+      title: item.description || item.title,
+      party_name: item.party_name,
+      realized_amount: Number(realizedAmount),
+      transaction_date: item.transaction_date,
+      adjusted_by: adjustedBy.trim(),
+      adjusted_at: adjustedAt,
+      target_bank_coa: targetBankCoa,
+      credit_coa: creditCoa,
+      proof_file: proofFile,
+      proof_name: proofName || (proofLink ? 'Link Dokumen' : 'bukti-transfer.jpg'),
+      proof_link: proofLink.trim(),
+      notes: notes.trim(),
+      classification: item.classification
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/80 max-w-xl w-full max-h-[92vh] overflow-y-auto custom-scrollbar">
+        {/* Header */}
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/80 to-blue-50/60">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-base font-bold text-slate-900">
+                Adjust & Realisasikan Penerimaan Kas
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Input bukti bayar, waktu, petugas adjust, dan rekening COA tujuan
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-white border border-transparent hover:border-slate-200 transition cursor-pointer"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Ringkasan Dokumen */}
+        <div className="p-5 pb-0">
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Nomor Rencana / Dokumen:</span>
+              <strong className="text-slate-800 font-mono">{item.number || `#${item.id}`}</strong>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Pihak / Sumber Pengirim:</span>
+              <strong className="text-blue-700 font-semibold">{item.party_name || '-'}</strong>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Estimasi Rencana Masuk:</span>
+              <strong className="text-emerald-700 font-mono text-sm">{money(item.expected_amount || item.amount)}</strong>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Tanggal Rencana Semula:</span>
+              <span className="text-slate-600 font-medium">{item.transaction_date || item.jatuh_tempo || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium flex items-center gap-2">
+              <span>⚠</span> {errorMsg}
+            </div>
+          )}
+
+          {/* Nominal Realisasi */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Nominal Kas Diterima (Rp) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="number"
+              value={realizedAmount}
+              onChange={(e) => setRealizedAmount(e.target.value)}
+              className="w-full px-3.5 py-2 text-sm font-bold font-mono text-emerald-700 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Tanggal & Jam */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                <ClockIcon className="w-3.5 h-3.5 text-slate-400" />
+                Tanggal & Jam Adjust <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={adjustedAt}
+                onChange={(e) => setAdjustedAt(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="YYYY-MM-DD HH:mm:ss"
+                required
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">Waktu server pencatatan mutasi</span>
+            </div>
+
+            {/* Petugas Adjuster */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                <UserIcon className="w-3.5 h-3.5 text-slate-400" />
+                Petugas yang Meng-adjust <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={adjustedBy}
+                onChange={(e) => setAdjustedBy(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="Nama admin / CFO"
+                required
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">Tercatat di Audit Trail</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Rekening Masuk (Daftar Rekening Terdaftar) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Rekening Masuk (Kas/Bank) <span className="text-rose-500">*</span></span>
+                <span className="text-[10px] text-blue-600 font-semibold">Tarik Rekening</span>
+              </label>
+              <select
+                value={targetBankCoa}
+                onChange={(e) => setTargetBankCoa(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              >
+                {effectiveBanks.map(b => {
+                  const optVal = b.label || `${b.name || b.bank_name} (${b.account_number || ''})`.trim();
+                  const optLabel = b.label || `${b.name || b.bank_name} (${b.account_number || '—'})`;
+                  return (
+                    <option key={b.id || optVal} value={optVal}>
+                      {optLabel}
+                    </option>
+                  );
+                })}
+              </select>
+              <span className="text-[10px] text-emerald-600 font-semibold mt-1 block">Debit: Saldo Bank Terdaftar Bertambah</span>
+            </div>
+
+            {/* Akun Lawan Kredit (Daftar Akun COA) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Akun Lawan Kredit (COA) <span className="text-rose-500">*</span></span>
+                <span className="text-[10px] text-emerald-600 font-semibold">Tarik COA</span>
+              </label>
+              <select
+                value={creditCoa}
+                onChange={(e) => setCreditCoa(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              >
+                {equityAccounts.length > 0 && (
+                  <optgroup label="Ekuitas & Modal Disetor (Group 3)">
+                    {equityAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {liabilityAccounts.length > 0 && (
+                  <optgroup label="Kewajiban & Pinjaman Pihak Lain (Group 2)">
+                    {liabilityAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {incomeAccounts.length > 0 && (
+                  <optgroup label="Pendapatan & Hibah (Group 4 & 8)">
+                    {incomeAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {otherAccounts.length > 0 && (
+                  <optgroup label="Akun Lainnya">
+                    {otherAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              <span className="text-[10px] text-blue-600 font-semibold mt-1 block">Kredit: Pos Sumber Dana COA</span>
+            </div>
+          </div>
+
+          {/* Bukti Bayar / Slip Mutasi */}
+          <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <UploadCloudIcon className="w-4 h-4 text-emerald-600" />
+                Bukti Bayar / Slip Transfer <span className="text-rose-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleUseSample}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-100 px-2 py-0.5 rounded-md transition cursor-pointer"
+                title="Isi otomatis contoh slip transfer BCA resmi"
+              >
+                ⚡ Gunakan Contoh Struk BCA
+              </button>
+            </div>
+
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={handleFileUpload}
+              className="text-xs text-slate-600 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+            />
+
+            {proofFile && (
+              <div className="mt-2 p-2 bg-white rounded-lg border border-slate-200 flex items-center gap-3">
+                <img
+                  src={proofFile}
+                  alt="Preview Bukti"
+                  className="w-14 h-14 object-cover rounded-md border border-slate-200 shrink-0"
+                />
+                <div className="overflow-hidden flex-1">
+                  <span className="text-xs font-bold text-slate-800 block truncate">{proofName || 'bukti-transfer.jpg'}</span>
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                    ✓ Bukti Siap Diposting ke Sistem
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setProofFile(''); setProofName(''); }}
+                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                  title="Hapus foto bukti"
+                >
+                  <XIcon className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Input Link Bukti / Google Drive */}
+            <div className="pt-2 border-t border-slate-200/80">
+              <label className="text-[11px] font-semibold text-slate-600 block mb-1 flex items-center gap-1">
+                <LinkIcon className="w-3.5 h-3.5 text-blue-500" />
+                Atau Tautkan Link Dokumen / Google Drive:
+              </label>
+              <div className="relative">
+                <input
+                  type="url"
+                  value={proofLink}
+                  onChange={(e) => setProofLink(e.target.value)}
+                  placeholder="https://drive.google.com/... atau tautan bukti transfer"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                />
+                <ExternalLinkIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Catatan */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Catatan Rekonsiliasi (Opsional)
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              placeholder="Catatan verifikasi transfer..."
+            />
+          </div>
+
+          {/* Footer Submit */}
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer"
+            >
+              ✓ Simpan & Realisasikan (Posting ke Kas & COA)
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Create Projection Modal (Non-Invoice Planning) ─────────────
+function CreateProjectionModal({ onClose, onSave, banks = [], coaAccounts = [] }) {
+  const effectiveBanks = useMemo(() => getEffectiveBanks(banks), [banks]);
+  const effectiveCoa = useMemo(() => getEffectiveCoaAccounts(coaAccounts), [coaAccounts]);
+
+  const equityAccounts = useMemo(() => effectiveCoa.filter(a => Number(a.group_id) === 3), [effectiveCoa]);
+  const liabilityAccounts = useMemo(() => effectiveCoa.filter(a => Number(a.group_id) === 2), [effectiveCoa]);
+  const incomeAccounts = useMemo(() => effectiveCoa.filter(a => [4, 8].includes(Number(a.group_id))), [effectiveCoa]);
+  const otherAccounts = useMemo(() => effectiveCoa.filter(a => ![2, 3, 4, 8].includes(Number(a.group_id))), [effectiveCoa]);
+
+  const [title, setTitle] = useState('');
+  const [partyName, setPartyName] = useState('');
+  const [sourceCategory, setSourceCategory] = useState(() => {
+    return equityAccounts[0] ? `[${equityAccounts[0].code}] ${equityAccounts[0].name}` : (effectiveCoa[0] ? `[${effectiveCoa[0].code}] ${effectiveCoa[0].name}` : 'Setoran Modal Investor (Ekuitas)');
+  });
+  const [amount, setAmount] = useState('');
+  const [transactionDate, setTransactionDate] = useState(() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  });
+  const [cashAccountName, setCashAccountName] = useState(() => {
+    const defaultBca = effectiveBanks.find(b => (b.name || '').includes('BCA') || (b.label || '').includes('BCA'));
+    return defaultBca ? (defaultBca.label || defaultBca.name) : (effectiveBanks[0]?.label || 'BCA (1832-918-428) - Rekening Operasional');
+  });
+
+  useEffect(() => {
+    if (equityAccounts.length > 0 && (!sourceCategory || sourceCategory === 'Setoran Modal Investor (Ekuitas)')) {
+      setSourceCategory(`[${equityAccounts[0].code}] ${equityAccounts[0].name}`);
+    }
+  }, [equityAccounts, sourceCategory]);
+
+  useEffect(() => {
+    if (effectiveBanks.length > 0 && (!cashAccountName || cashAccountName === 'BCA (1832-918-428)')) {
+      const defaultBca = effectiveBanks.find(b => (b.name || '').includes('BCA') || (b.label || '').includes('BCA'));
+      setCashAccountName(defaultBca ? (defaultBca.label || defaultBca.name) : (effectiveBanks[0]?.label || ''));
+    }
+  }, [effectiveBanks, cashAccountName]);
+
+  const [description, setDescription] = useState('');
+  const [proofFile, setProofFile] = useState('');
+  const [proofName, setProofName] = useState('');
+  const [proofLink, setProofLink] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Ukuran file maksimal 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProofFile(reader.result);
+      setProofName(file.name);
+      setErrorMsg('');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setErrorMsg('Judul rencana wajib diisi.');
+      return;
+    }
+    if (!partyName.trim()) {
+      setErrorMsg('Nama pihak / pengirim wajib diisi.');
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setErrorMsg('Nominal rencana harus lebih dari 0.');
+      return;
+    }
+    if (!transactionDate) {
+      setErrorMsg('Tanggal rencana wajib ditentukan.');
+      return;
+    }
+
+    const newId = `NONINV-${Date.now().toString().slice(-4)}`;
+    const newNumber = `PLAN-${partyName.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}-01`;
+
+    onSave({
+      id: newId,
+      number: newNumber,
+      title: title.trim(),
+      party_name: partyName.trim(),
+      source_category: sourceCategory,
+      source_category_label: sourceCategory.replace(/^\[[^\]]+\]\s*/, '') || 'Aktivitas Pendanaan',
+      amount: Number(amount),
+      transaction_date: transactionDate,
+      description: description.trim() || title.trim(),
+      cash_account_name: cashAccountName,
+      payment_status: 'unpaid',
+      created_at: new Date().toISOString(),
+      proof_file: proofFile,
+      proof_name: proofName,
+      proof_link: proofLink.trim(),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/80 max-w-lg w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+        {/* Header */}
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/80 to-indigo-50/60">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              + Tambah Rencana Kas Masuk (Non-Invoice)
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Rencanakan proyeksi dana masuk dari akun COA dan rekening terdaftar
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-white border border-transparent hover:border-slate-200 transition cursor-pointer"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+              ⚠ {errorMsg}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Judul Rencana Penerimaan <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3.5 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              placeholder="Contoh: Suntikan Dana Samit untuk Modal Operasional"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Pihak / Pengirim Dana <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={partyName}
+                onChange={(e) => setPartyName(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="Contoh: Samit"
+                required
+              />
+            </div>
+
+            {/* Kategori Pendanaan ditarik dari COA */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Akun Sumber COA <span className="text-rose-500">*</span></span>
+                <span className="text-[10px] text-emerald-600 font-semibold">Tarik dari COA</span>
+              </label>
+              <select
+                value={sourceCategory}
+                onChange={(e) => setSourceCategory(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              >
+                {equityAccounts.length > 0 && (
+                  <optgroup label="Ekuitas & Modal Disetor (Group 3)">
+                    {equityAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {liabilityAccounts.length > 0 && (
+                  <optgroup label="Kewajiban & Pinjaman Pihak Lain (Group 2)">
+                    {liabilityAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {incomeAccounts.length > 0 && (
+                  <optgroup label="Pendapatan & Hibah (Group 4 & 8)">
+                    {incomeAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {otherAccounts.length > 0 && (
+                  <optgroup label="Akun Lainnya">
+                    {otherAccounts.map(a => (
+                      <option key={a.id || a.code} value={`[${a.code}] ${a.name}`}>
+                        [{a.code}] {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Estimasi Nominal (Rp) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full px-3.5 py-2 text-xs font-bold font-mono text-emerald-700 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                placeholder="Contoh: 21000000"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Rencana Tanggal Masuk <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={transactionDate}
+                onChange={(e) => setTransactionDate(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Rencana Rekening Penerima ditarik dari Rekening Terdaftar */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+              <span>Rencana Rekening Penerima <span className="text-rose-500">*</span></span>
+              <span className="text-[10px] text-blue-600 font-semibold">Tarik dari Rekening Terdaftar</span>
+            </label>
+            <select
+              value={cashAccountName}
+              onChange={(e) => setCashAccountName(e.target.value)}
+              className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            >
+              {effectiveBanks.map(b => {
+                const optVal = b.label || `${b.name || b.bank_name} (${b.account_number || ''})`.trim();
+                const optLabel = b.label || `${b.name || b.bank_name} (${b.account_number || '—'})`;
+                return (
+                  <option key={b.id || optVal} value={optVal}>
+                    {optLabel}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Uraian / Keterangan Tambahan
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              placeholder="Catatan rencana aliran dana..."
+            />
+          </div>
+
+          {/* Lampiran Bukti Dokumen / Rencana (Foto atau Link) */}
+          <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <UploadCloudIcon className="w-4 h-4 text-blue-600" />
+                Upload Foto Bukti / Tautkan Link (Opsional)
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">Bisa Foto & Link Dokumen</span>
+            </div>
+
+            {/* Upload File / Foto */}
+            <div>
+              <span className="text-[11px] font-semibold text-slate-600 block mb-1">
+                1. Upload Foto Bukti / Dokumen (JPG, PNG, PDF maks 5MB)
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleFileUpload}
+                  className="w-full text-xs text-slate-600 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+                {proofFile && (
+                  <button
+                    type="button"
+                    onClick={() => { setProofFile(''); setProofName(''); }}
+                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                    title="Hapus foto terunggah"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {proofFile && (
+                <div className="mt-2 p-2 bg-white rounded-lg border border-slate-200 flex items-center gap-3">
+                  <img
+                    src={proofFile}
+                    alt="Preview Bukti"
+                    className="w-12 h-12 object-cover rounded-md border border-slate-200 shrink-0"
+                  />
+                  <div className="overflow-hidden flex-1">
+                    <span className="text-xs font-bold text-slate-800 block truncate">{proofName || 'lampiran-dokumen.jpg'}</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                      ✓ Foto bukti siap disimpan
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input Link Google Drive / Cloud Dokumen */}
+            <div className="pt-2 border-t border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-600 block mb-1">
+                2. Atau Tautkan Link Dokumen (Google Drive / Cloud URL)
+              </span>
+              <div className="relative">
+                <input
+                  type="url"
+                  value={proofLink}
+                  onChange={(e) => setProofLink(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/... atau https://..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                />
+                <LinkIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Submit */}
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition flex items-center gap-1.5 cursor-pointer"
+            >
+              + Simpan Rencana Proyeksi (Unpaid)
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MAIN DASHBOARD COMPONENT
 // ═══════════════════════════════════════════════════════════════
@@ -350,14 +1357,68 @@ export default function DashboardFinance() {
   const [auditTab, setAuditTab] = useState('projection');
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [auditModal, setAuditModal] = useState(null);
+  const [isCreateProjOpen, setIsCreateProjOpen] = useState(false);
+  const [adjustModalItem, setAdjustModalItem] = useState(null);
+  const [syncTrigger, setSyncTrigger] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedId, setHighlightedId] = useState(null);
   const [viewMode, setViewMode] = useState('split');
   const [cashflowView, setCashflowView] = useState('chart');
   const [hoveredMatchKey, setHoveredMatchKey] = useState(null);
-  // Keep the audit panel aligned with the year KPI cards by default.
-  // Users can still narrow the panel to inflow or outflow explicitly.
-  const [flowFilter, setFlowFilter] = useState('all');
+  const [flowFilter] = useState('income');
+
+  // ── Master Rekening & COA Data (Tarik Dinamis) ─────────────
+  const [registeredBanks, setRegisteredBanks] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('finance_rekening_data') || '[]');
+      if (Array.isArray(saved) && saved.length > 0) return saved;
+    } catch {}
+    return [];
+  });
+
+  const [coaAccounts, setCoaAccounts] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('finance_coa_data') || '[]');
+      if (Array.isArray(saved) && saved.length > 0) return saved;
+    } catch {}
+    return [];
+  });
+
+  // Re-sync bank & COA data from localStorage and backend lookup
+  const refreshLookups = useCallback(() => {
+    try {
+      const savedRek = JSON.parse(localStorage.getItem('finance_rekening_data') || '[]');
+      if (Array.isArray(savedRek) && savedRek.length > 0) setRegisteredBanks(savedRek);
+    } catch {}
+    try {
+      const savedCoa = JSON.parse(localStorage.getItem('finance_coa_data') || '[]');
+      if (Array.isArray(savedCoa) && savedCoa.length > 0) setCoaAccounts(savedCoa);
+    } catch {}
+
+    axios.get('/api/accounting.php?view=lookups')
+      .then(res => {
+        const rawBanks = res.data?.data?.banks || res.data?.banks || [];
+        const rawAccounts = res.data?.data?.accounts || res.data?.accounts || [];
+        if (Array.isArray(rawBanks) && rawBanks.length > 0) {
+          setRegisteredBanks(rawBanks);
+        }
+        if (Array.isArray(rawAccounts) && rawAccounts.length > 0) {
+          setCoaAccounts(rawAccounts);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshLookups();
+    const handleStorageChange = (e) => {
+      if (e.key === 'finance_rekening_data' || e.key === 'finance_coa_data') {
+        refreshLookups();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [refreshLookups]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -420,10 +1481,6 @@ export default function DashboardFinance() {
   const activeData = useMemo(() => {
     if (!data) return null;
     const cloned = JSON.parse(JSON.stringify(data));
-    // Production must be database-only. Browser localStorage is an optional
-    // development convenience and must never reintroduce stale/demo finance
-    // rows after deployment.
-    if (import.meta.env.PROD) return cloned;
     try {
       const rawCustom = JSON.parse(localStorage.getItem('saved_custom_invoices') || '[]');
       let hasFixedBank = false;
@@ -697,6 +1754,115 @@ export default function DashboardFinance() {
             }
           }
         });
+      }
+
+      // ── KONDISI B.2: PROYEKSI & REALISASI KAS MASUK DARI TRANSAKSI PEMASUKAN (finance_income_data) ──
+      try {
+        const rawIncome = JSON.parse(localStorage.getItem('finance_income_data') || '[]');
+        const deletedIncomeIds = new Set(JSON.parse(localStorage.getItem('finance_income_deleted_ids') || '[]').map(String));
+        if (Array.isArray(rawIncome) && rawIncome.length > 0) {
+          const todayIso = new Date().toISOString().split('T')[0];
+          const existingIncomeIds = new Set((cloned.projection_items || []).map(p => String(p.id || p.number)));
+          (cloned.realization_items || []).forEach(r => {
+            if (r.id) existingIncomeIds.add(String(r.id));
+            if (r.number) existingIncomeIds.add(String(r.number));
+          });
+
+          rawIncome.forEach(inc => {
+            const incIdStr = String(inc.id || inc.noTransaksi || '');
+            if (!incIdStr || deletedIncomeIds.has(incIdStr)) return;
+            const docNum = inc.noTransaksi || (incIdStr.startsWith('TRX-') ? incIdStr : `TRX-${incIdStr}`);
+            if (existingIncomeIds.has(docNum) || existingIncomeIds.has(incIdStr)) return;
+            existingIncomeIds.add(docNum);
+            existingIncomeIds.add(incIdStr);
+
+            const incDate = inc.tanggal || new Date().toISOString().split('T')[0];
+            const d = new Date(incDate);
+            if (isNaN(d.getTime())) return;
+            const incYear = d.getFullYear();
+            const incMonth = d.getMonth() + 1;
+            if (incYear !== Number(year)) return;
+
+            const nom = Number(inc.nominal) || 0;
+            const st = (inc.status || '').toLowerCase();
+            const isPaid = st === 'lunas' || st === 'paid';
+            const isOverdue = !isPaid && todayIso > incDate;
+            const currentStatus = isPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid');
+
+            const projIncomeItem = {
+              id: docNum,
+              number: docNum,
+              transaction_date: incDate,
+              type: 'income',
+              amount: nom,
+              party_name: inc.siswa || inc.pihak || 'Pihak Terkait',
+              description: inc.deskripsi || `${inc.kategori || 'Penerimaan Kas'} - ${inc.siswa || ''}`,
+              source_type: 'income_transaction',
+              classification: inc.kategori || 'Pemasukan Kas',
+              approval_status: 'approved',
+              payment_status: currentStatus,
+              projection_status: isPaid ? 'realized' : 'projected',
+              was_realized: isPaid,
+              cash_account_name: inc.sumberDana ? `Rekening ${inc.sumberDana}` : 'BCA (1832-918-428)',
+              jatuh_tempo: incDate,
+              is_non_invoice: true,
+              proof_file: inc.buktiFoto,
+              proof_name: inc.buktiNama,
+              proof_link: inc.buktiLink,
+            };
+
+            if (!cloned.projection_items) cloned.projection_items = [];
+            cloned.projection_items.unshift(projIncomeItem);
+
+            if (cloned.months && cloned.months[incMonth - 1]) {
+              cloned.months[incMonth - 1].projection = (
+                Number(cloned.months[incMonth - 1].projection || 0) + nom
+              ).toFixed(2);
+            }
+
+            if (isPaid) {
+              const realIncomeItem = {
+                ...projIncomeItem,
+                id: `REAL-${docNum}`,
+                number: docNum,
+                amount: nom,
+                payment_status: 'paid',
+                paid_at: incDate,
+                related_proj_id: docNum,
+                related_proj_number: docNum,
+              };
+              if (!cloned.realization_items) cloned.realization_items = [];
+              cloned.realization_items.unshift(realIncomeItem);
+
+              if (cloned.months && cloned.months[incMonth - 1]) {
+                cloned.months[incMonth - 1].realization = (
+                  Number(cloned.months[incMonth - 1].realization || 0) + nom
+                ).toFixed(2);
+                cloned.months[incMonth - 1].income = (
+                  Number(cloned.months[incMonth - 1].income || 0) + nom
+                ).toFixed(2);
+              }
+            } else {
+              const pendingRealItem = {
+                ...projIncomeItem,
+                id: `PENDING-${docNum}`,
+                number: `MENUNGGU-${docNum}`,
+                amount: 0,
+                expected_amount: nom,
+                payment_status: currentStatus,
+                paid_at: null,
+                is_pending_realization: true,
+                related_proj_id: docNum,
+                related_proj_number: docNum,
+              };
+              if (!cloned.realization_items) cloned.realization_items = [];
+              cloned.realization_items.push(pendingRealItem);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Gagal memproses finance_income_data:', err);
+      }
 
         // ── KONDISI C: TRANSAKSI PENGELUARAN & PENGGAJIAN LOKAL (finance_expense_data) ──
         try {
@@ -731,6 +1897,18 @@ export default function DashboardFinance() {
               const isSalary = (exp.kategori || '').toLowerCase().includes('gaji') ||
                                (exp.kategori || '').toLowerCase().includes('payroll') ||
                                (exp.deskripsi || '').toLowerCase().includes('gaji');
+
+              // Deduplicate if already present in server realization items
+              const isDuplicateOfServer = (cloned.realization_items || []).some(r => {
+                if (r.type !== 'expense') return false;
+                if (exp.salary_request_id && r.salary_request_id && Number(exp.salary_request_id) === Number(r.salary_request_id)) return true;
+                if (expIdStr === `legacy:${r.id}` || expIdStr === String(r.id)) return true;
+                if (isSalary && (r.classification === 'Penggajian Karyawan' || r.source_type === 'salary') && Math.abs(Number(r.amount) - amount) < 1) {
+                  return true;
+                }
+                return false;
+              });
+              if (isDuplicateOfServer) return;
 
               // 1. Proyeksi Kas Keluar
               const projExpItem = {
@@ -868,12 +2046,11 @@ export default function DashboardFinance() {
           cloned.totals.expense = totalExp.toFixed(2);
           cloned.totals.balance = (totalInc - totalExp).toFixed(2);
         }
-      }
     } catch (e) {
       console.warn('Gagal sinkronisasi invoice lokal ke audit keuangan', e);
     }
     return cloned;
-  }, [data, year]);
+  }, [data, year, syncTrigger]);
 
   // KPI comparison must use the same period. The detail list intentionally
   // keeps the future projection horizon, but it must not be compared against
@@ -886,9 +2063,11 @@ export default function DashboardFinance() {
       const match = String(raw).match(/^(\d{4})/);
       return match ? Number(match[1]) === selectedYear : true;
     };
-    const projectionItems = (activeData.projection_items || []).filter(isInSelectedYear);
+    const projectionItems = (activeData.projection_items || []).filter(item =>
+      isInSelectedYear(item) && item.type === 'income'
+    );
     const realizationItems = (activeData.realization_items || []).filter(item =>
-      isInSelectedYear(item) && !item.is_pending_realization && Number(item.amount) > 0
+      isInSelectedYear(item) && item.type === 'income' && !item.is_pending_realization && Number(item.amount) > 0
     );
     return {
       projection: projectionItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
@@ -1126,6 +2305,149 @@ export default function DashboardFinance() {
       const el = document.getElementById(`audit-row-${idKey}`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
+  }, []);
+
+  const handleOpenAdjust = useCallback((item) => {
+    refreshLookups();
+    setAdjustModalItem(item);
+  }, [refreshLookups]);
+
+  const handleOpenCreateProj = useCallback(() => {
+    refreshLookups();
+    setIsCreateProjOpen(true);
+  }, [refreshLookups]);
+
+  const handleSaveAdjust = useCallback((formData) => {
+    const stored = getStoredCustomProjections();
+    let found = false;
+    const updated = stored.map(p => {
+      if (String(p.id) === String(formData.id) || String(p.number) === String(formData.number) || String(p.id) === String(formData.related_proj_id)) {
+        found = true;
+        return {
+          ...p,
+          payment_status: 'paid',
+          realized_amount: Number(formData.realized_amount || p.amount),
+          adjusted_by: formData.adjusted_by,
+          adjusted_at: formData.adjusted_at,
+          target_bank_coa: formData.target_bank_coa,
+          credit_coa: formData.credit_coa,
+          proof_file: formData.proof_file,
+          proof_name: formData.proof_name || 'bukti-transfer.jpg',
+          proof_link: formData.proof_link || '',
+          notes: formData.notes
+        };
+      }
+      return p;
+    });
+
+    if (!found) {
+      updated.push({
+        id: formData.id,
+        number: formData.number,
+        title: formData.title || formData.party_name,
+        party_name: formData.party_name,
+        amount: Number(formData.realized_amount),
+        transaction_date: formData.transaction_date,
+        payment_status: 'paid',
+        realized_amount: Number(formData.realized_amount),
+        adjusted_by: formData.adjusted_by,
+        adjusted_at: formData.adjusted_at,
+        target_bank_coa: formData.target_bank_coa,
+        credit_coa: formData.credit_coa,
+        proof_file: formData.proof_file,
+        proof_name: formData.proof_name || 'bukti-transfer.jpg',
+        proof_link: formData.proof_link || '',
+        notes: formData.notes
+      });
+    }
+    saveStoredCustomProjections(updated);
+
+    // 1. Sync ke finance_income_data (Transaksi Pemasukan Riil)
+    try {
+      const rawInc = JSON.parse(localStorage.getItem('finance_income_data') || '[]');
+      const incList = Array.isArray(rawInc) ? rawInc : [];
+      const newInc = {
+        id: `inc-adj-${Date.now()}`,
+        noTransaksi: `TRX-${(formData.adjusted_at || new Date().toISOString()).slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        tanggal: (formData.adjusted_at || new Date().toISOString()).slice(0, 10),
+        siswa: formData.party_name || 'Pihak Terkait',
+        kategori: formData.credit_coa?.includes('Modal') ? 'Aktivitas Pendanaan (Modal Disetor)' : (formData.classification || 'Aktivitas Pendanaan'),
+        sumberDana: formData.target_bank_coa?.includes('Mandiri') ? 'Mandiri' : 'BCA',
+        nominal: Number(formData.realized_amount),
+        status: 'Lunas',
+        deskripsi: `${formData.title || formData.description || 'Penerimaan Dana'} (Disesuaikan oleh ${formData.adjusted_by} pada ${formData.adjusted_at})`,
+        buktiType: formData.proof_file ? 'file' : (formData.proof_link ? 'link' : 'file'),
+        buktiFoto: formData.proof_file,
+        buktiNama: formData.proof_name || 'bukti-transfer.jpg',
+        buktiLink: formData.proof_link || ''
+      };
+      incList.unshift(newInc);
+      localStorage.setItem('finance_income_data', JSON.stringify(incList));
+    } catch (e) {
+      console.warn('Gagal sync ke finance_income_data:', e);
+    }
+
+    // 2. Sync Saldo ke Master Rekening (finance_rekening_data)
+    try {
+      const rekRaw = localStorage.getItem('finance_rekening_data');
+      if (rekRaw) {
+        const rekList = JSON.parse(rekRaw);
+        if (Array.isArray(rekList) && rekList.length > 0) {
+          const targetStr = (formData.target_bank_coa || '').toLowerCase();
+          const updatedReks = rekList.map(r => {
+            const rMatch = targetStr.includes((r.nama || '').toLowerCase()) ||
+                           (r.noRek && targetStr.includes(r.noRek)) ||
+                           (r.bank && targetStr.includes(r.bank.toLowerCase()));
+            if (rMatch) {
+              return { ...r, saldo: Number(r.saldo || 0) + Number(formData.realized_amount) };
+            }
+            return r;
+          });
+          localStorage.setItem('finance_rekening_data', JSON.stringify(updatedReks));
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal sync saldo ke finance_rekening_data:', e);
+    }
+
+    // 3. Sync Saldo ke Master COA (finance_coa_data)
+    try {
+      const coaRaw = localStorage.getItem('finance_coa_data');
+      if (coaRaw) {
+        const coaList = JSON.parse(coaRaw);
+        if (Array.isArray(coaList) && coaList.length > 0) {
+          const targetStr = (formData.target_bank_coa || '').toLowerCase();
+          const creditCodeMatch = (formData.credit_coa || '').match(/\[([0-9-]+)\]/);
+          const creditCode = creditCodeMatch ? creditCodeMatch[1] : '';
+
+          const updatedCoa = coaList.map(c => {
+            const isTargetBank = (c.kategori === 'Cash and Bank' || c.subtype?.includes('cash') || c.subtype?.includes('AST-CB') || Number(c.account_group) === 1) &&
+                                 (targetStr.includes((c.nama || '').toLowerCase()) || (c.kode && targetStr.includes(c.kode)));
+            const isCreditAccount = creditCode ? (c.kode === creditCode) : (formData.credit_coa && formData.credit_coa.includes(c.nama));
+
+            if (isTargetBank || isCreditAccount) {
+              return { ...c, saldo: Number(c.saldo || 0) + Number(formData.realized_amount) };
+            }
+            return c;
+          });
+          localStorage.setItem('finance_coa_data', JSON.stringify(updatedCoa));
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal sync saldo ke finance_coa_data:', e);
+    }
+
+    refreshLookups();
+    setAdjustModalItem(null);
+    setSyncTrigger(prev => prev + 1);
+  }, [refreshLookups]);
+
+  const handleSaveNewProjection = useCallback((newProj) => {
+    const stored = getStoredCustomProjections();
+    const updated = [newProj, ...stored];
+    saveStoredCustomProjections(updated);
+    setIsCreateProjOpen(false);
+    setSyncTrigger(prev => prev + 1);
   }, []);
 
   // ── Pie data ────────────────────────────────────────────────
@@ -1966,45 +3288,9 @@ export default function DashboardFinance() {
 
                     <div className="flex items-center gap-2.5 flex-wrap">
                       {/* Flow Filter (Kas Masuk / Kas Keluar / Semua) */}
-                      <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => setFlowFilter('income')}
-                          className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                            flowFilter === 'income'
-                              ? 'bg-emerald-600 text-white shadow-2xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                          title="Hanya menampilkan arus kas masuk / piutang & tagihan siswa"
-                        >
-                          <span className={`w-2 h-2 rounded-full ${flowFilter === 'income' ? 'bg-white' : 'bg-emerald-500'}`} />
-                          Kas Masuk (Inflow)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFlowFilter('expense')}
-                          className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                            flowFilter === 'expense'
-                              ? 'bg-rose-600 text-white shadow-2xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                          title="Hanya menampilkan arus kas keluar / beban & gaji"
-                        >
-                          <span className={`w-2 h-2 rounded-full ${flowFilter === 'expense' ? 'bg-white' : 'bg-rose-500'}`} />
-                          Kas Keluar (Outflow)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFlowFilter('all')}
-                          className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
-                            flowFilter === 'all'
-                              ? 'bg-blue-600 text-white shadow-2xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                          title="Tampilkan seluruh arus kas (Net Cashflow)"
-                        >
-                          Semua Arus Kas
-                        </button>
+                      <div className="flex items-center bg-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-2xs" title="Panel ini audit tagihan dan penerimaan kas masuk">
+                        <span className="w-2 h-2 rounded-full bg-white mr-1.5" />
+                        Kas Masuk (Inflow)
                       </div>
 
                       {/* Search Input */}
@@ -2067,7 +3353,7 @@ export default function DashboardFinance() {
                         <div className="fd-bs-header">
                           <div className="d-flex align-items-center gap-2">
                             <div className="rounded p-1.5 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: '#eff6ff', color: '#2563eb' }}>
-                              <BarChart3 style={{ width: 17, height: 17 }} />
+                              <FileTextIcon style={{ width: 17, height: 17 }} />
                             </div>
                             <div>
                               <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Proyeksi Arus Kas</h4>
@@ -2086,18 +3372,19 @@ export default function DashboardFinance() {
                           <table className="fd-bs-table">
                             <thead>
                               <tr>
-                                <th style={{ width: '20%' }}>No. Dokumen</th>
-                                <th style={{ width: '13%' }}>Tanggal</th>
-                                <th style={{ width: '18%' }}>Pihak / Rekanan</th>
+                                <th style={{ width: '18%' }}>No. Dokumen</th>
+                                <th style={{ width: '12%' }}>Tanggal</th>
+                                <th style={{ width: '16%' }}>Pihak / Rekanan</th>
                                 <th style={{ width: '13%' }}>Klasifikasi</th>
                                 <th style={{ width: '14%' }}>Nominal</th>
                                 <th style={{ width: '12%' }}>Rekening</th>
-                                <th style={{ width: '10%', textAlign: 'center' }}>Status</th>
+                                <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
+                                <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>
                               </tr>
                             </thead>
                             <tbody>
                               {filteredProjectionItems.length === 0 ? (
-                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
+                                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
                                   Tidak ada data proyeksi untuk periode {activePeriodLabel}.
                                 </td></tr>
                               ) : (
@@ -2107,6 +3394,7 @@ export default function DashboardFinance() {
                                   const mKey = getMatchKey(item, related);
                                   const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
                                   const isHigh = highlightedId === (item.id || item.number);
+                                  const isPaidStatus = item.projection_status === 'realized' || item.was_realized || item.payment_status === 'paid' || (related && (related.payment_status === 'paid' || Number(related.amount) > 0));
                                   return (
                                     <tr
                                       key={item.id || item.number || i}
@@ -2170,6 +3458,27 @@ export default function DashboardFinance() {
                                           return <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>;
                                         })()}
                                       </td>
+                                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                        {isPaidStatus ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAuditClick(item)}
+                                            className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
+                                            title="Lihat Detail & Bukti Audit"
+                                          >
+                                            <FileTextIcon style={{ width: 11, height: 11 }} /> Audit
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAuditClick(item)}
+                                            className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                            title="Lihat Detail Tagihan Siswa"
+                                          >
+                                            <FileTextIcon style={{ width: 11, height: 11 }} /> Detail
+                                          </button>
+                                        )}
+                                      </td>
                                     </tr>
                                   );
                                 })
@@ -2203,18 +3512,19 @@ export default function DashboardFinance() {
                           <table className="fd-bs-table">
                             <thead>
                               <tr>
-                                <th style={{ width: '20%' }}>No. Dokumen</th>
-                                <th style={{ width: '13%' }}>Tanggal</th>
-                                <th style={{ width: '18%' }}>Pihak / Rekanan</th>
+                                <th style={{ width: '18%' }}>No. Dokumen</th>
+                                <th style={{ width: '12%' }}>Tanggal</th>
+                                <th style={{ width: '16%' }}>Pihak / Rekanan</th>
                                 <th style={{ width: '13%' }}>Klasifikasi</th>
                                 <th style={{ width: '14%' }}>Nominal</th>
                                 <th style={{ width: '12%' }}>Rekening</th>
-                                <th style={{ width: '10%', textAlign: 'center' }}>Status</th>
+                                <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
+                                <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>
                               </tr>
                             </thead>
                             <tbody>
                               {filteredRealizationItems.length === 0 ? (
-                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
+                                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
                                   Tidak ada data realisasi untuk periode {activePeriodLabel}.
                                 </td></tr>
                               ) : (
@@ -2295,6 +3605,27 @@ export default function DashboardFinance() {
                                           <span className="badge-bs badge-bs-success">✓ Paid</span>
                                         )}
                                       </td>
+                                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                          {isPending ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleAuditClick(item)}
+                                              className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                              title="Lihat Detail Rencana"
+                                            >
+                                              <FileTextIcon style={{ width: 11, height: 11 }} /> Detail
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleAuditClick(item)}
+                                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
+                                              title="Lihat Detail & Bukti Audit"
+                                            >
+                                              <FileTextIcon style={{ width: 11, height: 11 }} /> Audit
+                                            </button>
+                                          )}
+                                        </td>
                                     </tr>
                                   );
                                 })
@@ -2408,6 +3739,27 @@ export default function DashboardFinance() {
             onClose={() => setAuditModal(null)}
             onSwitchTab={handleSwitchTab}
             currentTab={auditTab}
+          />
+        )}
+
+        {/* ── Adjust Inflow Modal ────────────────────────────── */}
+        {adjustModalItem && (
+          <AdjustInflowModal
+            item={adjustModalItem}
+            onClose={() => setAdjustModalItem(null)}
+            onSave={handleSaveAdjust}
+            banks={registeredBanks}
+            coaAccounts={coaAccounts}
+          />
+        )}
+
+        {/* ── Create Projection Modal ────────────────────────── */}
+        {isCreateProjOpen && (
+          <CreateProjectionModal
+            onClose={() => setIsCreateProjOpen(false)}
+            onSave={handleSaveNewProjection}
+            banks={registeredBanks}
+            coaAccounts={coaAccounts}
           />
         )}
       </div>

@@ -375,26 +375,26 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
           };
         });
 
-      // Bersihkan list lama dari prefiks sementara CB- jika ada
-      const cleanedExisting = liveStudents.filter(s => !String(s.nis || s.id).startsWith("CB-"));
-      const cleanedLocal = localOnly.filter(s => !String(s.nis || s.id).startsWith("CB-"));
+      // 1. Sinkronisasi ke backend agar database peserta_intensif ikut sinkron & terhapus jika di web dihapus
+      try {
+        await axios.post("/api/sync_students_web.php", { students: result.data });
+      } catch (beSyncErr) {
+        console.warn("Backend sync notice:", beSyncErr);
+      }
 
-      const mergedList = [...cleanedExisting];
-      const newLocalOnly = [...cleanedLocal];
+      // 2. Deletion mirroring:
+      // Hanya pertahankan siswa non-web manual, dan buang data siswa web lama yang sudah dihapus dari creativabridging.com
+      const activeWebIds = new Set(result.data.map(p => Number(p.id)));
 
-      formattedParticipants.forEach(fp => {
-        const existingIdx = mergedList.findIndex(
-          s => s.id === fp.id || s.nis === fp.nis || (s.nama && s.nama.toLowerCase() === fp.nama.toLowerCase())
-        );
-        if (existingIdx === -1) {
-          mergedList.push(fp);
-          newLocalOnly.push(fp);
-        } else {
-          mergedList[existingIdx] = { ...mergedList[existingIdx], ...fp };
-        }
+      const nonWebStudents = liveStudents.filter(s => {
+        if (s.fromWeb) return false;
+        if (s.rawId && !activeWebIds.has(Number(s.rawId))) return false;
+        return true;
       });
 
-      localStorage.setItem("local_only_students_finance", JSON.stringify(newLocalOnly));
+      const mergedList = [...nonWebStudents, ...formattedParticipants];
+
+      localStorage.setItem("local_only_students_finance", JSON.stringify(formattedParticipants));
       setLiveStudents(mergedList);
 
       // Auto-select first participant if no student selected

@@ -22,13 +22,15 @@ export default function useBudgetRequests(month = "", monthBy = "period") {
       if (response.data?.status !== "success" || !Array.isArray(response.data.data)) throw new Error("Respons RAB tidak valid.");
       if (requestRef.current !== controller || controller.signal.aborted) return;
       let serverData = response.data.data;
-      const customBudgets = JSON.parse(localStorage.getItem("custom_saved_budgets") || "[]");
+      const DUMMY_IDS = new Set([101, 102, 103, 104, 105, 106, "101", "102", "103", "104", "105", "106"]);
+      const customBudgets = JSON.parse(localStorage.getItem("custom_saved_budgets") || "[]")
+        .filter(b => !DUMMY_IDS.has(b.id) && !DUMMY_IDS.has(Number(b.id)));
       const deletedIds = JSON.parse(localStorage.getItem("deleted_budget_ids") || "[]");
       const combined = [
         ...customBudgets,
         ...serverData.filter(s => !customBudgets.some(c => c.id === s.id))
       ];
-      const finalBudgets = (combined.length > 0 ? combined : DEFAULT_REAL_BUDGETS).filter(b => !deletedIds.includes(b.id));
+      const finalBudgets = combined.filter(b => !deletedIds.includes(b.id) && !DUMMY_IDS.has(b.id) && !DUMMY_IDS.has(Number(b.id)));
       setRequests(finalBudgets);
       const perm = response.data.permissions || {};
       setPermissions({
@@ -42,9 +44,11 @@ export default function useBudgetRequests(month = "", monthBy = "period") {
       setError(""); setNeedsLogin(false);
     } catch (err) {
       if (controller.signal.aborted || requestRef.current !== controller) return;
-      const customBudgets = JSON.parse(localStorage.getItem("custom_saved_budgets") || "[]");
+      const DUMMY_IDS = new Set([101, 102, 103, 104, 105, 106, "101", "102", "103", "104", "105", "106"]);
+      const customBudgets = JSON.parse(localStorage.getItem("custom_saved_budgets") || "[]")
+        .filter(b => !DUMMY_IDS.has(b.id) && !DUMMY_IDS.has(Number(b.id)));
       const deletedIds = JSON.parse(localStorage.getItem("deleted_budget_ids") || "[]");
-      const finalBudgets = (customBudgets.length > 0 ? customBudgets : DEFAULT_REAL_BUDGETS).filter(b => !deletedIds.includes(b.id));
+      const finalBudgets = customBudgets.filter(b => !deletedIds.includes(b.id) && !DUMMY_IDS.has(b.id) && !DUMMY_IDS.has(Number(b.id)));
       setRequests(finalBudgets);
       setPermissions({ can_submit: true, can_approve: true, actor_id: 1, actor_name: "Finance LPK Creativa" });
       setError("");

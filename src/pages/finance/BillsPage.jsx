@@ -10,19 +10,12 @@ import {
   formatRupiah, 
   exportToExcel 
 } from "./FinancePageComponents";
-import { FileText, Clock, CheckCircle2, AlertTriangle, Eye, Plus, Trash2, UserCheck, Building2, CreditCard } from "lucide-react";
+import { FileText, Clock, CheckCircle2, AlertTriangle, Eye, Plus, Trash2, UserCheck, Building2, CreditCard, UploadCloud, Link as LinkIcon, ExternalLink, X, Image as ImageIcon } from "lucide-react";
 import Swal from "sweetalert2";
 import axios from "axios";
 
-// Master vendor cadangan yang selaras 100% dengan Menu Vendor (VendorsPage)
-const INITIAL_VENDORS_MASTER = [
-  { id: 1, nama: "CV Sukses Listrik", kategori: "Operasional", kontak: "0812-xxxx-1234", email: "sukseslistrik@gmail.com", alamat: "Jl. Raya Cianjur No. 45", status: "Aktif" },
-  { id: 2, nama: "PT Maju Internet", kategori: "Operasional", kontak: "0813-xxxx-5678", email: "sales@majuinternet.net", alamat: "Gedung Cyber Lt. 3, Jakarta", status: "Aktif" },
-  { id: 3, nama: "Toko Office Equipment", kategori: "Peralatan", kontak: "0817-xxxx-9012", email: "office.eq@toko.com", alamat: "Jl. Pasirhayam, Cianjur", status: "Aktif" },
-  { id: 4, nama: "Percetakan Mitra", kategori: "Modul & Bahan", kontak: "0852-xxxx-3456", email: "mitraprint@gmail.com", alamat: "Jl. Siliwangi No. 12", status: "Aktif" },
-  { id: 5, nama: "Klinik Medika Pratama", kategori: "Medical Checkup", kontak: "0811-xxxx-4433", email: "info@medikapratama.id", alamat: "Jl. Dr. Muwardi, Cianjur", status: "Aktif" },
-  { id: 6, nama: "Toko ATK Sentosa", kategori: "ATK", kontak: "0819-xxxx-7788", email: "atksentosa@gmail.com", alamat: "Jl. Mangunsarkoro, Cianjur", status: "Aktif" },
-];
+// Master vendor awal (dimulai kosong untuk sistem baru)
+const INITIAL_VENDORS_MASTER = [];
 
 function getVendorsFromMenu() {
   try {
@@ -92,13 +85,8 @@ function getNextBillNumber(existingList = []) {
   }
 }
 
-const INITIAL_BILLS = [
-  { id: "BILL-0001", tanggal: "2026-10-01", jatuhTempo: "2026-10-15", vendor: "CV Sukses Listrik", total: 1800000, status: "Belum Dibayar", deskripsi: "Instalasi dan perbaikan panel listrik kantor" },
-  { id: "BILL-0002", tanggal: "2026-09-28", jatuhTempo: "2026-10-05", vendor: "PT Maju Internet", total: 700000, status: "Lunas", waktuPelunasan: "2026-09-29T10:15", petugasPelunasan: "FINANCE LPK CREATIVA", akunBayar: "Petty Cash", deskripsi: "Tagihan koneksi internet fiber bulan September" },
-  { id: "BILL-0003", tanggal: "2026-09-20", jatuhTempo: "2026-09-30", vendor: "PT Office Equipment", total: 2500000, status: "Jatuh Tempo", deskripsi: "Sewa mesin fotokopi dan supplies printer" },
-  { id: "BILL-0004", tanggal: "2026-09-15", jatuhTempo: "2026-10-15", vendor: "Percetakan Mitra", total: 4500000, status: "Lunas", waktuPelunasan: "2026-09-15T14:20", petugasPelunasan: "FINANCE LPK CREATIVA", akunBayar: "Petty Cash", deskripsi: "Cetak modul diktat bahasa Jepang N4" },
-  { id: "BILL-0005", tanggal: "2026-09-10", jatuhTempo: "2026-09-25", vendor: "Toko ATK Sentosa", total: 1200000, status: "Lunas", waktuPelunasan: "2026-09-11T09:30", petugasPelunasan: "FINANCE LPK CREATIVA", akunBayar: "Petty Cash", deskripsi: "Pengadaan kertas A4, spidol, dan alat tulis" },
-];
+// Tagihan awal (dimulai kosong untuk sistem baru)
+const INITIAL_BILLS = [];
 
 export default function BillsPage() {
   const [data, setData] = useState(() => {
@@ -133,6 +121,35 @@ export default function BillsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState(null);
+
+  const handleBillFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setForm(prev => ({
+        ...prev,
+        buktiFoto: event.target.result,
+        buktiNama: file.name,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePayFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPayForm(prev => ({
+        ...prev,
+        buktiFoto: event.target.result,
+        buktiNama: file.name,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Sync to localStorage
   useEffect(() => {
@@ -241,6 +258,10 @@ export default function BillsPage() {
     waktuPelunasan: getNowDateTimeLocal(),
     akunBayar: "Petty Cash",
     keterangan: "",
+    buktiType: "file",
+    buktiFoto: "",
+    buktiNama: "",
+    buktiLink: "",
   });
 
   const handleOpenPayment = (bill) => {
@@ -250,6 +271,10 @@ export default function BillsPage() {
       waktuPelunasan: getNowDateTimeLocal(),
       akunBayar: bill.akunBayar || defaultAccount,
       keterangan: bill.deskripsi || `Pelunasan tagihan ${bill.id} - ${bill.vendor}`,
+      buktiType: bill.buktiPelunasanLink ? "link" : "file",
+      buktiFoto: bill.buktiPelunasanFoto || "",
+      buktiNama: bill.buktiPelunasanNama || "",
+      buktiLink: bill.buktiPelunasanLink || "",
     });
     setPayModalBill(bill);
   };
@@ -269,6 +294,10 @@ export default function BillsPage() {
       waktuPelunasan: getNowDateTimeLocal(),
       petugasPelunasan: "FINANCE LPK CREATIVA",
       deskripsi: "",
+      buktiType: "file",
+      buktiFoto: "",
+      buktiNama: "",
+      buktiLink: "",
     });
     setIsModalOpen(true);
   };
@@ -286,6 +315,10 @@ export default function BillsPage() {
       waktuPelunasan: getNowDateTimeLocal(),
       petugasPelunasan: "FINANCE LPK CREATIVA",
       deskripsi: "",
+      buktiType: "file",
+      buktiFoto: "",
+      buktiNama: "",
+      buktiLink: "",
     };
   });
 
@@ -388,7 +421,9 @@ export default function BillsPage() {
         nominal: nominal,
         sumberDana: payAccount,
         akun: payAccount,
-        status: "Paid"
+        status: "Paid",
+        buktiFoto: billObj.buktiPelunasanFoto || billObj.buktiFoto || "",
+        buktiLink: billObj.buktiPelunasanLink || billObj.buktiLink || "",
       };
       
       filtered.unshift(newExpense);
@@ -445,6 +480,18 @@ export default function BillsPage() {
       });
       return;
     }
+
+    const hasBillProof = (form.buktiType === "file" && Boolean(form.buktiFoto)) || (form.buktiType === "link" && Boolean(form.buktiLink?.trim()));
+    if (!hasBillProof) {
+      Swal.fire({
+        icon: "warning",
+        title: "Lampiran Tagihan Wajib!",
+        text: "Ketika membuat tagihan baru, Anda wajib melampirkan foto invoice atau tautan link dokumen tagihan vendor.",
+        customClass: { popup: "rounded-2xl" }
+      });
+      return;
+    }
+
     setBusy(true);
 
     const billId = form.id || getNextBillNumber(data);
@@ -459,6 +506,12 @@ export default function BillsPage() {
       waktuPelunasan: form.status === "Lunas" ? (form.waktuPelunasan || getNowDateTimeLocal()) : null,
       petugasPelunasan: form.status === "Lunas" ? (form.petugasPelunasan || "FINANCE LPK CREATIVA") : null,
       deskripsi: form.deskripsi,
+      buktiType: form.buktiType,
+      buktiFoto: form.buktiType === "file" ? form.buktiFoto : "",
+      buktiNama: form.buktiType === "file" ? form.buktiNama : "",
+      buktiLink: form.buktiType === "link" ? form.buktiLink : "",
+      buktiPelunasanFoto: form.status === "Lunas" ? form.buktiFoto : "",
+      buktiPelunasanLink: form.status === "Lunas" ? form.buktiLink : "",
     };
 
     // 1. Bersihkan ID tagihan baru dari blacklist deleted agar tidak terfilter saat reload
@@ -517,6 +570,18 @@ export default function BillsPage() {
   const handleConfirmPayment = (e) => {
     e.preventDefault();
     if (!payModalBill) return;
+
+    const hasPayProof = (payForm.buktiType === "file" && Boolean(payForm.buktiFoto)) || (payForm.buktiType === "link" && Boolean(payForm.buktiLink?.trim()));
+    if (!hasPayProof) {
+      Swal.fire({
+        icon: "warning",
+        title: "Bukti Pembayaran Wajib!",
+        text: "Ketika menyetujui (approve) pembayaran, wajib melampirkan foto struk/transfer pembayaran atau tautan link bukti transfer.",
+        customClass: { popup: "rounded-2xl" }
+      });
+      return;
+    }
+
     setBusy(true);
 
     const updatedBill = {
@@ -526,6 +591,10 @@ export default function BillsPage() {
       waktuPelunasan: payForm.waktuPelunasan || getNowDateTimeLocal(),
       akunBayar: payForm.akunBayar,
       deskripsi: payForm.keterangan || payModalBill.deskripsi,
+      buktiPelunasanType: payForm.buktiType,
+      buktiPelunasanFoto: payForm.buktiType === "file" ? payForm.buktiFoto : "",
+      buktiPelunasanNama: payForm.buktiType === "file" ? payForm.buktiNama : "",
+      buktiPelunasanLink: payForm.buktiType === "link" ? payForm.buktiLink : "",
     };
 
     // 1. Eksekusi kas & catat pengeluaran
@@ -617,6 +686,70 @@ export default function BillsPage() {
     },
     { header: "Total Tagihan", accessor: "total", align: "right", className: "font-bold text-slate-900 font-mono text-xs", render: (r) => formatRupiah(r.total) },
     { header: "Status", accessor: "status", align: "center", render: (r) => <FinanceBadge status={r.status} /> },
+    {
+      header: "Bukti",
+      accessor: "bukti",
+      align: "center",
+      className: "w-28",
+      render: (r) => {
+        const hasBillPhoto = Boolean(r.buktiFoto);
+        const hasBillLink = Boolean(r.buktiLink);
+        const hasPayPhoto = Boolean(r.buktiPelunasanFoto);
+        const hasPayLink = Boolean(r.buktiPelunasanLink);
+
+        if (!hasBillPhoto && !hasBillLink && !hasPayPhoto && !hasPayLink) {
+          return <span className="text-slate-300 text-xs">—</span>;
+        }
+
+        return (
+          <div className="flex flex-col items-center gap-1">
+            {/* Bukti Tagihan / Invoice */}
+            {hasBillPhoto ? (
+              <button
+                type="button"
+                onClick={() => setPreviewMedia({ type: "image", src: r.buktiFoto, title: `Invoice Tagihan - ${r.id} (${r.vendor})` })}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition border border-blue-200/60"
+                title="Lihat Foto Invoice Tagihan"
+              >
+                <FileText className="w-3 h-3 text-blue-600" /> Invoice
+              </button>
+            ) : hasBillLink ? (
+              <a
+                href={r.buktiLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition border border-blue-200/60"
+                title={r.buktiLink}
+              >
+                <LinkIcon className="w-3 h-3" /> Link Inv
+              </a>
+            ) : null}
+
+            {/* Bukti Pembayaran */}
+            {hasPayPhoto ? (
+              <button
+                type="button"
+                onClick={() => setPreviewMedia({ type: "image", src: r.buktiPelunasanFoto, title: `Bukti Pembayaran - ${r.id} (${r.vendor})` })}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md transition border border-emerald-200/60"
+                title="Lihat Foto Bukti Pembayaran Pelunasan"
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Lunas
+              </button>
+            ) : hasPayLink ? (
+              <a
+                href={r.buktiPelunasanLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md transition border border-emerald-200/60"
+                title={r.buktiPelunasanLink}
+              >
+                <LinkIcon className="w-3 h-3" /> Link Bayar
+              </a>
+            ) : null}
+          </div>
+        );
+      }
+    },
     {
       header: "Waktu Pelunasan",
       accessor: "waktuPelunasan",
@@ -900,6 +1033,77 @@ export default function BillsPage() {
                 </div>
               </div>
             )}
+            {/* Lampiran Tagihan / Invoice Vendor (Wajib) */}
+            <div className="md:col-span-2 space-y-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-blue-600" />
+                  Lampiran Foto / Nota Tagihan Vendor <span className="text-rose-500 font-bold">* (Wajib)</span>
+                </label>
+                <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-[11px] font-semibold text-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, buktiType: "file" })}
+                    className={`px-2.5 py-1 rounded-md transition ${form.buktiType === "file" ? "bg-white text-blue-600 shadow-2xs" : "hover:text-slate-900"}`}
+                  >
+                    Upload Foto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, buktiType: "link" })}
+                    className={`px-2.5 py-1 rounded-md transition ${form.buktiType === "link" ? "bg-white text-blue-600 shadow-2xs" : "hover:text-slate-900"}`}
+                  >
+                    Tautan Link
+                  </button>
+                </div>
+              </div>
+
+              {form.buktiType === "file" ? (
+                <div>
+                  {form.buktiFoto ? (
+                    <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                      <img src={form.buktiFoto} alt="Bukti Tagihan" className="w-12 h-12 object-cover rounded-md border border-slate-100" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">{form.buktiNama || "foto-tagihan-vendor.jpg"}</p>
+                        <p className="text-[10px] text-emerald-600 font-medium">Foto siap dilampirkan</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, buktiFoto: "", buktiNama: "" })}
+                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-md transition"
+                        title="Hapus Foto"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-blue-200 hover:border-blue-400 bg-white rounded-xl cursor-pointer transition group">
+                      <UploadCloud className="w-6 h-6 text-blue-400 group-hover:text-blue-600 transition mb-1" />
+                      <span className="text-xs font-semibold text-slate-700 group-hover:text-blue-600">Pilih file foto invoice / nota tagihan</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, atau WEBP (Maks 10MB)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleBillFileChange}
+                      />
+                    </label>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/... atau tautan link nota/dokumen tagihan"
+                    value={form.buktiLink}
+                    onChange={e => setForm({ ...form, buktiLink: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Tempelkan link dokumen Google Drive, Dropbox, atau tautan invoice online vendor.</p>
+                </div>
+              )}
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">Keterangan / Rincian Pengadaan</label>
               <textarea
@@ -962,6 +1166,64 @@ export default function BillsPage() {
                     <p className="text-slate-700 italic">{selectedItem.deskripsi}</p>
                   </div>
                 )}
+
+                {/* Bukti Lampiran Tagihan */}
+                {(selectedItem.buktiFoto || selectedItem.buktiLink) && (
+                  <div className="pt-2 border-t border-slate-200/60">
+                    <span className="text-slate-500 block mb-1 font-semibold flex items-center gap-1 text-[11px]">
+                      <FileText className="w-3.5 h-3.5 text-blue-500" /> Bukti Invoice / Nota Tagihan:
+                    </span>
+                    {selectedItem.buktiFoto ? (
+                      <div 
+                        className="relative rounded-xl overflow-hidden border border-slate-200 bg-white max-h-48 flex items-center justify-center group cursor-pointer"
+                        onClick={() => setPreviewMedia({ type: "image", src: selectedItem.buktiFoto, title: `Invoice Tagihan - ${selectedItem.id} (${selectedItem.vendor})` })}
+                      >
+                        <img src={selectedItem.buktiFoto} alt="Invoice Tagihan" className="max-h-44 w-auto object-contain rounded-lg" />
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold gap-1.5 transition">
+                          <Eye className="w-4 h-4" /> Klik untuk Perbesar
+                        </div>
+                      </div>
+                    ) : (
+                      <a
+                        href={selectedItem.buktiLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 hover:underline font-semibold text-xs break-all"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" /> {selectedItem.buktiLink}
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Bukti Pembayaran / Pelunasan */}
+                {(selectedItem.buktiPelunasanFoto || selectedItem.buktiPelunasanLink) && (
+                  <div className="pt-2 border-t border-slate-200/60">
+                    <span className="text-slate-500 block mb-1 font-semibold flex items-center gap-1 text-[11px] text-emerald-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Bukti Pembayaran Pelunasan:
+                    </span>
+                    {selectedItem.buktiPelunasanFoto ? (
+                      <div 
+                        className="relative rounded-xl overflow-hidden border border-emerald-200 bg-white max-h-48 flex items-center justify-center group cursor-pointer"
+                        onClick={() => setPreviewMedia({ type: "image", src: selectedItem.buktiPelunasanFoto, title: `Bukti Pembayaran - ${selectedItem.id} (${selectedItem.vendor})` })}
+                      >
+                        <img src={selectedItem.buktiPelunasanFoto} alt="Bukti Pelunasan" className="max-h-44 w-auto object-contain rounded-lg" />
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold gap-1.5 transition">
+                          <Eye className="w-4 h-4" /> Klik untuk Perbesar
+                        </div>
+                      </div>
+                    ) : (
+                      <a
+                        href={selectedItem.buktiPelunasanLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 hover:underline font-semibold text-xs break-all"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" /> {selectedItem.buktiPelunasanLink}
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 flex justify-end gap-2 flex-wrap">
@@ -994,6 +1256,49 @@ export default function BillsPage() {
                   type="button"
                   onClick={() => setSelectedItem(null)}
                   className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Lightbox Perbesar Foto Bukti */}
+        {previewMedia && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={() => setPreviewMedia(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden p-4 space-y-3"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h4 className="text-sm font-bold text-slate-800">{previewMedia.title}</h4>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center p-2 border border-slate-100 max-h-[70vh]">
+                <img src={previewMedia.src} alt={previewMedia.title} className="max-h-[65vh] w-auto object-contain rounded-lg shadow-xs" />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <a
+                  href={previewMedia.src}
+                  download="bukti-lampiran.jpg"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                >
+                  Unduh Foto
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition"
                 >
                   Tutup
                 </button>
@@ -1075,6 +1380,77 @@ export default function BillsPage() {
                   <p className="text-[11px] text-slate-500 mt-1">
                     Saldo kas/bank akan otomatis terpotong dan terbit bukti pengeluaran di menu Transaksi Pengeluaran.
                   </p>
+                </div>
+
+                {/* Bukti Pelunasan / Pembayaran (Wajib) */}
+                <div className="md:col-span-2 space-y-2 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Bukti Pembayaran / Transfer Pelunasan <span className="text-rose-500 font-bold">* (Wajib)</span>
+                    </label>
+                    <div className="flex items-center bg-emerald-200/60 p-0.5 rounded-lg text-[11px] font-semibold text-emerald-800">
+                      <button
+                        type="button"
+                        onClick={() => setPayForm({ ...payForm, buktiType: "file" })}
+                        className={`px-2.5 py-1 rounded-md transition ${payForm.buktiType === "file" ? "bg-white text-emerald-700 shadow-2xs" : "hover:text-emerald-950"}`}
+                      >
+                        Upload Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayForm({ ...payForm, buktiType: "link" })}
+                        className={`px-2.5 py-1 rounded-md transition ${payForm.buktiType === "link" ? "bg-white text-emerald-700 shadow-2xs" : "hover:text-emerald-950"}`}
+                      >
+                        Tautan Link
+                      </button>
+                    </div>
+                  </div>
+
+                  {payForm.buktiType === "file" ? (
+                    <div>
+                      {payForm.buktiFoto ? (
+                        <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-emerald-200">
+                          <img src={payForm.buktiFoto} alt="Bukti Pelunasan" className="w-12 h-12 object-cover rounded-md border border-slate-100" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 truncate">{payForm.buktiNama || "struk-pelunasan.jpg"}</p>
+                            <p className="text-[10px] text-emerald-600 font-medium">Foto struk/transfer siap diunggah</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPayForm({ ...payForm, buktiFoto: "", buktiNama: "" })}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 rounded-md transition"
+                            title="Hapus Foto"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-emerald-200 hover:border-emerald-400 bg-white rounded-xl cursor-pointer transition group">
+                          <UploadCloud className="w-6 h-6 text-emerald-500 group-hover:text-emerald-600 transition mb-1" />
+                          <span className="text-xs font-semibold text-slate-700 group-hover:text-emerald-600">Pilih foto struk / resi bukti transfer bank</span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, atau WEBP</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePayFileChange}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="url"
+                        placeholder="https://drive.google.com/... atau tautan link bukti transfer/pembayaran"
+                        value={payForm.buktiLink}
+                        onChange={e => setPayForm({ ...payForm, buktiLink: e.target.value })}
+                        className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">Tempelkan link bukti transfer bank atau slip pembayaran.</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">

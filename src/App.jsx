@@ -6,6 +6,43 @@ import GlobalLoading from "./components/GlobalLoading";
 import ErrorBoundary from "./components/ErrorBoundary";
 import RouteMetadata from "./components/RouteMetadata";
 
+// ── INITIALIZER BERSIH PRODUKSI (CLEAN SLATE ZERO START) ──
+// Memastikan semua data lokal/mock/test lama terhapus total saat deploy sistem baru
+try {
+  const PRODUCTION_RELEASE_TAG = "one_creativa_prod_clean_zero_20261103_v5";
+  if (typeof window !== "undefined" && window.localStorage) {
+    if (localStorage.getItem("one_creativa_release_tag") !== PRODUCTION_RELEASE_TAG) {
+      const keysToPurge = [
+        "finance_bills_data",
+        "finance_deleted_bill_ids",
+        "saved_custom_invoices",
+        "saved_custom_terkirim",
+        "billing_pembayaran_custom",
+        "deleted_invoice_ids",
+        "finance_income_data",
+        "finance_expense_data",
+        "finance_transfer_history",
+        "finance_transfers_history",
+        "finance_deleted_transfer_ids",
+        "local_only_students_finance",
+        "deleted_students_finance",
+        "custom_students_finance",
+        "finance_realization_history",
+        "finance_deleted_vendor_ids",
+        "finance_custom_journals",
+        "finance_rekening_data",
+        "finance_coa_data",
+        "custom_saved_budgets",
+        "deleted_budget_ids"
+      ];
+      keysToPurge.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem("one_creativa_release_tag", PRODUCTION_RELEASE_TAG);
+    }
+  }
+} catch (e) {
+  console.warn("Storage purge skipped:", e);
+}
+
 // Lazy Loaded Pages
 import Login from "./pages/Login";
 const Home = lazy(() => import("./pages/Home"));
@@ -223,7 +260,7 @@ function App(props) {
               <Route path="/transfer"                element={<ProtectedRoute><TransferPage /></ProtectedRoute>} />
               <Route path="/anggaran"                element={<ProtectedRoute><AnggaranBiaya /></ProtectedRoute>} />
               <Route path="/realisasi"               element={<ProtectedRoute><RealisasiAnggaran /></ProtectedRoute>} />
-              <Route path="/salary"                  element={<ProtectedRoute><SalaryKaryawan /></ProtectedRoute>} />
+              <Route path="/salary"                  element={<ProtectedRoute allowedRoles={["finance", "admin", "super_admin"]}><SalaryKaryawan /></ProtectedRoute>} />
               <Route path="/settings"        element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/positions"       element={<ProtectedRoute><Positions /></ProtectedRoute>} />
               <Route path="/face-enrollment" element={<ProtectedRoute><FaceEnrollment /></ProtectedRoute>} />

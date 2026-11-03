@@ -15,6 +15,8 @@ import axios from "axios";
 
 const INITIAL_REKENING = [];
 
+import Swal from "sweetalert2";
+
 export default function RekeningPage() {
   const [data, setData] = useState(() => {
     try {
@@ -36,45 +38,42 @@ export default function RekeningPage() {
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
 
-  // Sync to localStorage
-  useEffect(() => {
+  const fetchBanks = async (active = true) => {
+    setLoading(true);
     try {
-      localStorage.setItem("finance_rekening_data", JSON.stringify(data));
-    } catch (e) {}
-  }, [data]);
+      const res = await axios.get("/api/accounting.php?view=lookups");
+      if (!active) return;
+      if (res.data?.csrf_token) setCsrfToken(res.data.csrf_token);
+      const rawBanks = res.data?.data?.banks || res.data?.banks || [];
+      if (rawBanks.length > 0) {
+        const apiBanks = rawBanks.map((b, i) => {
+          const isCash = b.name.toLowerCase().includes('kas') || b.name.toLowerCase().includes('petty');
+          const isWallet = b.name.toLowerCase().includes('wallet') || b.name.toLowerCase().includes('dana');
+          return {
+            id: b.id || i + 1,
+            nama: b.name,
+            jenis: isCash ? "Tunai" : isWallet ? "E-Wallet" : (b.type || "Bank"),
+            bank: b.bank_name || (isCash ? "Kas Tunai Kasir" : "Bank BCA"),
+            noRek: b.account_number || (isCash ? "CASH-01" : "—"),
+            saldo: Number(b.balance || 0),
+            status: Number(b.is_active) === 0 ? "Nonaktif" : "Aktif"
+          };
+        });
+        setData(apiBanks);
+        localStorage.setItem("finance_rekening_data", JSON.stringify(apiBanks));
+      }
+    } catch (e) {
+      console.warn("Gagal memuat rekening dari server:", e);
+    } finally {
+      if (active) setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    axios.get("/api/accounting.php?view=lookups")
-      .then(res => {
-        if (!active) return;
-        const rawBanks = res.data?.data?.banks || res.data?.banks || [];
-        if (rawBanks.length > 0) {
-          const apiBanks = rawBanks.map((b, i) => {
-            const isCash = b.name.toLowerCase().includes('kas') || b.name.toLowerCase().includes('petty');
-            const isWallet = b.name.toLowerCase().includes('wallet') || b.name.toLowerCase().includes('dana');
-            return {
-              id: b.id || i + 1,
-              nama: b.name,
-              jenis: isCash ? "Tunai" : isWallet ? "E-Wallet" : "Bank",
-              bank: b.bank_name || (isCash ? "Kas Tunai Kasir" : "Bank BCA"),
-              noRek: b.account_number || (isCash ? "CASH-01" : "—"),
-              saldo: Number(b.balance || 0),
-              status: Number(b.is_active) === 0 ? "Nonaktif" : "Aktif"
-            };
-          });
-          setData(apiBanks);
-          try {
-            localStorage.setItem("finance_rekening_data", JSON.stringify(apiBanks));
-          } catch (e) {}
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    fetchBanks(active);
     return () => { active = false; };
   }, []);
 
@@ -113,40 +112,31 @@ export default function RekeningPage() {
     setIsModalOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deletingItem) return;
-    const targetId = String(deletingItem.id);
-    const updated = data.filter(d => String(d.id) !== targetId);
-    setData(updated);
+    setBusy(true);
     try {
-      localStorage.setItem("finance_rekening_data", JSON.stringify(updated));
-    } catch (e) {}
-    setDeletingItem(null);
+      if (deletingItem.id && !isNaN(Number(deletingItem.id))) {
+        await axios.post("/api/accounting.php", {
+          action: "delete_bank",
+          id: Number(deletingItem.id)
+        }, {
+          headers: { "X-CSRF-Token": csrfToken || "" }
+        });
+      }
+    } catch (e) {
+      console.warn("Gagal hapus rekening dari server:", e);
+    } finally {
+      const targetId = String(deletingItem.id);
+      const updated = data.filter(d => String(d.id) !== targetId);
+      setData(updated);
+      try {
+        localStorage.setItem("finance_rekening_data", JSON.stringify(updated));
+      } catch (e) {}
+      setBusy(false);
+      setDeletingItem(null);
+    }
   };
-
-  useEffect(() => {
-    let active = true;
-    axios.get("/api/accounting.php?view=lookups")
-      .then(res => {
-        if (active && res.data?.data?.banks?.length > 0) {
-          const apiBanks = res.data.data.banks.map(b => ({
-            id: b.id,
-            nama: b.name,
-            jenis: b.type || "Bank",
-            bank: b.bank_name || b.name,
-            noRek: b.account_number || "—",
-            saldo: Number(b.balance || 0),
-            status: "Aktif",
-          }));
-          const hasSaved = localStorage.getItem("finance_rekening_data");
-          if (!hasSaved) {
-            setData(apiBanks);
-          }
-        }
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, []);
 
   const totalRekening = data.length;
   const rekeningAktif = data.filter(d => d.status === "Aktif").length;
@@ -181,45 +171,71 @@ export default function RekeningPage() {
     );
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.nama || !form.noRek) return;
+    if (!form.nama || !form.nama.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Nama Rekening Diperlukan',
+        text: 'Silakan isi Nama Akun Rekening (contoh: Rekening Operasional BCA).',
+        customClass: { popup: 'rounded-2xl' }
+      });
+      return;
+    }
+    const cleanNoRek = form.noRek?.trim() || (form.jenis === 'Tunai' ? 'CASH-01' : '-');
     setBusy(true);
 
-    if (editingItem) {
-      setData(data.map(d => d.id === editingItem.id ? {
-        ...d,
-        nama: form.nama,
+    try {
+      const payload = {
+        action: 'save_bank',
+        nama: form.nama.trim(),
         jenis: form.jenis,
-        bank: form.bank,
-        noRek: form.noRek,
+        bank: form.bank?.trim() || 'Bank BCA',
+        noRek: cleanNoRek,
         saldo: Number(form.saldo || 0),
-        status: form.status,
-      } : d));
-    } else {
-      const newRek = {
-        id: Date.now(),
-        nama: form.nama,
-        jenis: form.jenis,
-        bank: form.bank,
-        noRek: form.noRek,
-        saldo: Number(form.saldo || 0),
-        status: form.status,
+        status: form.status || 'Aktif',
       };
-      setData([newRek, ...data]);
-    }
+      if (editingItem?.id) {
+        payload.id = editingItem.id;
+      }
 
-    setBusy(false);
-    setIsModalOpen(false);
-    setEditingItem(null);
-    setForm({
-      nama: "",
-      jenis: "Bank",
-      bank: "Bank BCA",
-      noRek: "",
-      saldo: "",
-      status: "Aktif",
-    });
+      await axios.post("/api/accounting.php", payload, {
+        headers: { "X-CSRF-Token": csrfToken || "" }
+      });
+
+      setIsModalOpen(false);
+      setEditingItem(null);
+      setForm({
+        nama: "",
+        jenis: "Bank",
+        bank: "Bank BCA",
+        noRek: "",
+        saldo: "",
+        status: "Aktif",
+      });
+
+      await fetchBanks(true);
+
+      Swal.fire({
+        icon: 'success',
+        title: editingItem ? 'Rekening Diperbarui' : 'Rekening Berhasil Disimpan',
+        text: `Rekening ${form.nama} dengan saldo awal Rp ${Number(form.saldo || 0).toLocaleString('id-ID')} berhasil tersimpan.`,
+        timer: 1800,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' }
+      });
+    } catch (err) {
+      console.error("Gagal simpan rekening:", err);
+      const serverMsg = err.response?.data?.message || err.message || 'Gagal menyimpan rekening ke server.';
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan',
+        text: serverMsg,
+        customClass: { popup: 'rounded-2xl' }
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const columns = [

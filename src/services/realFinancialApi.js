@@ -80,7 +80,7 @@ const reportShape = (current, previous, dashboard) => {
       totalAsetOkt: n(cs.assets), totalAsetSep: n(ps.assets), totalLiabilitasOkt: n(cs.liabilities), totalLiabilitasSep: n(ps.liabilities),
       totalEkuitasOkt: n(cs.total_equity), totalEkuitasSep: n(ps.total_equity), totalLiabEkuitasOkt: n(cs.liabilities) + n(cs.total_equity), totalLiabEkuitasSep: n(ps.liabilities) + n(ps.total_equity),
       diffAsetLancar: 0, pctAsetLancar: "0,0", diffAsetTidakLancar: 0, pctAsetTidakLancar: "0,0", diffTotalAset: n(cs.assets) - n(ps.assets), pctTotalAset: pct(n(cs.assets) - n(ps.assets), n(ps.assets)).toFixed(1),
-      totLiabPendekOkt: liabilitasPendek.reduce((s, x) => s + x.okt, 0), totLiabPendekSep: liabilitasPendek.reduce((s, x) => s + x.sep, 0), totLiabPanjangOkt: liabilitasPanjang[0].okt, totLiabPanjangSep: liabilitasPanjang[0].sep,
+      totLiabPendekOkt: liabilitasPendek.reduce((s, x) => s + (x.okt || 0), 0), totLiabPendekSep: liabilitasPendek.reduce((s, x) => s + (x.sep || 0), 0), totLiabPanjangOkt: liabilitasPanjang?.[0]?.okt || 0, totLiabPanjangSep: liabilitasPanjang?.[0]?.sep || 0,
       diffLiabPendek: 0, pctLiabPendek: "0,0", diffLiabPanjang: 0, pctLiabPanjang: "0,0", diffTotalLiab: n(cs.liabilities) - n(ps.liabilities), pctTotalLiab: pct(n(cs.liabilities) - n(ps.liabilities), n(ps.liabilities)).toFixed(1),
       diffTotalEkuitas: n(cs.total_equity) - n(ps.total_equity), pctTotalEkuitas: pct(n(cs.total_equity) - n(ps.total_equity), n(ps.total_equity)).toFixed(1), diffTotalLiabEkuitas: 0, pctTotalLiabEkuitas: "0,0",
     },
@@ -100,13 +100,20 @@ const reportShape = (current, previous, dashboard) => {
 export async function fetchRealFinancialData(selectedPeriod, comparePeriod) {
   const currentRange = rangeFor(selectedPeriod);
   const previousRange = rangeFor(comparePeriod);
+
+  // Fetch semua API secara paralel, tapi jangan crash jika satu gagal
+  const safeGet = (url) => axios.get(url).catch(() => ({ data: { status: "error", data: null } }));
+
   const [current, previous, dashboard] = await Promise.all([
-    axios.get(`/api/accounting.php?view=reports&from=${currentRange.from}&to=${currentRange.to}`),
-    axios.get(`/api/accounting.php?view=reports&from=${previousRange.from}&to=${previousRange.to}`),
-    axios.get(`/api/finance_dashboard.php?year=${currentRange.year}`),
+    safeGet(`/api/accounting.php?view=reports&from=${currentRange.from}&to=${currentRange.to}`),
+    safeGet(`/api/accounting.php?view=reports&from=${previousRange.from}&to=${previousRange.to}`),
+    safeGet(`/api/finance_dashboard.php?year=${currentRange.year}`),
   ]);
-  if (current.data?.status !== "success" || previous.data?.status !== "success" || dashboard.data?.status !== "success") {
-    throw new Error(current.data?.message || previous.data?.message || dashboard.data?.message || "Laporan finance gagal dimuat dari API production.");
-  }
-  return reportShape(current.data.data, previous.data.data, dashboard.data.data);
+
+  // Selalu return reportShape yang valid meskipun data kosong / server baru diinisialisasi
+  const currentData = current.data?.status === "success" ? current.data.data : null;
+  const previousData = previous.data?.status === "success" ? previous.data.data : null;
+  const dashboardData = dashboard.data?.status === "success" ? dashboard.data.data : { months: [] };
+
+  return reportShape(currentData, previousData, dashboardData);
 }

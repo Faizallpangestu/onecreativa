@@ -11,12 +11,12 @@ import {
 import { Landmark, ArrowDownRight, ArrowUpRight, Wallet, RefreshCw } from "lucide-react";
 import axios from "axios";
 
-// Default Master COA Standar Akuntansi Perusahaan
+// Default Master COA Standar Akuntansi Perusahaan (Mulai dari 0)
 const DEFAULT_COA_ACCOUNTS = [
-  { kode: "1002", nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)", tipe: "Assets", normal: "Debit", baseSaldo: 120000000, rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428" },
-  { kode: "1001", nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", tipe: "Assets", normal: "Debit", baseSaldo: 5000000, rekeningDetail: "Kasir & Kas Kecil Tunai Kantor" },
-  { kode: "1003", nama: "Bank Mandiri Utama", tipe: "Assets", normal: "Debit", baseSaldo: 25000000, rekeningDetail: "Mandiri a/n PT LPK Creativa 130-0019283" },
-  { kode: "1101", nama: "Piutang SPP Siswa", tipe: "Assets", normal: "Debit", baseSaldo: 45000000, rekeningDetail: "Piutang Termin Siswa Intensif" },
+  { kode: "1002", nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)", tipe: "Assets", normal: "Debit", baseSaldo: 0, rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428" },
+  { kode: "1001", nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)", tipe: "Assets", normal: "Debit", baseSaldo: 0, rekeningDetail: "Kasir & Kas Kecil Tunai Kantor" },
+  { kode: "1003", nama: "Bank Mandiri Utama", tipe: "Assets", normal: "Debit", baseSaldo: 0, rekeningDetail: "Mandiri a/n PT LPK Creativa 130-0019283" },
+  { kode: "1101", nama: "Piutang SPP Siswa", tipe: "Assets", normal: "Debit", baseSaldo: 0, rekeningDetail: "Piutang Termin Siswa Intensif" },
   { kode: "4001", nama: "Pendapatan Kursus Bahasa Jepang", tipe: "Income", normal: "Kredit", baseSaldo: 0, rekeningDetail: "Pendapatan SPP & Pelatihan" },
   { kode: "5001", nama: "Beban Gaji Sensei & Karyawan", tipe: "Expenses", normal: "Debit", baseSaldo: 0, rekeningDetail: "Payroll Penggajian Staf & Sensei" },
   { kode: "5002", nama: "Beban Sewa Gedung Kampus", tipe: "Expenses", normal: "Debit", baseSaldo: 0, rekeningDetail: "Sewa Tempat Kampus LPK" },
@@ -24,10 +24,7 @@ const DEFAULT_COA_ACCOUNTS = [
   { kode: "5004", nama: "Beban Pengadaan Modul & Seragam", tipe: "Expenses", normal: "Debit", baseSaldo: 0, rekeningDetail: "Buku Minna no Nihongo & Seragam" },
 ];
 
-const DEFAULT_BLUEPRINT_INVOICES = [
-  { id: "TGCJ2608001", tanggal: "2026-08-21", customer: "Hany Agesti", program: "Kelas Intensif Offline", total: 15000000, terbayar: 15000000, status: "Paid", bank_name: "BCA", receiptNo: "RCP-TGCJ2608001-01" },
-  { id: "TGCJ2608004", tanggal: "2026-08-19", customer: "Siti Aminah", program: "Kursus Reguler", total: 8000000, terbayar: 4000000, status: "Partially Paid", bank_name: "BCA", receiptNo: "RCP-TGCJ2608004-01" },
-];
+const DEFAULT_BLUEPRINT_INVOICES = [];
 
 function formatDateIndo(dateStr) {
   if (!dateStr) return "-";
@@ -99,7 +96,7 @@ export default function GeneralLedgerPage() {
                 ...c,
                 nama: "Bank BCA Operasional (LPK Creativa Bridging Intern)",
                 rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428",
-                saldo: c.saldo && Number(c.saldo) > 0 ? c.saldo : 120000000
+                saldo: c.saldo && Number(c.saldo) > 0 ? c.saldo : 0
               };
             }
             // Jika kode 1001 belum jelas namanya
@@ -272,19 +269,8 @@ export default function GeneralLedgerPage() {
       }
     });
 
-    // 4. Suntikan Dana / Dropping Kas dari Rekening BCA ke Petty Cash (Transfer Rekening)
-    // Sesuai penegasan CFO: "patty cash juga kan suntikan dananya dari transferan rek BCA creatva bridging intern"
-    const droppingPettyCashEvents = [
-      {
-        ref: "TRF-2026-0034",
-        rawDate: "2026-06-20",
-        deskripsi: "Suntikan Dana Kas Kecil dari Rekening BCA Creativa Bridging Intern",
-        amount: 5000000,
-        type: "transfer",
-        sourceAccount: "1002", // Keluar dari Rekening BCA (Kredit BCA)
-        targetAccount: "1001"  // Masuk ke Petty Cash (Debit Petty Cash)
-      }
-    ];
+    // 4. Suntikan Dana / Dropping Kas dari Rekening BCA ke Petty Cash (Hanya dari riwayat riil)
+    const droppingPettyCashEvents = [];
 
     // Ambil riwayat transfer tambahan jika ada di localStorage
     try {

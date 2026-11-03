@@ -47,16 +47,7 @@ export default function RealisasiAnggaran() {
       const raw = localStorage.getItem("finance_expense_data");
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    return [
-      { id: 1, tanggal: "2026-10-01", kategori: "Pembelian", deskripsi: "Laptop Admin & Modul LMS", sumberDana: "Bank BCA Operasional", nominal: 7500000, status: "Paid", vendor: "Toko Office Equipment" },
-      { id: 2, tanggal: "2026-10-02", kategori: "Operasional", deskripsi: "Biaya Listrik Kantor & Ruang Kelas", sumberDana: "Bank BCA Operasional", nominal: 1800000, status: "Paid", vendor: "PLN Persero" },
-      { id: 3, tanggal: "2026-10-02", kategori: "Operasional", deskripsi: "Langganan Internet Dedicated Fiber 100 Mbps", sumberDana: "Bank BCA Operasional", nominal: 1500000, status: "Paid", vendor: "PT Maju Internet" },
-      { id: 4, tanggal: "2026-10-03", kategori: "Operasional", deskripsi: "Air PDAM & Sanitasi Fasilitas Lembaga", sumberDana: "Petty Cash (Kasir)", nominal: 650000, status: "Paid", vendor: "PDAM Tirta" },
-      { id: 5, tanggal: "2026-10-03", kategori: "Gaji Karyawan", deskripsi: "Honor Sensei Bahasa Jepang N5 & N4", sumberDana: "Bank BCA Operasional", nominal: 16000000, status: "Paid", vendor: "Sensei LPK" },
-      { id: 6, tanggal: "2026-10-03", kategori: "Pembelian", deskripsi: "Modul Minna no Nihongo & Kotoba Cetak", sumberDana: "Petty Cash (Kasir)", nominal: 5500000, status: "Paid", vendor: "Percetakan Mitra" },
-      { id: 7, tanggal: "2026-10-04", kategori: "Operasional", deskripsi: "Sewa Asrama Siswa Putra & Putri", sumberDana: "Bank BCA Operasional", nominal: 9000000, status: "Paid", vendor: "Pemilik Gedung Asrama" },
-      { id: 8, tanggal: "2026-10-04", kategori: "Operasional", deskripsi: "Perawatan & Servis AC Asrama", sumberDana: "Petty Cash (Kasir)", nominal: 800000, status: "Paid", vendor: "CV Mandiri Teknik" }
-    ];
+    return [];
   });
 
   // Sinkronkan daftar anggaran yang sudah disetujui (Approved)
@@ -65,7 +56,7 @@ export default function RealisasiAnggaran() {
       ["approved", "partially_realized", "fully_realized", "closed"].includes(r.status) ||
       Number(r.approved_amount || 0) > 0
     );
-    return list.length > 0 ? list : DEFAULT_REAL_BUDGETS.filter(b => b.status === "approved");
+    return list;
   }, [requests]);
 
   // Kalkulasi CFO Metrics Variance
@@ -136,7 +127,7 @@ export default function RealisasiAnggaran() {
 
     // 1. Update Realized Amount di custom_saved_budgets
     const customBudgets = JSON.parse(localStorage.getItem("custom_saved_budgets") || "[]");
-    const mergedBudgets = customBudgets.length > 0 ? customBudgets : [...DEFAULT_REAL_BUDGETS];
+    const mergedBudgets = customBudgets;
     const budgetIdx = mergedBudgets.findIndex(b => String(b.id) === String(budgetId));
 
     if (budgetIdx >= 0) {

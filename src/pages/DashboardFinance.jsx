@@ -1506,12 +1506,21 @@ export default function DashboardFinance() {
       }
 
       if (Array.isArray(savedCustom) && savedCustom.length > 0) {
+        const serverInvoiceIds = new Set();
+        [...(cloned.projection_items || []), ...(cloned.realization_items || [])].forEach(item => {
+          if (item.source_type !== 'invoice_billing') return;
+          [item.id, item.number, item.related_proj_id, item.related_proj_number, item.source_id].forEach(value => {
+            const invoiceId = String(value || '').replace(/^(FIN-|PROJ-|PENDING-|MENUNGGU-)/, '');
+            if (invoiceId) serverInvoiceIds.add(invoiceId);
+          });
+        });
+
         // Collect existing IDs in projection_items to prevent duplication
         const existingIds = new Set((cloned.projection_items || []).map(p => String(p.id || p.number)));
 
         savedCustom.forEach(inv => {
           const invId = String(inv.id || inv.nomor || '');
-          if (!invId || existingIds.has(invId)) return;
+          if (!invId || existingIds.has(invId) || serverInvoiceIds.has(invId)) return;
           existingIds.add(invId);
 
           const invDate = inv.tanggal || new Date().toISOString().split('T')[0];
@@ -1771,6 +1780,17 @@ export default function DashboardFinance() {
           rawIncome.forEach(inc => {
             const incIdStr = String(inc.id || inc.noTransaksi || '');
             if (!incIdStr || deletedIncomeIds.has(incIdStr)) return;
+            const incomeDescription = String(inc.deskripsi || '');
+            const isManualRealizationAdjustment = /disesuaikan oleh/i.test(incomeDescription);
+            if (isManualRealizationAdjustment) {
+              const sameInvoicePayment = (cloned.realization_items || []).some(item =>
+                item.source_type === 'invoice_billing' &&
+                item.type === 'income' &&
+                String(item.party_name || '').trim().toLowerCase() === String(inc.siswa || inc.pihak || '').trim().toLowerCase() &&
+                Number(item.amount) === Number(inc.nominal)
+              );
+              if (sameInvoicePayment) return;
+            }
             const docNum = inc.noTransaksi || (incIdStr.startsWith('TRX-') ? incIdStr : `TRX-${incIdStr}`);
             if (existingIncomeIds.has(docNum) || existingIncomeIds.has(incIdStr)) return;
             existingIncomeIds.add(docNum);

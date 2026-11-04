@@ -170,6 +170,8 @@ const LaporanAudit         = lazy(() => import("./pages/ga/LaporanAudit"));
 const ApprovalPerpindahan  = lazy(() => import("./pages/ga/ApprovalPerpindahan"));
 const Maintenance          = lazy(() => import("./pages/ga/Maintenance"));
 
+const FINANCE_ROLES = ["finance", "finance_admin", "super_admin", "owner", "director", "direktur"];
+
 function App(props) {
   const Router = props?.Router || BrowserRouter;
   return (
@@ -237,30 +239,30 @@ function App(props) {
               <Route path="/daily-report-admin" element={<ProtectedRoute><DailyReportAdmin /></ProtectedRoute>} />
               <Route path="/slip-gaji-karyawan" element={<ProtectedRoute><SlipGajiKaryawan /></ProtectedRoute>} />
               <Route path="/daily-report-karyawan" element={<ProtectedRoute><DailyReportKaryawan /></ProtectedRoute>} />
-              <Route path="/reimbursement"   element={<ProtectedRoute><Reimbursement /></ProtectedRoute>} />
-              <Route path="/profit"          element={<ProtectedRoute><Profit /></ProtectedRoute>} />
-              <Route path="/buku-transaksi" element={<ProtectedRoute><BukuTransaksiPage /></ProtectedRoute>} />
-              <Route path="/audit-trail" element={<ProtectedRoute><BukuTransaksiPage /></ProtectedRoute>} />
-              <Route path="/laporan-keuangan" element={<ProtectedRoute><FinancialReport /></ProtectedRoute>} />
-              <Route path="/balance-sheet"   element={<ProtectedRoute><BalanceSheet /></ProtectedRoute>} />
+              <Route path="/reimbursement"   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><Reimbursement /></ProtectedRoute>} />
+              <Route path="/profit"          element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><Profit /></ProtectedRoute>} />
+              <Route path="/buku-transaksi" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BukuTransaksiPage /></ProtectedRoute>} />
+              <Route path="/audit-trail" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BukuTransaksiPage /></ProtectedRoute>} />
+              <Route path="/laporan-keuangan" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><FinancialReport /></ProtectedRoute>} />
+              <Route path="/balance-sheet"   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BalanceSheet /></ProtectedRoute>} />
               {/* Finance Module Routes */}
-              <Route path="/dashboard-finance"       element={<ProtectedRoute><DashboardFinance /></ProtectedRoute>} />
-              <Route path="/transaksi-pemasukan"     element={<ProtectedRoute><TransaksiPemasukan /></ProtectedRoute>} />
-              <Route path="/transaksi-pengeluaran"   element={<ProtectedRoute><TransaksiPengeluaran /></ProtectedRoute>} />
-              <Route path="/history-invoice"         element={<ProtectedRoute><HistoryInvoice /></ProtectedRoute>} />
-              <Route path="/invoice-penagihan"        element={<ProtectedRoute><InvoicePenagihan /></ProtectedRoute>} />
-              <Route path="/bills"                   element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
-              <Route path="/vendors"                 element={<ProtectedRoute><VendorsPage /></ProtectedRoute>} />
-              <Route path="/coa"                     element={<ProtectedRoute><CoaPage /></ProtectedRoute>} />
-              <Route path="/journal"                 element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
-              <Route path="/general-ledger"          element={<ProtectedRoute><GeneralLedgerPage /></ProtectedRoute>} />
-              <Route path="/reconciliation"          element={<ProtectedRoute><ReconciliationPage /></ProtectedRoute>} />
-              <Route path="/rekening"                element={<ProtectedRoute><RekeningPage /></ProtectedRoute>} />
-              <Route path="/cashflow"                element={<ProtectedRoute><CashflowPage /></ProtectedRoute>} />
-              <Route path="/transfer"                element={<ProtectedRoute><TransferPage /></ProtectedRoute>} />
-              <Route path="/anggaran"                element={<ProtectedRoute><AnggaranBiaya /></ProtectedRoute>} />
-              <Route path="/realisasi"               element={<ProtectedRoute><RealisasiAnggaran /></ProtectedRoute>} />
-              <Route path="/salary"                  element={<ProtectedRoute allowedRoles={["finance", "admin", "super_admin"]}><SalaryKaryawan /></ProtectedRoute>} />
+              <Route path="/dashboard-finance"       element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><DashboardFinance /></ProtectedRoute>} />
+              <Route path="/transaksi-pemasukan"     element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransaksiPemasukan /></ProtectedRoute>} />
+              <Route path="/transaksi-pengeluaran"   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransaksiPengeluaran /></ProtectedRoute>} />
+              <Route path="/history-invoice"         element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><HistoryInvoice /></ProtectedRoute>} />
+              <Route path="/invoice-penagihan"        element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><InvoicePenagihan /></ProtectedRoute>} />
+              <Route path="/bills"                   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BillsPage /></ProtectedRoute>} />
+              <Route path="/vendors"                 element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><VendorsPage /></ProtectedRoute>} />
+              <Route path="/coa"                     element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><CoaPage /></ProtectedRoute>} />
+              <Route path="/journal"                 element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><JournalPage /></ProtectedRoute>} />
+              <Route path="/general-ledger"          element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><GeneralLedgerPage /></ProtectedRoute>} />
+              <Route path="/reconciliation"          element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><ReconciliationPage /></ProtectedRoute>} />
+              <Route path="/rekening"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><RekeningPage /></ProtectedRoute>} />
+              <Route path="/cashflow"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><CashflowPage /></ProtectedRoute>} />
+              <Route path="/transfer"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransferPage /></ProtectedRoute>} />
+              <Route path="/anggaran"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><AnggaranBiaya /></ProtectedRoute>} />
+              <Route path="/realisasi"               element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><RealisasiAnggaran /></ProtectedRoute>} />
+              <Route path="/salary"                  element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><SalaryKaryawan /></ProtectedRoute>} />
               <Route path="/settings"        element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/positions"       element={<ProtectedRoute><Positions /></ProtectedRoute>} />
               <Route path="/face-enrollment" element={<ProtectedRoute><FaceEnrollment /></ProtectedRoute>} />

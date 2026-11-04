@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import Layout from "../../components/Layout";
-import { 
-  FinancePageHeader, 
-  FinanceFilterBar, 
-  FinanceTable, 
-  FinanceBadge, 
-  FinanceModal, 
-  formatRupiah, 
-  exportToExcel 
+import {
+  FinancePageHeader,
+  FinanceFilterBar,
+  FinanceTable,
+  FinanceBadge,
+  FinanceModal,
+  formatRupiah,
+  exportToExcel
 } from "./FinancePageComponents";
 import { accountingGet, accountingMutate, accountingError } from "../../utils/accountingApi";
 import { Plus, Landmark, Wallet, CreditCard, ChevronRight, MoreHorizontal, Pencil, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -90,20 +90,9 @@ const CLASS_LABELS = {
 };
 
 export default function CoaPage() {
-  const [data, setData] = useState(() => {
-    try {
-      const saved = localStorage.getItem("finance_coa_data");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const clean = parsed.filter(a => a.status !== 'Nonaktif' && a.kode !== '1100');
-          localStorage.setItem("finance_coa_data", JSON.stringify(clean));
-          return clean;
-        }
-      }
-    } catch {}
-    return [];
-  });
+  // Selalu mulai dari array kosong, data akan di-fetch fresh dari API saat mount
+  // (tidak pakai localStorage sebagai initial state agar tidak ada stale cache)
+  const [data, setData] = useState([]);
 
   const [csrfToken, setCsrfToken] = useState("");
   const [loading, setLoading] = useState(false);
@@ -155,6 +144,8 @@ export default function CoaPage() {
   const fetchAccounts = async () => {
     setLoading(true);
     setErrorMsg("");
+    // Hapus cache lama agar tidak ada stale data saat fetch ulang
+    try { localStorage.removeItem("finance_coa_data"); } catch { }
     try {
       const res = await accountingGet("lookups");
       if (res?.csrf_token) setCsrfToken(res.csrf_token);
@@ -163,11 +154,10 @@ export default function CoaPage() {
       if (rawAccounts.length > 0) {
         const transformed = transformAccounts(rawAccounts, rawBanks);
         setData(transformed);
-        localStorage.setItem("finance_coa_data", JSON.stringify(transformed));
       }
     } catch (err) {
       console.warn("Gagal mengambil data akun dari server:", err);
-      // Fallback: jika localStorage kosong, coba panggil API langsung
+      // Fallback: panggil API langsung
       try {
         const alt = await axios.get("/api/accounting.php?view=lookups");
         if (alt.data?.csrf_token) setCsrfToken(alt.data.csrf_token);
@@ -175,7 +165,6 @@ export default function CoaPage() {
         if (altAccounts.length > 0) {
           const transformed = transformAccounts(altAccounts, alt.data?.data?.banks || []);
           setData(transformed);
-          localStorage.setItem("finance_coa_data", JSON.stringify(transformed));
         }
       } catch (e) {
         const msg = e?.response?.data?.message || err?.response?.data?.message || e?.message || err?.message || "Tidak dapat terhubung ke server akuntansi.";
@@ -286,7 +275,7 @@ export default function CoaPage() {
 
     try {
       const savedAcc = await accountingMutate(payload, csrfToken);
-      
+
       // Jika akun kas/bank baru dan ada detail bank, daftarkan juga ke cash_bank_accounts
       if (!editingItem && form.reportClass === 'cash' && (form.bankName || form.accountNumber)) {
         try {
@@ -326,13 +315,13 @@ export default function CoaPage() {
       }, csrfToken);
 
       setSuccessMsg(`Akun ${deletingItem.kode} - ${deletingItem.nama} berhasil dihapus permanen.`);
-      
+
       const targetId = String(deletingItem.id);
       const updated = data.filter(d => String(d.id) !== targetId && String(d.kode) !== String(deletingItem.kode));
       setData(updated);
       try {
         localStorage.setItem("finance_coa_data", JSON.stringify(updated));
-      } catch (e) {}
+      } catch (e) { }
 
       setDeletingItem(null);
       await fetchAccounts();
@@ -344,7 +333,7 @@ export default function CoaPage() {
       setData(updated);
       try {
         localStorage.setItem("finance_coa_data", JSON.stringify(updated));
-      } catch (e) {}
+      } catch (e) { }
       setErrorMsg(accountingError(err));
       setDeletingItem(null);
     } finally {
@@ -437,16 +426,14 @@ export default function CoaPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                    isActive
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${isActive
                       ? "bg-blue-50 text-blue-600 shadow-2xs border border-blue-100"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
-                  }`}
+                    }`}
                 >
                   <span>{tab.label}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
-                  }`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
+                    }`}>
                     {count}
                   </span>
                 </button>

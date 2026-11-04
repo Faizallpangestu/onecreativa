@@ -160,7 +160,21 @@ function ac_master_mutate(mysqli $db,array $actor,array $data):array {
         if($action==='permission'){$role=ac_text($data['role']??'','Role',50);if(!ac_one($db,'SELECT id FROM roles WHERE LOWER(name)=?',[$role]))ac_fail('Role tidak ditemukan.');$permission=$data['permission']??'';if(!in_array($permission,['read','prepare','approve','post','configure'],true))ac_fail('Permission tidak valid.');
             if($permission==='configure'&&$role==='super_admin'&&empty($data['allowed']))ac_fail('Hak konfigurasi Super Admin harus dipertahankan.');
             ac_query($db,'INSERT INTO finance_role_permissions(role_name,permission,allowed) VALUES(?,?,?) ON DUPLICATE KEY UPDATE allowed=VALUES(allowed)',[$role,$permission,empty($data['allowed'])?0:1]);ac_audit($db,$actor,'permission',$role,'changed',$data);return ['role'=>$role];}
-        if($action==='vendor'){ac_query($db,'INSERT INTO vendors(name) VALUES(?)',[ac_text($data['name']??'','Nama vendor')]);$id=(int)$db->insert_id;ac_audit($db,$actor,'vendor',(string)$id,'created');return ['id'=>$id];}
+        if($action==='vendor'){
+            $name = ac_text($data['name']??'','Nama vendor');
+            $id = !empty($data['id']) ? (int)$data['id'] : null;
+            $isActive = isset($data['is_active']) ? (int)$data['is_active'] : 1;
+            if ($id && ac_table($db, 'vendors') && ac_one($db, 'SELECT id FROM vendors WHERE id=?', [$id])) {
+                ac_query($db, 'UPDATE vendors SET name=?, is_active=? WHERE id=?', [$name, $isActive, $id]);
+                ac_audit($db,$actor,'vendor',(string)$id,'updated',['name'=>$name,'is_active'=>$isActive]);
+                return ['id'=>$id,'name'=>$name];
+            } else {
+                ac_query($db,'INSERT INTO vendors(name, is_active) VALUES(?, ?)',[$name, $isActive]);
+                $id=(int)$db->insert_id;
+                ac_audit($db,$actor,'vendor',(string)$id,'created',['name'=>$name]);
+                return ['id'=>$id,'name'=>$name];
+            }
+        }
         if($action==='delete_vendor'){
             $id=ac_id($data['id']??null);
             if(ac_table($db,'vendors')){

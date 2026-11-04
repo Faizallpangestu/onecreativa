@@ -21,7 +21,8 @@ import {
   Clock,
   X,
   ExternalLink,
-  Hash
+  Hash,
+  Trash2
 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 import axios from "axios";
@@ -61,7 +62,7 @@ export default function BukuTransaksiPage() {
           setServerAuditLogs(res.data.data);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, [refreshTrigger]);
 
@@ -85,10 +86,10 @@ export default function BukuTransaksiPage() {
           actorName: item.actor_name || "Administrator",
           actorRole: item.actor_role || "Finance Admin",
           module: item.entity_type === "employee" ? "Manajemen SDM & User"
-                : item.entity_type === "payroll" ? "Payroll & Gaji"
-                : item.entity_type === "asset" ? "Aset GA & Inventaris"
+            : item.entity_type === "payroll" ? "Payroll & Gaji"
+              : item.entity_type === "asset" ? "Aset GA & Inventaris"
                 : item.entity_type === "lms_class" ? "Kelas & Kurikulum LMS"
-                : "Keuangan Umum",
+                  : "Keuangan Umum",
           action: item.action || "UPDATE",
           refNumber: item.entity_id || "-",
           description: item.details?.keterangan || (typeof item.details === "object" ? JSON.stringify(item.details).slice(0, 75) + "..." : "Aktivitas operasional"),
@@ -103,117 +104,7 @@ export default function BukuTransaksiPage() {
       });
     }
 
-    // B. Ambil dari Transaksi Pemasukan Riil (`finance_income_data`)
-    try {
-      const rawIncomes = JSON.parse(localStorage.getItem("finance_income_data") || "[]");
-      if (Array.isArray(rawIncomes)) {
-        rawIncomes.forEach((inc) => {
-          const nom = Number(inc.nominal || 0);
-          logs.push({
-            id: `AUD-INC-${inc.id}`,
-            timestamp: inc.tanggal ? `${inc.tanggal} 10:24:00` : "2026-10-01 10:24:00",
-            actorName: "FINANCE LPK CREATIVA",
-            actorRole: "Finance Officer",
-            module: "Pemasukan (Income)",
-            action: inc.status === "Lunas" ? "DISBURSE" : "CREATE",
-            refNumber: `TRX-INC-${inc.id}`,
-            description: `Penerimaan ${inc.kategori || "Biaya Kursus"}: ${inc.siswa || "Siswa"} - ${inc.deskripsi || ""}`,
-            amount: nom,
-            type: "inflow",
-            accountName: inc.sumberDana ? `Bank ${inc.sumberDana}` : "Bank BCA Operasional",
-            ipAddress: "192.168.1.108",
-            hashChecksum: `a7f920bc${inc.id}e49b...`,
-            integrityStatus: "VERIFIED",
-            rawDetails: inc,
-          });
-        });
-      }
-    } catch (e) {}
-
-    // C. Ambil dari Transaksi Pengeluaran Riil (`finance_expense_data`)
-    try {
-      const rawExpenses = JSON.parse(localStorage.getItem("finance_expense_data") || "[]");
-      const deletedIds = new Set(JSON.parse(localStorage.getItem("finance_expense_deleted_ids") || "[]").map(String));
-      if (Array.isArray(rawExpenses)) {
-        rawExpenses.forEach((exp) => {
-          if (deletedIds.has(String(exp.id))) return;
-          const nom = Number(exp.nominal || 0);
-          logs.push({
-            id: `AUD-EXP-${exp.id}`,
-            timestamp: exp.waktuPelunasan ? exp.waktuPelunasan.replace("T", " ") + ":00" : (exp.tanggal ? `${exp.tanggal} 14:30:00` : "2026-10-01 14:30:00"),
-            actorName: exp.petugasPelunasan || "FINANCE LPK CREATIVA",
-            actorRole: "Finance Officer",
-            module: "Pengeluaran (Expense)",
-            action: exp.status === "Paid" ? "DISBURSE" : "CREATE",
-            refNumber: `TRX-EXP-${exp.id}`,
-            description: `Pembayaran ${exp.kategori || "Operasional"}: ${exp.deskripsi || ""} (${exp.vendor || "Vendor"})`,
-            amount: nom,
-            type: "outflow",
-            accountName: exp.sumberDana || "Bank BCA Operasional",
-            ipAddress: "192.168.1.108",
-            hashChecksum: `b831fa88${exp.id}93a1...`,
-            integrityStatus: "VERIFIED",
-            rawDetails: exp,
-          });
-        });
-      }
-    } catch (e) {}
-
-    // D. Ambil dari Bills (Tagihan Vendor) Riil (`finance_bills_data`)
-    try {
-      const rawBills = JSON.parse(localStorage.getItem("finance_bills_data") || "[]");
-      if (Array.isArray(rawBills)) {
-        rawBills.forEach((b) => {
-          const nom = Number(b.total || 0);
-          logs.push({
-            id: `AUD-BIL-${b.id}`,
-            timestamp: b.waktuPelunasan ? b.waktuPelunasan.replace("T", " ") + ":00" : (b.tanggal ? `${b.tanggal} 11:15:00` : "2026-10-01 11:15:00"),
-            actorName: b.petugasPelunasan || "FINANCE LPK CREATIVA",
-            actorRole: "Accounts Payable Staff",
-            module: "Tagihan Vendor (Bills)",
-            action: b.status === "Lunas" ? "DISBURSE" : "CREATE",
-            refNumber: b.id,
-            description: `Tagihan Vendor ${b.vendor || "Vendor"}: ${b.deskripsi || ""}`,
-            amount: nom,
-            type: "outflow",
-            accountName: b.akunBayar || "Bank BCA Operasional",
-            ipAddress: "192.168.1.108",
-            hashChecksum: `c389ab41${b.id.replace(/\D/g, "")}...`,
-            integrityStatus: "VERIFIED",
-            rawDetails: b,
-          });
-        });
-      }
-    } catch (e) {}
-
-    // E. Ambil dari Invoicing Siswa Riil (`saved_custom_invoices`)
-    try {
-      const rawInvoices = JSON.parse(localStorage.getItem("saved_custom_invoices") || "[]");
-      if (Array.isArray(rawInvoices)) {
-        rawInvoices.forEach((inv) => {
-          const total = Number(inv.total || 0);
-          logs.push({
-            id: `AUD-INV-${inv.id || "01"}`,
-            timestamp: inv.tanggal ? `${inv.tanggal} 09:30:00` : "2026-10-15 09:30:00",
-            actorName: "FINANCE LPK CREATIVA",
-            actorRole: "Billing Administrator",
-            module: "Billing & Invoice Siswa",
-            action: inv.status === "Lunas" || inv.status === "paid" ? "DISBURSE" : "CREATE",
-            refNumber: inv.nomorInvoice || `INV-${inv.id || "001"}`,
-            description: `Penerbitan Invoice Kursus: ${inv.namaSiswa || "Siswa"} (${inv.program || "Reguler"})`,
-            amount: total,
-            type: "inflow",
-            accountName: "Rekening Penerimaan Siswa (BCA)",
-            ipAddress: "192.168.1.108",
-            hashChecksum: `d894bfa2${inv.id || "001"}...`,
-            integrityStatus: "VERIFIED",
-            rawDetails: inv,
-          });
-        });
-      }
-    } catch (e) {}
-
-    // Urutkan dari yang paling baru (Descending Timestamp)
+    // Hanya gunakan log riil dari backend (accounting_audit_logs)
     return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [serverAuditLogs]);
 
@@ -255,12 +146,13 @@ export default function BukuTransaksiPage() {
   // ── 4. STATISTIK KPI AUDIT FORENSIK ──
   const auditStats = useMemo(() => {
     const totalLogs = combinedAuditLogs.length;
-    const oktLogs = combinedAuditLogs.filter((l) => l.timestamp.includes("2026-10")).length;
-    const totalMonetaryValue = combinedAuditLogs.reduce((acc, curr) => acc + curr.amount, 0);
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const monthLogs = combinedAuditLogs.filter((l) => l.timestamp && l.timestamp.includes(currentMonthKey)).length;
+    const totalMonetaryValue = combinedAuditLogs.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     return {
       totalLogs,
-      oktLogs,
+      monthLogs,
       totalMonetaryValue,
       complianceRate: "100%",
     };
@@ -320,6 +212,22 @@ export default function BukuTransaksiPage() {
     window.print();
   };
 
+  const handleClearAuditLogs = async () => {
+    const confirmed = window.confirm("Apakah Anda yakin ingin mengosongkan seluruh data log Audit Trail Forensik?");
+    if (!confirmed) return;
+    try {
+      setLoading(true);
+      await axios.get("/api/audit_trail.php?clear=1");
+      setServerAuditLogs([]);
+      alert("Seluruh data log audit forensik berhasil dibersihkan (kosong).");
+    } catch (e) {
+      alert("Gagal mengosongkan audit log: " + (e.response?.data?.message || e.message));
+    } finally {
+      setLoading(false);
+      setRefreshTrigger((prev) => prev + 1);
+    }
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-[#f8fafc] p-4 lg:p-6 space-y-6">
@@ -355,6 +263,16 @@ export default function BukuTransaksiPage() {
               className="p-2 bg-white hover:bg-slate-50 text-slate-600 rounded-lg border border-slate-200 text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-blue-600" : ""}`} />
+            </button>
+
+            {/* Clear Audit Logs Button */}
+            <button
+              onClick={handleClearAuditLogs}
+              title="Kosongkan seluruh data log audit forensik"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 rounded-lg border border-rose-200 text-xs font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Kosongkan Log</span>
             </button>
 
             {/* Export Excel Button */}
@@ -397,8 +315,8 @@ export default function BukuTransaksiPage() {
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500">Mutasi Periode Okt 2026</p>
-              <p className="text-xl font-bold text-slate-900 mt-1">{auditStats.oktLogs} Aktivitas</p>
+              <p className="text-xs font-medium text-slate-500">Mutasi Bulan Berjalan</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">{auditStats.monthLogs} Aktivitas</p>
               <p className="text-[11px] text-slate-400 mt-1">Sinkronisasi Realtime</p>
             </div>
           </div>
@@ -517,8 +435,18 @@ export default function BukuTransaksiPage() {
               <tbody className="divide-y divide-slate-100">
                 {paginatedLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 text-center text-slate-400">
-                      Tidak ada catatan audit yang cocok dengan kriteria pencarian.
+                    <td colSpan={11} className="py-16 text-center">
+                      <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                        <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 shadow-2xs">
+                          <ShieldCheck className="w-7 h-7" />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-800 mb-1">
+                          Belum Ada Catatan Log Audit
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Sistem audit trail aktif dan siap merekam. Seluruh aktivitas transaksi keuangan, mutasi kas/bank, dan approval berjenjang mendatang akan tercatat otomatis di sini secara forensik &amp; akurat.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -566,17 +494,16 @@ export default function BukuTransaksiPage() {
                       {/* Aksi */}
                       <td className="py-3 px-3 text-center">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            item.action === "DISBURSE" || item.action === "PAID"
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${item.action === "DISBURSE" || item.action === "PAID"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : item.action === "CREATE"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : item.action === "APPROVE"
-                              ? "bg-purple-50 text-purple-700 border border-purple-200"
-                              : item.action === "DELETE" || item.action.includes("DELETED")
-                              ? "bg-rose-50 text-rose-700 border border-rose-200"
-                              : "bg-slate-100 text-slate-700 border border-slate-200"
-                          }`}
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : item.action === "APPROVE"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : item.action === "DELETE" || item.action.includes("DELETED")
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                            }`}
                         >
                           {item.action}
                         </span>

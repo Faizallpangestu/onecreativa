@@ -334,30 +334,30 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
   const handleSyncPesertaFromWeb = async () => {
     setIsSyncingPeserta(true);
     try {
-      const response = await fetch("https://creativabridging.com/api_peserta.php?api_key=CREATIVA_SYNC_SECRET_2026");
-      const result = await response.json();
-
-      if (!result.status || !Array.isArray(result.data)) {
-        throw new Error(result.message || "Gagal mendapatkan data peserta");
+      const response = await axios.post("/api/sync_students_web.php", {});
+      const students = response.data?.students;
+      if (response.data?.status !== "success" || !Array.isArray(students)) {
+        throw new Error(response.data?.message || "Gagal mendapatkan data peserta.");
       }
 
       const deletedIds = JSON.parse(localStorage.getItem("deleted_students_finance") || "[]");
-      const localOnly = JSON.parse(localStorage.getItem("local_only_students_finance") || "[]");
 
-      const currentYear = new Date().getFullYear().toString().slice(-2);
-      const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
-
-      const formattedParticipants = result.data
-        .filter(p => p.nama && !deletedIds.includes(p.id) && !deletedIds.includes(`CB-${p.id}`))
+      const formattedParticipants = students
+        .filter(p => {
+          const webId = p.web_id || p.id;
+          return (p.nama || p.name || p.nama_lengkap) &&
+            !deletedIds.includes(webId) &&
+            !deletedIds.includes(String(webId)) &&
+            !deletedIds.includes(`CB-${webId}`);
+        })
         .map(p => {
-          const rawId = p.id;
-          // Format standar NIS LPK: TGCJ + Tahun(2 digit) + Bulan(2 digit) + ID urut (3 digit)
-          // Contoh: TGCJ2610095 (sesuai format invoice resmi TGCJ)
-          const nisCode = p.nis || `TGCJ${currentYear}${currentMonth}${String(rawId).padStart(3, "0")}`;
-          const pName = p.nama.trim();
-          const cleanPhone = p.phone && p.phone !== "-" ? p.phone : "";
-          const cleanEmail = p.email && p.email !== "-" ? p.email : `${pName.toLowerCase().replace(/\s+/g, ".")}@gmail.com`;
-          const address = p.kotaDomisili ? `${p.kotaDomisili}, ${p.lokasiTinggal || "Indonesia"}` : "Cianjur, Jawa Barat";
+          const rawId = p.web_id || p.id;
+          const pName = (p.nama || p.name || p.nama_lengkap).trim();
+          const nisCode = p.nis || `S-${String(rawId).padStart(3, "0")}`;
+          const cleanPhone = p.phone || p.no_wa || p.kontak || "";
+          const cleanEmail = p.email || "";
+          const address = p.alamat || [p.kotaDomisili || p.kota, p.lokasiTinggal].filter(Boolean).join(", ") || "Cianjur, Jawa Barat";
+          const status = p.status || "Aktif";
 
           return {
             id: nisCode,
@@ -367,30 +367,15 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
             phone: cleanPhone || "0812-xxxx-xxxx",
             email: cleanEmail,
             alamat: address,
-            status: p.status === "Pembayaran" ? "Menunggu Pembayaran" : `Siswa (${p.status || "Aktif"})`,
+            status: status === "Pembayaran" || status === "Menunggu Pembayaran" ? "Menunggu Pembayaran" : `Siswa (${status})`,
             program: p.program || "Kelas Intensif",
-            batch: "2",
-            noKtp: p.noKtp || "",
+            batch: String(p.batch || "2").replace(/^batch\s*/i, ""),
+            noKtp: p.noKtp || p.no_ktp || "",
             fromWeb: true
           };
         });
 
-      // 1. Sinkronisasi ke backend agar database peserta_intensif ikut sinkron & terhapus jika di web dihapus
-      try {
-        await axios.post("/api/sync_students_web.php", { students: result.data });
-      } catch (beSyncErr) {
-        console.warn("Backend sync notice:", beSyncErr);
-      }
-
-      // 2. Deletion mirroring:
-      // Hanya pertahankan siswa non-web manual, dan buang data siswa web lama yang sudah dihapus dari creativabridging.com
-      const activeWebIds = new Set(result.data.map(p => Number(p.id)));
-
-      const nonWebStudents = liveStudents.filter(s => {
-        if (s.fromWeb) return false;
-        if (s.rawId && !activeWebIds.has(Number(s.rawId))) return false;
-        return true;
-      });
+      const nonWebStudents = liveStudents.filter(s => !s.fromWeb);
 
       const mergedList = [...nonWebStudents, ...formattedParticipants];
 
@@ -405,7 +390,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
       Swal.fire({
         icon: "success",
         title: "Sinkronisasi Berhasil!",
-        html: `Berhasil menarik <b>${result.total || result.data.length} siswa pendaftar</b> dari <code>creativabridging.com</code>!<br><span class="text-xs text-slate-500">Data telah otomatis masuk dan siap digunakan untuk Buat Invoice.</span>`,
+        html: `Berhasil menarik <b>${formattedParticipants.length} siswa</b> dari <code>creativabridging.com</code>. Hanya data siswa yang disinkronkan; invoice tidak dibuat atau dikirim otomatis.`,
         customClass: { popup: "rounded-2xl" },
         confirmButtonColor: "#2563eb"
       });
@@ -414,7 +399,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
       Swal.fire({
         icon: "error",
         title: "Gagal Menarik Data",
-        text: err.message || "Pastikan koneksi internet aktif dan endpoint creativabridging.com dapat diakses.",
+        text: err.response?.data?.message || err.message || "Pastikan koneksi internet aktif dan endpoint creativabridging.com dapat diakses.",
         customClass: { popup: "rounded-2xl" }
       });
     } finally {

@@ -3,15 +3,22 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import Sidebar from "./Sidebar";
-import { Bell, ChevronDown, Menu, Search, HelpCircle } from "lucide-react";
+import { Bell, ChevronDown, Menu, Search, HelpCircle, FileText, CreditCard, Clock, AlertTriangle, CheckCircle2, Megaphone } from "lucide-react";
+
+function formatRp(val) {
+  const num = Number(val) || 0;
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
+}
 import logo from "../assets/logo.webp";
 import "../styles/finance-theme.css";
+import { normalizeRole } from "../utils/roleAccess";
 
 export default function Layout({ children, hideMobileHeader = false, hideBottomNav = false, hideSidebar = false, appearance }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [financeNotifications, setFinanceNotifications] = useState([]);
   const notifRef = useRef(null);
   const notifRefMobile = useRef(null);
   const profileRef = useRef(null);
@@ -47,9 +54,133 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
       .catch(console.error);
   }, []);
 
+  const loadFinanceNotifications = async () => {
+    const notifs = [];
+
+    // 1. Tagihan Vendor (Bills) Belum Dibayar
+    try {
+      const deletedBillIds = JSON.parse(localStorage.getItem("finance_deleted_bill_ids") || "[]");
+      const savedBills = localStorage.getItem("finance_bills_data");
+      if (savedBills) {
+        const bills = JSON.parse(savedBills);
+        if (Array.isArray(bills)) {
+          const unpaid = bills.filter(b =>
+            !deletedBillIds.includes(String(b.id)) &&
+            b.status &&
+            b.status.toLowerCase().includes("belum")
+          );
+          unpaid.slice(0, 10).forEach(b => {
+            notifs.push({
+              id: `bill-${b.id}`,
+              type: "bill",
+              category: "Tagihan Vendor",
+              title: `Tagihan ${b.id} - ${b.vendor || 'Vendor'}`,
+              desc: `${formatRp(b.total)} • Status: Belum Dibayar`,
+              date: b.jatuhTempo ? `Jatuh tempo: ${b.jatuhTempo}` : (b.tanggal || ""),
+              link: "/bills",
+              color: "amber"
+            });
+          });
+        }
+      }
+    } catch (e) { }
+
+    // 2. Invoice Pembayaran Siswa Menunggu Verifikasi & Overdue
+    try {
+      const res = await fetch("/api/billing.php");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "success" && data.data) {
+          const payments = data.data.pembayaran || [];
+          const invoices = data.data.invoices || [];
+
+          // Pembayaran butuh verifikasi
+          const pending = payments.filter(p =>
+            p.statusVerif && (p.statusVerif.toLowerCase() === "menunggu" || p.statusVerif.toLowerCase() === "pending")
+          );
+          pending.slice(0, 10).forEach(p => {
+            notifs.push({
+              id: `pay-${p.id || p.noInv}`,
+              type: "payment",
+              category: "Verifikasi Pembayaran",
+              title: `Bukti Bayar Invoice #${p.noInv || p.id}`,
+              desc: `${p.customer || 'Siswa'} bayar ${formatRp(p.jumlah)} via ${p.metode || 'Transfer'} (Menunggu Verifikasi)`,
+              date: p.tglBayar || "",
+              link: "/invoice-penagihan",
+              color: "blue"
+            });
+          });
+
+          // Invoice Overdue
+          const overdue = invoices.filter(inv =>
+            inv.status && inv.status.toLowerCase() === "overdue"
+          );
+          overdue.slice(0, 5).forEach(inv => {
+            notifs.push({
+              id: `inv-${inv.id}`,
+              type: "invoice",
+              category: "Invoice Jatuh Tempo",
+              title: `Invoice #${inv.id} Overdue`,
+              desc: `${inv.customer || 'Siswa'} • Sisa: ${formatRp(inv.sisa || inv.total)}`,
+              date: inv.jatuhTempo ? `Jatuh tempo: ${inv.jatuhTempo}` : "",
+              link: "/invoice-penagihan",
+              color: "rose"
+            });
+          });
+        }
+      }
+    } catch (e) { }
+
+    // 3. Pengajuan Anggaran
+    try {
+      const savedAnggaran = localStorage.getItem("finance_anggaran_data");
+      if (savedAnggaran) {
+        const list = JSON.parse(savedAnggaran);
+        if (Array.isArray(list)) {
+          const pendingAng = list.filter(a =>
+            a.status && (a.status.toLowerCase().includes("menunggu") || a.status.toLowerCase() === "pending")
+          );
+          pendingAng.slice(0, 5).forEach(a => {
+            notifs.push({
+              id: `ang-${a.id}`,
+              type: "budget",
+              category: "Pengajuan Anggaran",
+              title: `Pengajuan: ${a.kegiatan || a.kategori || a.judul || 'Operasional'}`,
+              desc: `Nominal: ${formatRp(a.nominal || a.total)} (Menunggu Approval)`,
+              date: a.tanggal || "",
+              link: "/anggaran",
+              color: "indigo"
+            });
+          });
+        }
+      }
+    } catch (e) { }
+
+    setFinanceNotifications(notifs);
+  };
+
+  useEffect(() => {
+    loadFinanceNotifications();
+    const interval = setInterval(loadFinanceNotifications, 30000);
+    window.addEventListener("storage", loadFinanceNotifications);
+    window.addEventListener("finance_bills_updated", loadFinanceNotifications);
+    window.addEventListener("finance_invoice_updated", loadFinanceNotifications);
+    window.addEventListener("finance_payment_updated", loadFinanceNotifications);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", loadFinanceNotifications);
+      window.removeEventListener("finance_bills_updated", loadFinanceNotifications);
+      window.removeEventListener("finance_invoice_updated", loadFinanceNotifications);
+      window.removeEventListener("finance_payment_updated", loadFinanceNotifications);
+    };
+  }, []);
+
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
   });
+
+  const role = normalizeRole(user?.role_name || user?.role);
+  const isSuperAdmin = role === "super_admin" || role === "owner" || role === "director" || role === "direktur";
 
   useEffect(() => {
     fetch("/api/session.php")
@@ -69,17 +200,17 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
               full_name: actor.full_name || cleanName,
               role_name: actor.role || prev?.role_name || "super_admin",
             };
-            try { localStorage.setItem("user", JSON.stringify(updated)); } catch {}
+            try { localStorage.setItem("user", JSON.stringify(updated)); } catch { }
             return updated;
           });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const getPageTitle = () => {
     const path = location.pathname;
-    
+
     const titles = {
       "/dashboard": "Dashboard",
       "/dashboard-siswa-intensif": "Dashboard",
@@ -184,25 +315,136 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
         maxLen = key.length;
       }
     }
-    
+
     return bestMatch;
   };
 
+  const totalNotifications = financeNotifications.length + announcements.length;
+
+  const renderNotificationDropdown = (isMobile = false) => (
+    <div className={`absolute right-0 ${isMobile ? 'mt-2 w-72' : 'mt-3 w-84 md:w-96'} bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150`}>
+      <div className="p-3.5 border-b border-slate-100 bg-slate-50/90 flex items-center justify-between">
+        <h3 className="font-bold text-slate-800 text-xs md:text-sm">Notifikasi Keuangan & Sistem</h3>
+        <span className={`text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full ${totalNotifications > 0 ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-500"
+          }`}>
+          {totalNotifications} Baru
+        </span>
+      </div>
+
+      <div className={`${isMobile ? 'max-h-64' : 'max-h-96'} overflow-y-auto divide-y divide-slate-100`}>
+        {totalNotifications === 0 ? (
+          <div className="p-6 md:p-8 text-center">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mx-auto mb-2">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-semibold text-slate-700">Semua Beres!</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Tidak ada tagihan atau pembayaran yang menunggu.</p>
+          </div>
+        ) : (
+          <>
+            {financeNotifications.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setShowNotifications(false);
+                  if (item.link) navigate(item.link);
+                }}
+                className="p-3 hover:bg-slate-50 transition cursor-pointer flex gap-3 items-start group"
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${item.color === 'rose' ? 'bg-rose-50 text-rose-600' :
+                    item.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                      item.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                        item.color === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
+                          'bg-emerald-50 text-emerald-600'
+                  }`}>
+                  {item.type === 'bill' ? <AlertTriangle className="w-4 h-4" /> :
+                    item.type === 'payment' ? <CreditCard className="w-4 h-4" /> :
+                      item.type === 'invoice' ? <FileText className="w-4 h-4" /> :
+                        item.type === 'budget' ? <Clock className="w-4 h-4" /> :
+                          <Bell className="w-4 h-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${item.color === 'rose' ? 'bg-rose-100/70 text-rose-700' :
+                        item.color === 'amber' ? 'bg-amber-100/70 text-amber-800' :
+                          item.color === 'blue' ? 'bg-blue-100/70 text-blue-700' :
+                            item.color === 'indigo' ? 'bg-indigo-100/70 text-indigo-700' :
+                              'bg-slate-100 text-slate-600'
+                      }`}>
+                      {item.category}
+                    </span>
+                    {item.date && (
+                      <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                        {item.date}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition">
+                    {item.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {announcements.map((item, idx) => (
+              <div
+                key={`ann-${idx}`}
+                onClick={() => setShowNotifications(false)}
+                className="p-3 hover:bg-slate-50 transition cursor-pointer flex gap-3 items-start group"
+              >
+                <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <Megaphone className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-sky-700 bg-sky-100/70 px-1.5 py-0.5 rounded">
+                      Pengumuman
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : ""}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition">
+                    {item.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">
+                    {item.content}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {totalNotifications > 0 && (
+        <div className="p-2.5 bg-slate-50 border-t border-slate-100 text-center">
+          <span className="text-[11px] font-semibold text-slate-500">
+            Klik notifikasi untuk membuka transaksi / dokumen terkait
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className={`flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans ${isFinancePage ? "finance-dashboard-shell" : ""}`}>
-      
+
       {!hideSidebar && (
         <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} appearance={isFinancePage ? "finance" : undefined} />
       )}
 
       <div className="flex flex-col flex-1 h-full relative w-full overflow-hidden">
-        
+
         {/* Desktop Top Bar (Hidden on Mobile) */}
         {/* Desktop Top Bar (Hidden on Mobile) */}
         {isFinancePage ? (
           <header className="finance-topbar hidden md:flex shrink-0 items-center justify-between bg-white px-7 h-[68px] z-10 border-b border-slate-200 is-finance">
             <div className="flex items-center gap-4">
-              <button 
+              <button
                 className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
                 aria-label="Toggle navigasi"
                 onClick={() => setIsSidebarOpen(prev => !prev)}
@@ -229,23 +471,32 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                   }[location.pathname] || getPageTitle() || "Dashboard")}
                 </h1>
                 <div className="text-xs text-slate-400 font-normal leading-tight mt-0.5">
-                  Keuangan &gt; {({
-                    "/dashboard-finance": "Dashboard",
-                    "/invoice-penagihan": "Invoice",
-                    "/finance/student-billing": "Students",
-                    "/buku-transaksi": "Audit Trail Forensik",
-                    "/audit-trail": "Audit Trail Forensik",
-                    "/laporan-keuangan": "Laporan Keuangan",
-                    "/profit": "Profit & Loss",
-                    "/balance-sheet": "Balance Sheet",
-                    "/transaksi-pemasukan": "Transaksi Pemasukan",
-                    "/transaksi-pengeluaran": "Transaksi Pengeluaran",
-                    "/anggaran": "Anggaran",
-                    "/realisasi": "Realisasi Anggaran",
-                    "/salary": "Penggajian Karyawan",
-                    "/reimbursement": "Reimbursement",
-                    "/settings": "Pengaturan Sistem",
-                  }[location.pathname] || getPageTitle() || "Dashboard")}
+                  <span 
+                    onClick={() => navigate(isSuperAdmin ? "/dashboard" : "/dashboard-finance")}
+                    className="hover:text-blue-600 cursor-pointer transition-colors"
+                  >
+                    {isSuperAdmin ? "Super Admin" : "Keuangan"}
+                  </span>
+                  {" > "}
+                  <span>
+                    {({
+                      "/dashboard-finance": "Dashboard Keuangan",
+                      "/invoice-penagihan": "Invoice",
+                      "/finance/student-billing": "Students",
+                      "/buku-transaksi": "Audit Trail Forensik",
+                      "/audit-trail": "Audit Trail Forensik",
+                      "/laporan-keuangan": "Laporan Keuangan",
+                      "/profit": "Profit & Loss",
+                      "/balance-sheet": "Balance Sheet",
+                      "/transaksi-pemasukan": "Transaksi Pemasukan",
+                      "/transaksi-pengeluaran": "Transaksi Pengeluaran",
+                      "/anggaran": "Anggaran",
+                      "/realisasi": "Realisasi Anggaran",
+                      "/salary": "Penggajian Karyawan",
+                      "/reimbursement": "Reimbursement",
+                      "/settings": "Pengaturan Sistem",
+                    }[location.pathname] || getPageTitle() || "Dashboard Keuangan")}
+                  </span>
                 </div>
               </div>
             </div>
@@ -267,56 +518,93 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                 <HelpCircle className="w-5 h-5" />
               </button>
 
-              {/* Notifications with badge 3 */}
+              {/* Notifications with dynamic badge */}
               <div className="relative" ref={notifRef}>
-                <button 
+                <button
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-2 rounded-full relative transition-colors"
-                  title="Notifikasi"
+                  title="Notifikasi Keuangan & Sistem"
                 >
                   <Bell className="w-5 h-5" />
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center">3</span>
+                  {totalNotifications > 0 && (
+                    <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center shadow-xs animate-pulse">
+                      {totalNotifications > 99 ? "99+" : totalNotifications}
+                    </span>
+                  )}
                 </button>
 
-                {showNotifications && (
-                  <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <h3 className="font-bold text-slate-800 text-sm">Notifikasi Pengumuman</h3>
-                      <span className="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{announcements.length || 3} Baru</span>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {announcements.length === 0 ? (
-                        <div className="p-4 text-center text-xs font-medium text-slate-400">Tidak ada pengumuman baru.</div>
-                      ) : (
-                        announcements.map((item, idx) => (
-                          <div key={idx} className="p-3.5 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer">
-                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{item.title}</h4>
-                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{item.content}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+                {showNotifications && renderNotificationDropdown(false)}
               </div>
 
               {/* Profile */}
               <div className="relative" ref={profileRef}>
-                <div 
+                <div
                   className="flex items-center gap-3 cursor-pointer group hover:bg-slate-50 p-1 rounded-xl transition-colors"
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                 >
-                  <div className="w-9 h-9 rounded-full bg-[#1a73e8] flex items-center justify-center text-white font-bold text-sm shadow-2xs shrink-0">
-                    F
-                  </div>
-                  <div className="hidden lg:flex flex-col text-left">
-                    <span className="text-xs font-bold text-slate-900 uppercase tracking-wide leading-tight">
-                      FINANCE LPK CREATIVA
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-medium leading-tight mt-0.5">
-                      Finance
-                    </span>
-                  </div>
+                  {(() => {
+                    const photoName = user?.photo || user?.photo_url;
+                    const intensifName = user?.foto_profil;
+                    const photoUrl = photoName && photoName !== "null" 
+                      ? `/api/upload_photo.php?view=photo&file=${encodeURIComponent(photoName)}` 
+                      : intensifName && intensifName !== "null" 
+                        ? `/uploads/intensif/${intensifName}` 
+                        : null;
+                        
+                    const rawName = user?.name || user?.full_name || "Administrator";
+                    const cleanName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
+                      ? (user?.full_name || "Muhammad Faizal")
+                      : rawName;
+                    const fallbackInitial = (cleanName[0] || "A").toUpperCase();
+                    
+                    return (
+                      <div className="relative w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-[#1a73e8] flex items-center justify-center text-white font-bold text-sm shadow-2xs shrink-0">
+                        {photoUrl ? (
+                          <img 
+                            src={photoUrl} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ display: photoUrl ? 'none' : 'flex' }}>
+                          {fallbackInitial}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {(() => {
+                    const r = String(user?.role_name || user?.role || '').toLowerCase();
+                    const roleLabel = (r === 'super_admin' || r === 'owner' || r === 'director' || r === 'direktur') ? 'Super Admin' :
+                      r === 'admin' ? 'Administrator' :
+                      (r === 'hr' || r === 'hrd' || r === 'hr_admin') ? 'HRD' :
+                      r === 'ga' ? 'General Affair' :
+                      (r === 'finance' || r === 'finance_admin') ? 'Finance' :
+                      r === 'lpk' ? 'LPK Admin' :
+                      (r === 'sensei' || r === 'sensei_intensif') ? 'Sensei' :
+                      (r.startsWith('peserta_') || r === 'siswa') ? 'Siswa' :
+                      ((r === '' || r === 'employee' || r === 'karyawan') && user?.position ? user.position : (user?.role_name || 'Staff'));
+
+                    const rawName = user?.name || user?.full_name || "Administrator";
+                    const displayName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
+                      ? (user?.full_name || "Muhammad Faizal")
+                      : rawName;
+
+                    return (
+                      <div className="hidden lg:flex flex-col text-left">
+                        <span className="text-xs font-bold text-slate-900 uppercase tracking-wide leading-tight">
+                          {displayName}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium leading-tight mt-0.5">
+                          {roleLabel}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <ChevronDown className={`w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
                 </div>
 
@@ -324,9 +612,9 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                   <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-soft border border-slate-100 py-2 z-50">
                     <div className="px-4 py-2 border-b border-slate-100 mb-1">
                       <p className="text-sm font-bold text-slate-800">Email Account</p>
-                      <p className="text-xs text-slate-500 font-medium truncate">{user?.email || "finance@creativa.com"}</p>
+                      <p className="text-xs text-slate-500 font-medium truncate">{user?.email || "admin@creativa.com"}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => {
                         setIsProfileOpen(false);
                         navigate('/account-settings');
@@ -335,12 +623,12 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                     >
                       My Profile
                     </button>
-                    <button 
+                    <button
                       className="w-full text-left px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
                       onClick={async () => {
-                         await logoutUser();
-                         localStorage.removeItem('token');
-                         window.location.href = '/';
+                        await logoutUser();
+                        localStorage.removeItem('token');
+                        window.location.href = '/';
                       }}
                     >
                       Logout
@@ -352,65 +640,45 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
           </header>
         ) : (
           <header className={`finance-topbar hidden md:flex shrink-0 items-center justify-between bg-white/80 backdrop-blur-lg px-8 h-[72px] z-10 border-b border-slate-200`}>
-            <div className="font-bold text-navy-900 tracking-wide text-lg flex items-center gap-3">
+            <div className="font-bold text-slate-900 tracking-wide text-base lg:text-lg flex items-center gap-3">
+              <button
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                aria-label="Toggle navigasi"
+                onClick={() => setIsSidebarOpen(prev => !prev)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
               {getPageTitle()}
             </div>
-            
+
             <div className="flex items-center gap-6">
               <button className="flex items-center gap-2 border border-slate-200 bg-white rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
                 <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-slate-700">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5"/>
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M12 17h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 17h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Guide
               </button>
               <div className="relative" ref={notifRef}>
-                <button 
+                <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="text-slate-400 hover:text-navy-900 relative transition-colors"
+                  className="text-slate-400 hover:text-navy-900 relative p-2 rounded-full hover:bg-slate-100 transition-colors"
+                  title="Notifikasi"
                 >
                   <Bell className="w-5 h-5" />
-                  {announcements.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>}
+                  {totalNotifications > 0 && (
+                    <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center shadow-xs animate-pulse">
+                      {totalNotifications > 99 ? "99+" : totalNotifications}
+                    </span>
+                  )}
                 </button>
 
-                {showNotifications && (
-                  <div className="absolute right-0 mt-4 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <h3 className="font-bold text-slate-800">Notifikasi Pengumuman</h3>
-                      <span className="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{announcements.length} Baru</span>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {announcements.length === 0 ? (
-                        <div className="p-6 text-center text-sm font-semibold text-slate-400">Belum ada pengumuman.</div>
-                      ) : (
-                        announcements.map((item, idx) => (
-                          <div key={idx} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer">
-                            <div className="flex gap-3">
-                              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                                <Bell className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-bold text-slate-800 line-clamp-1">{item.title}</h4>
-                                <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{item.content}</p>
-                                {item.image_path && (
-                                  <p className="text-[10px] font-bold text-emerald-500 mt-1 flex items-center gap-1">
-                                    Foto Ada Lampiran Gambar
-                                  </p>
-                                )}
-                                <p className="text-[10px] font-semibold text-slate-400 mt-1">{new Date(item.created_at).toLocaleDateString('id-ID')}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+                {showNotifications && renderNotificationDropdown(false)}
               </div>
               <div className="h-8 w-px bg-slate-200"></div>
               <div className="relative" ref={profileRef}>
-                <div 
+                <div
                   className="flex items-center gap-3 cursor-pointer group"
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                 >
@@ -418,24 +686,24 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                     {(() => {
                       const photoName = user?.photo || user?.photo_url;
                       const intensifName = user?.foto_profil;
-                      const photoUrl = photoName && photoName !== "null" 
-                        ? `/api/upload_photo.php?view=photo&file=${encodeURIComponent(photoName)}` 
-                        : intensifName && intensifName !== "null" 
-                          ? `/uploads/intensif/${intensifName}` 
+                      const photoUrl = photoName && photoName !== "null"
+                        ? `/api/upload_photo.php?view=photo&file=${encodeURIComponent(photoName)}`
+                        : intensifName && intensifName !== "null"
+                          ? `/uploads/intensif/${intensifName}`
                           : null;
-                          
+
                       const rawName = user?.name || user?.full_name || "Admin";
                       const cleanName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
                         ? (user?.full_name || "Muhammad Faizal")
                         : rawName;
                       const fallbackInitial = (cleanName[0] || "M").toUpperCase();
-                      
+
                       return (
                         <div className="relative w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-royal-500 flex items-center justify-center text-white font-bold text-sm shadow-sm">
                           {photoUrl ? (
-                            <img 
-                              src={photoUrl} 
-                              alt="Profile" 
+                            <img
+                              src={photoUrl}
+                              alt="Profile"
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.target.onerror = null;
@@ -454,13 +722,13 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                       const r = String(user?.role_name || user?.role || '').toLowerCase();
                       const roleLabel = (r === 'super_admin' || r === 'owner') ? 'Super Admin' :
                         r === 'admin' ? 'Administrator' :
-                        (r === 'hr' || r === 'hrd' || r === 'hr_admin') ? 'HRD' :
-                        r === 'ga' ? 'General Affair' :
-                        (r === 'finance' || r === 'finance_admin') ? 'Finance' :
-                        r === 'lpk' ? 'LPK Admin' :
-                        (r === 'sensei' || r === 'sensei_intensif') ? 'Sensei' :
-                        (r.startsWith('peserta_') || r === 'siswa') ? 'Siswa' :
-                        ((r === '' || r === 'employee' || r === 'karyawan') && user?.position ? user.position : (user?.role_name || 'Staff'));
+                          (r === 'hr' || r === 'hrd' || r === 'hr_admin') ? 'HRD' :
+                            r === 'ga' ? 'General Affair' :
+                              (r === 'finance' || r === 'finance_admin') ? 'Finance' :
+                                r === 'lpk' ? 'LPK Admin' :
+                                  (r === 'sensei' || r === 'sensei_intensif') ? 'Sensei' :
+                                    (r.startsWith('peserta_') || r === 'siswa') ? 'Siswa' :
+                                      ((r === '' || r === 'employee' || r === 'karyawan') && user?.position ? user.position : (user?.role_name || 'Staff'));
 
                       const rawName = user?.name || user?.full_name || "Muhammad Faizal";
                       const displayName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
@@ -488,7 +756,7 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                       <p className="text-sm font-bold text-slate-800">Email Account</p>
                       <p className="text-xs text-slate-500 font-medium truncate">{user?.email || "admin@creativa.com"}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => {
                         setIsProfileOpen(false);
                         navigate('/account-settings');
@@ -497,12 +765,12 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                     >
                       My Profile
                     </button>
-                    <button 
+                    <button
                       className="w-full text-left px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
                       onClick={async () => {
-                         await logoutUser();
-                         localStorage.removeItem('token');
-                         window.location.href = '/';
+                        await logoutUser();
+                        localStorage.removeItem('token');
+                        window.location.href = '/';
                       }}
                     >
                       Logout
@@ -521,47 +789,21 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
               {isFinancePage ? <div className="finance-mobile-brand flex items-center gap-2"><img className="w-[35px] h-[35px] object-contain rounded-full" src={logo} alt="Logo LPK Creativa" /><span className="text-[9px] leading-[1.45] text-navy-900 font-bold">LPK CREATIVA<br />BRIDGING INTERNATIONAL</span></div> : <span className="text-base font-bold text-navy-900 tracking-wide">{getPageTitle()}</span>}
             </div>
             <div className="flex items-center gap-3">
-              {isFinancePage && !hideSidebar && <button className="rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label="Buka navigasi" onClick={() => setIsSidebarOpen(true)}><Menu className="w-5 h-5" /></button>}
-                            <div className="relative" ref={notifRefMobile}>
-                <button 
+              {!hideSidebar && <button className="rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label="Buka navigasi" onClick={() => setIsSidebarOpen(true)}><Menu className="w-5 h-5" /></button>}
+              <div className="relative" ref={notifRefMobile}>
+                <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="text-slate-400 relative"
+                  className="text-slate-400 relative p-1.5"
+                  title="Notifikasi"
                 >
                   <Bell className="w-5 h-5" />
-                  {announcements.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>}
+                  {totalNotifications > 0 && (
+                    <span className="absolute top-0 right-0 min-w-[16px] h-[16px] px-1 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs animate-pulse">
+                      {totalNotifications > 99 ? "99+" : totalNotifications}
+                    </span>
+                  )}
                 </button>
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                    <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <h3 className="font-bold text-slate-800 text-sm">Notifikasi Pengumuman</h3>
-                      <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{announcements.length} Baru</span>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {announcements.length === 0 ? (
-                        <div className="p-4 text-center text-xs font-semibold text-slate-400">Belum ada pengumuman.</div>
-                      ) : (
-                        announcements.map((item, idx) => (
-                          <div key={idx} className="p-3 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer">
-                            <div className="flex gap-2">
-                              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                                <Bell className="w-3 h-3" />
-                              </div>
-                              <div>
-                                <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{item.title}</h4>
-                                <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{item.content}</p>
-                                {item.image_path && (
-                                  <p className="text-[9px] font-bold text-emerald-500 mt-1 flex items-center gap-1">
-                                    ??? Ada Lampiran
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+                {showNotifications && renderNotificationDropdown(true)}
               </div>
               <div className="w-8 h-8 rounded-full bg-royal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
                 {(user?.name?.[0] || user?.email?.[0] || "A").toUpperCase()}

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { 
-  FinancePageHeader, 
-  FinanceKpiCard, 
-  FinanceFilterBar, 
-  FinanceTable, 
-  FinanceBadge, 
-  FinanceModal, 
-  exportToExcel 
+import {
+  FinancePageHeader,
+  FinanceKpiCard,
+  FinanceFilterBar,
+  FinanceTable,
+  FinanceBadge,
+  FinanceModal,
+  exportToExcel
 } from "./FinancePageComponents";
-import { Building2, CheckCircle2, XCircle, Eye, Plus, Phone, Mail, Trash2 } from "lucide-react";
+import { Building2, CheckCircle2, XCircle, Eye, Plus, Phone, Mail, Trash2, Pencil } from "lucide-react";
 import axios from "axios";
 import Swal from "sweetalert2";
 
@@ -27,7 +27,7 @@ export default function VendorsPage() {
           return parsed.filter(v => !dummyNames.includes(v.nama) && !deletedIds.includes(String(v.id)));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -36,6 +36,7 @@ export default function VendorsPage() {
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -48,11 +49,37 @@ export default function VendorsPage() {
     status: "Aktif",
   });
 
+  const handleOpenCreate = () => {
+    setEditingItem(null);
+    setForm({
+      nama: "",
+      kategori: "Operasional",
+      kontak: "",
+      email: "",
+      alamat: "",
+      status: "Aktif",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (vendor) => {
+    setEditingItem(vendor);
+    setForm({
+      nama: vendor.nama || "",
+      kategori: vendor.kategori || "Operasional",
+      kontak: vendor.kontak === "—" ? "" : (vendor.kontak || ""),
+      email: vendor.email === "—" ? "" : (vendor.email || ""),
+      alamat: vendor.alamat === "—" ? "" : (vendor.alamat || ""),
+      status: vendor.status || "Aktif",
+    });
+    setIsModalOpen(true);
+  };
+
   // Sinkronisasi data ke localStorage setiap kali state data berubah
   useEffect(() => {
     try {
       localStorage.setItem("finance_vendors_data", JSON.stringify(data));
-    } catch (e) {}
+    } catch (e) { }
   }, [data]);
 
   useEffect(() => {
@@ -75,10 +102,10 @@ export default function VendorsPage() {
           setData(apiVendors);
           try {
             localStorage.setItem("finance_vendors_data", JSON.stringify(apiVendors));
-          } catch (e) {}
+          } catch (e) { }
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (active) setLoading(false);
       });
@@ -96,7 +123,7 @@ export default function VendorsPage() {
         bc.postMessage({ type: "vendor_change", vendors: updatedList });
         bc.close();
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   useEffect(() => {
@@ -110,7 +137,7 @@ export default function VendorsPage() {
             setData(parsed.filter(v => !deletedIds.includes(String(v.id)) && !deletedIds.includes(v.nama)));
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     };
 
     window.addEventListener("storage", handleRemoteUpdate);
@@ -162,7 +189,7 @@ export default function VendorsPage() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { active = false; };
   }, []);
 
@@ -202,7 +229,7 @@ export default function VendorsPage() {
     );
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const vendorNama = (form.nama || "").trim();
     if (!vendorNama) {
@@ -217,55 +244,108 @@ export default function VendorsPage() {
     }
     setBusy(true);
 
-    const newVendor = {
-      id: Date.now(),
-      nama: vendorNama,
-      kategori: form.kategori || "Operasional",
-      kontak: form.kontak || "0812-xxxx-xxxx",
-      email: form.email || "-",
-      alamat: form.alamat || "-",
-      status: form.status || "Aktif",
-    };
-
-    // 1. Bersihkan nama vendor baru dari daftar blacklist deleted agar selalu muncul & aktif
     try {
-      const deletedIds = JSON.parse(localStorage.getItem("finance_deleted_vendor_ids") || "[]");
-      const cleaned = deletedIds.filter(id => id !== vendorNama && id !== String(newVendor.id));
-      localStorage.setItem("finance_deleted_vendor_ids", JSON.stringify(cleaned));
-    } catch (e) {}
+      if (editingItem) {
+        // Mode Edit Vendor
+        const updatedVendor = {
+          ...editingItem,
+          nama: vendorNama,
+          kategori: form.kategori || "Operasional",
+          kontak: form.kontak || "—",
+          email: form.email || "—",
+          alamat: form.alamat || "—",
+          status: form.status || "Aktif",
+        };
 
-    // 2. Gabungkan vendor baru ke daftar data (posisi paling atas)
-    const existingFiltered = data.filter(v => v.nama.toLowerCase() !== vendorNama.toLowerCase());
-    const updated = [newVendor, ...existingFiltered];
+        const updated = data.map(v => (v.id === editingItem.id || v.nama === editingItem.nama) ? updatedVendor : v);
+        setData(updated);
+        notifyVendorChange(updated);
 
-    setData(updated);
-    notifyVendorChange(updated);
+        // Update backend database
+        try {
+          await axios.post("/api/accounting.php", {
+            action: "vendor",
+            id: editingItem.id,
+            name: vendorNama,
+            is_active: form.status === "Aktif" ? 1 : 0
+          });
+        } catch (apiErr) {
+          console.warn("Backend vendor update fallback:", apiErr);
+        }
 
-    // 3. Simpan ke database backend jika tersedia
-    axios.post("/api/accounting.php", {
-      action: "vendor",
-      name: newVendor.nama
-    }).catch(() => {});
+        setIsModalOpen(false);
+        setEditingItem(null);
+        if (selectedItem && (selectedItem.id === editingItem.id || selectedItem.nama === editingItem.nama)) {
+          setSelectedItem(updatedVendor);
+        }
 
-    setBusy(false);
-    setIsModalOpen(false);
-    setForm({
-      nama: "",
-      kategori: "Operasional Kantor",
-      kontak: "",
-      email: "",
-      alamat: "",
-      status: "Aktif",
-    });
+        Swal.fire({
+          icon: "success",
+          title: "Vendor Diperbarui",
+          text: `Data vendor ${vendorNama} berhasil diperbarui.`,
+          timer: 1800,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" }
+        });
+      } else {
+        // Mode Tambah Vendor Baru
+        const newVendor = {
+          id: Date.now(),
+          nama: vendorNama,
+          kategori: form.kategori || "Operasional",
+          kontak: form.kontak || "—",
+          email: form.email || "—",
+          alamat: form.alamat || "—",
+          status: form.status || "Aktif",
+        };
 
-    Swal.fire({
-      icon: "success",
-      title: "Vendor Tersimpan",
-      text: `Vendor ${newVendor.nama} berhasil didaftarkan dan tersinkron ke semua formulir tagihan.`,
-      timer: 1800,
-      showConfirmButton: false,
-      customClass: { popup: "rounded-2xl" }
-    });
+        // 1. Bersihkan nama vendor baru dari daftar blacklist deleted agar selalu muncul & aktif
+        try {
+          const deletedIds = JSON.parse(localStorage.getItem("finance_deleted_vendor_ids") || "[]");
+          const cleaned = deletedIds.filter(id => id !== vendorNama && id !== String(newVendor.id));
+          localStorage.setItem("finance_deleted_vendor_ids", JSON.stringify(cleaned));
+        } catch (e) { }
+
+        // 2. Gabungkan vendor baru ke daftar data (posisi paling atas)
+        const existingFiltered = data.filter(v => v.nama.toLowerCase() !== vendorNama.toLowerCase());
+        const updated = [newVendor, ...existingFiltered];
+
+        setData(updated);
+        notifyVendorChange(updated);
+
+        // 3. Simpan ke database backend jika tersedia
+        try {
+          await axios.post("/api/accounting.php", {
+            action: "vendor",
+            name: newVendor.nama,
+            is_active: form.status === "Aktif" ? 1 : 0
+          });
+        } catch (apiErr) {
+          console.warn("Backend vendor create fallback:", apiErr);
+        }
+
+        setIsModalOpen(false);
+        setForm({
+          nama: "",
+          kategori: "Operasional Kantor",
+          kontak: "",
+          email: "",
+          alamat: "",
+          status: "Aktif",
+        });
+
+        Swal.fire({
+          icon: "success",
+          title: "Vendor Tersimpan",
+          text: `Vendor ${newVendor.nama} berhasil didaftarkan dan tersinkron ke semua formulir tagihan.`,
+          timer: 1800,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" }
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   // ── AKSI HAPUS VENDOR PERMANEN ──
@@ -295,7 +375,7 @@ export default function VendorsPage() {
           if (!deletedIds.includes(String(vendor.id))) deletedIds.push(String(vendor.id));
           if (!deletedIds.includes(vendor.nama)) deletedIds.push(vendor.nama);
           localStorage.setItem("finance_deleted_vendor_ids", JSON.stringify(deletedIds));
-        } catch (e) {}
+        } catch (e) { }
 
         Swal.fire({
           icon: "success",
@@ -315,11 +395,11 @@ export default function VendorsPage() {
     { header: "Kategori", accessor: "kategori" },
     { header: "Kontak", accessor: "kontak", className: "text-slate-600" },
     { header: "Status", accessor: "status", align: "center", render: (r) => <FinanceBadge status={r.status} /> },
-    { 
-      header: "Aksi", 
-      accessor: "aksi", 
+    {
+      header: "Aksi",
+      accessor: "aksi",
       align: "center",
-      className: "w-24",
+      className: "w-28",
       render: (r) => (
         <div className="flex items-center justify-center gap-1.5">
           <button
@@ -329,6 +409,14 @@ export default function VendorsPage() {
             title="Lihat Detail Vendor"
           >
             <Eye className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleOpenEdit(r)}
+            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+            title="Edit Profil Vendor"
+          >
+            <Pencil className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -350,7 +438,7 @@ export default function VendorsPage() {
           title="Data Vendor"
           subtitle="Kelola direktori mitra supplier, vendor pengadaan barang, dan penyedia jasa"
           primaryLabel="+ Tambah Vendor"
-          onPrimaryClick={() => setIsModalOpen(true)}
+          onPrimaryClick={handleOpenCreate}
           secondaryLabel="Export Excel"
           onSecondaryClick={handleExport}
         />
@@ -412,14 +500,17 @@ export default function VendorsPage() {
           totalItems={filteredData.length}
         />
 
-        {/* Modal Tambah Vendor */}
+        {/* Modal Tambah / Edit Vendor */}
         <FinanceModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title="Tambah Vendor Baru"
-          subtitle="Daftarkan mitra supplier atau penyedia jasa kantor"
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingItem(null);
+          }}
+          title={editingItem ? "Edit Data Vendor" : "Tambah Vendor Baru"}
+          subtitle={editingItem ? `Perbarui profil dan kontak rekanan "${editingItem.nama}"` : "Daftarkan mitra supplier atau penyedia jasa kantor"}
           onSubmit={handleSave}
-          submitText="Simpan Vendor"
+          submitText={editingItem ? "Simpan Perubahan" : "Simpan Vendor"}
           busy={busy}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -470,6 +561,17 @@ export default function VendorsPage() {
               />
             </div>
             <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Status Kemitraan</label>
+              <select
+                value={form.status}
+                onChange={e => setForm({ ...form, status: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                <option value="Aktif">Aktif (Sedang bekerjasama)</option>
+                <option value="Nonaktif">Nonaktif (Kerjasama berakhir / arsip)</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">Alamat Kantor / Toko</label>
               <textarea
                 rows={2}
@@ -498,6 +600,17 @@ export default function VendorsPage() {
               </div>
 
               <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toEdit = selectedItem;
+                    setSelectedItem(null);
+                    handleOpenEdit(toEdit);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl transition"
+                >
+                  Edit Vendor
+                </button>
                 <button
                   type="button"
                   onClick={() => {

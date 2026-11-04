@@ -21,6 +21,36 @@ const SAMPLE_RECEIPT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/20
 
 const INITIAL_INCOME_DATA = [];
 
+function isPdfProof(src, mime = "") {
+  return mime === "application/pdf" || /^data:application\/pdf/i.test(String(src || "")) || /\.pdf(?:$|[?#])/i.test(String(src || ""));
+}
+
+function IncomeProofThumbnail({ src, mime }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed || isPdfProof(src, mime)) {
+    return (
+      <span className="w-8 h-8 rounded-lg bg-slate-100 flex flex-col items-center justify-center text-slate-400">
+        {isPdfProof(src, mime) ? <FileText className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
+      </span>
+    );
+  }
+  return <img src={src} alt="Bukti" className="w-8 h-8 object-cover rounded-lg" onError={() => setFailed(true)} />;
+}
+
+function IncomeProofViewer({ src, mime, title }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div className="h-full min-h-48 w-full flex flex-col items-center justify-center gap-2 text-slate-400">
+        <ImageIcon className="w-8 h-8" />
+        <span className="text-xs">File bukti belum tersedia atau tidak dapat dibuka.</span>
+      </div>
+    );
+  }
+  if (isPdfProof(src, mime)) return <iframe src={src} title={title} className="w-full h-[65vh] rounded-lg" onError={() => setFailed(true)} />;
+  return <img src={src} alt={title} className="max-h-[65vh] w-auto object-contain rounded-lg shadow-xs" onError={() => setFailed(true)} />;
+}
+
 function dataUrlToFile(dataUrl, filename = "bukti-transaksi.jpg") {
   if (!String(dataUrl || "").startsWith("data:")) return null;
   const [meta, body] = dataUrl.split(",");
@@ -165,11 +195,13 @@ export default function IncomeTransactionsPage() {
   const [deletingItem, setDeletingItem] = useState(null);
   const [previewMedia, setPreviewMedia] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Sync to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem("finance_income_data", JSON.stringify(data));
+      const localRows = data.filter(row => !["billing_payment", "invoice_payment", "legacy_finance"].includes(row.sourceType));
+      localStorage.setItem("finance_income_data", JSON.stringify(localRows));
     } catch {
       // Local persistence is best effort.
     }
@@ -262,33 +294,39 @@ export default function IncomeTransactionsPage() {
   const confirmDelete = async () => {
     if (!deletingItem) return;
     setBusy(true);
+    setDeleteError("");
     const targetId = String(deletingItem.id);
-    const updated = data.filter(d => String(d.id) !== targetId);
-    setData(updated);
-
-    // Langsung simpan perubahan ke localStorage
     try {
-      localStorage.setItem("finance_income_data", JSON.stringify(updated));
-      const deletedIds = JSON.parse(localStorage.getItem("finance_income_deleted_ids") || "[]");
-      if (!deletedIds.includes(targetId)) {
-        deletedIds.push(targetId);
-        localStorage.setItem("finance_income_deleted_ids", JSON.stringify(deletedIds));
+      if (deletingItem.sourceType === "billing_payment") {
+        await axios.delete("/api/billing.php", {
+          params: { type: "pembayaran", scope: "single", id: deletingItem.sourceId }
+        });
+      } else {
+        await accountingMutate({
+          action: "delete",
+          id: deletingItem.id,
+          type: "income",
+        });
       }
-    } catch {
-      // Local persistence is best effort.
+      const updated = data.filter(d => String(d.id) !== targetId);
+      setData(updated);
+      try {
+        const localRows = updated.filter(row => !["billing_payment", "invoice_payment", "legacy_finance"].includes(row.sourceType));
+        localStorage.setItem("finance_income_data", JSON.stringify(localRows));
+        const deletedIds = JSON.parse(localStorage.getItem("finance_income_deleted_ids") || "[]");
+        if (!deletedIds.includes(targetId)) {
+          deletedIds.push(targetId);
+          localStorage.setItem("finance_income_deleted_ids", JSON.stringify(deletedIds));
+        }
+      } catch {
+        // Server deletion succeeded; local persistence is best effort.
+      }
+      setDeletingItem(null);
+    } catch (error) {
+      setDeleteError(error.response?.data?.message || error.message || "Pemasukan gagal dihapus.");
+    } finally {
+      setBusy(false);
     }
-
-    try {
-      await accountingMutate({
-        action: "delete",
-        id: deletingItem.id,
-        type: "income",
-      });
-    } catch {
-      // Local state already updated and persisted
-    }
-    setBusy(false);
-    setDeletingItem(null);
   };
 
   useEffect(() => {
@@ -297,30 +335,43 @@ export default function IncomeTransactionsPage() {
       accountingGet("ledger", { type: "income" }).catch(() => ({ data: { rows: [] } })),
       axios.get("/api/finance.php", { params: { type: "income", _t: Date.now() } }).catch(() => ({ data: { data: [] } })),
       accountingGet("lookups").catch(() => ({ data: { accounts: [], banks: [] } })),
+      axios.get("/api/billing.php", { params: { _t: Date.now() } }).catch(() => ({ data: { data: { pembayaran: [] } } })),
     ])
-      .then(([res, legacyRes, lookupRes]) => {
+      .then(([res, legacyRes, lookupRes, billingRes]) => {
         if (!active) return;
         if (lookupRes?.data) {
           const freshAccounts = getRegisteredReceivingAccounts(lookupRes.data);
           setRekeningList(freshAccounts);
         }
         if (!active) return;
+        const proofByPaymentId = new Map(
+          (billingRes.data?.data?.pembayaran || []).map(payment => [
+            String(payment.id),
+            { url: payment.proof_url || payment.buktiBayar || "", mime: payment.proof_mime || payment.buktiMime || "" }
+          ])
+        );
         const apiRows = (res.data?.rows || [])
-          .map((r, i) => ({
+          .map((r, i) => {
+            const paymentProof = r.source_type === "billing_payment" ? proofByPaymentId.get(String(r.source_id)) : null;
+            return ({
             id: r.ledger_id || r.id || i + 1,
+            sourceType: r.source_type || "",
+            sourceId: r.source_id || "",
+            sourceNumber: r.source_number || "",
             tanggal: r.transaction_date || r.date,
             siswa: r.party_name || r.student_name || "Peserta Didik",
-            kategori: r.category || "Pemasukan",
-            sumberDana: r.cash_account_name || "Kas/Bank",
+            kategori: r.source_type === "billing_payment" ? "Pembayaran Invoice Siswa" : (r.category || "Pemasukan"),
+            sumberDana: r.cash_account_name || (r.source_type === "billing_payment" ? r.payment_method : "") || "Kas/Bank",
             nominal: Number(r.incoming_amount || r.amount || 0),
-            status: r.payment_status === "paid" || r.approval_status === "approved" ? "Lunas" : "Pending",
+            status: r.payment_status === "paid" ? "Lunas" : "Pending",
             deskripsi: r.description || "",
-            buktiFoto: r.proof_url || r.attachment_url || (r.source_type === "legacy_finance" && r.source_id ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.source_id)}` : ""),
+            buktiFoto: paymentProof?.url || r.proof_url || r.attachment_url || (r.source_type === "legacy_finance" && r.source_id ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.source_id)}` : ""),
+            buktiMime: paymentProof?.mime || "",
             buktiLink: r.reference_link || "",
-          }))
-          ;
+          });});
         const legacyRows = (legacyRes.data?.data || []).map((r, i) => ({
           id: `legacy:${r.id || i + 1}`,
+          sourceType: "legacy_finance",
           tanggal: r.transaction_date,
           siswa: r.account_name || r.source || "Transaksi historis",
           kategori: r.category || "Pemasukan",
@@ -336,9 +387,10 @@ export default function IncomeTransactionsPage() {
         const deletedIds = new Set(JSON.parse(localStorage.getItem("finance_income_deleted_ids") || "[]").map(String));
 
         const rowsById = new Map();
+        const invoicePaymentRows = apiRows.filter(row => row.sourceType === "billing_payment" && row.status === "Lunas");
         // A. Baris dari API/Database
         [...apiRows, ...legacyRows].forEach(row => {
-          if (!deletedIds.has(String(row.id))) {
+          if (!deletedIds.has(String(row.id)) || ["billing_payment", "invoice_payment"].includes(row.sourceType)) {
             rowsById.set(String(row.id), row);
           }
         });
@@ -346,6 +398,13 @@ export default function IncomeTransactionsPage() {
         if (Array.isArray(existingLocal)) {
           existingLocal.forEach(row => {
             const rId = String(row.id);
+            const localDescription = String(row.deskripsi || "");
+            const isManualInvoiceAdjustment = /disesuaikan oleh/i.test(localDescription);
+            const duplicatesInvoicePayment = isManualInvoiceAdjustment && invoicePaymentRows.some(payment =>
+              String(payment.siswa || "").trim().toLowerCase() === String(row.siswa || "").trim().toLowerCase() &&
+              Number(payment.nominal) === Number(row.nominal)
+            );
+            if (duplicatesInvoicePayment) return;
             if (!deletedIds.has(rId) && !rowsById.has(rId)) {
               rowsById.set(rId, row);
             }
@@ -356,7 +415,8 @@ export default function IncomeTransactionsPage() {
         rows.sort((a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
         setData(rows);
         try {
-          localStorage.setItem("finance_income_data", JSON.stringify(rows));
+          const localRows = rows.filter(row => !["billing_payment", "invoice_payment", "legacy_finance"].includes(row.sourceType));
+          localStorage.setItem("finance_income_data", JSON.stringify(localRows));
         } catch {
           // Local persistence is best effort.
         }
@@ -505,11 +565,11 @@ export default function IncomeTransactionsPage() {
           return (
             <button
               type="button"
-              onClick={() => setPreviewMedia({ type: "image", src: r.buktiFoto, title: `Bukti Transaksi - ${r.siswa}` })}
+              onClick={() => setPreviewMedia({ type: "image", src: r.buktiFoto, mime: r.buktiMime, title: `Bukti Transaksi - ${r.siswa}` })}
               className="relative group inline-block rounded-lg overflow-hidden border border-slate-200 hover:border-blue-500 transition shadow-2xs"
               title="Klik untuk melihat bukti foto"
             >
-              <img src={r.buktiFoto} alt="Bukti" className="w-8 h-8 object-cover rounded-lg group-hover:scale-105 transition" />
+              <IncomeProofThumbnail src={r.buktiFoto} mime={r.buktiMime} />
               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
                 <Eye className="w-3.5 h-3.5 text-white" />
               </div>
@@ -547,7 +607,7 @@ export default function IncomeTransactionsPage() {
           >
             <Eye className="w-4 h-4" />
           </button>
-          {r.status !== 'Lunas' && (
+          {!["billing_payment", "invoice_payment"].includes(r.sourceType) && r.status !== 'Lunas' && (
             <button
               type="button"
               onClick={() => handleOpenPay(r)}
@@ -557,22 +617,35 @@ export default function IncomeTransactionsPage() {
               <Zap className="w-4 h-4" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => handleOpenEdit(r)}
-            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
-            title="Edit Data"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeletingItem(r)}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-            title="Hapus Data"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {r.sourceType === "billing_payment" ? (
+            <button
+              type="button"
+              onClick={() => setDeletingItem(r)}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+              title="Hapus pembayaran invoice ini"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          ) : !["billing_payment", "invoice_payment"].includes(r.sourceType) ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenEdit(r)}
+                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                title="Edit Data"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeletingItem(r)}
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                title="Hapus Data"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          ) : null}
         </div>
       )
     },
@@ -583,7 +656,7 @@ export default function IncomeTransactionsPage() {
       <div className="p-4 md:p-7 max-w-7xl mx-auto">
         <FinancePageHeader
           title="Transaksi Pemasukan"
-          subtitle="Kelola pencatatan transaksi pemasukan dan rekening penerima kas"
+          subtitle="Pembayaran invoice terverifikasi tercatat otomatis sebagai pemasukan Lunas"
           primaryLabel="+ Tambah Pemasukan"
           onPrimaryClick={handleOpenCreate}
           onSecondaryClick={handleExport}
@@ -825,8 +898,9 @@ export default function IncomeTransactionsPage() {
               </div>
               <h3 className="text-base font-bold text-slate-900 text-center mb-1">Hapus Pemasukan?</h3>
               <p className="text-xs text-slate-500 text-center mb-5 leading-relaxed">
-                Apakah Anda yakin ingin menghapus data pemasukan dari <strong className="text-slate-800">{deletingItem.siswa}</strong> senilai <strong className="text-slate-800">{formatRupiah(deletingItem.nominal)}</strong>?
+                Apakah Anda yakin ingin menghapus {deletingItem.sourceType === "billing_payment" ? "pembayaran invoice" : "data pemasukan"} dari <strong className="text-slate-800">{deletingItem.siswa}</strong> senilai <strong className="text-slate-800">{formatRupiah(deletingItem.nominal)}</strong>?{deletingItem.sourceType === "billing_payment" && " Status invoice akan dihitung ulang dari pembayaran terverifikasi yang tersisa."}
               </p>
+              {deleteError && <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{deleteError}</p>}
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
@@ -879,9 +953,9 @@ export default function IncomeTransactionsPage() {
                     <span className="text-slate-500 block mb-1.5 font-medium">Bukti Foto / Struk:</span>
                     <div 
                       className="relative rounded-xl overflow-hidden border border-slate-200 bg-white max-h-52 flex items-center justify-center group cursor-pointer"
-                      onClick={() => setPreviewMedia({ type: "image", src: selectedItem.buktiFoto, title: `Bukti Transaksi - ${selectedItem.siswa}` })}
+                      onClick={() => setPreviewMedia({ type: "image", src: selectedItem.buktiFoto, mime: selectedItem.buktiMime, title: `Bukti Transaksi - ${selectedItem.siswa}` })}
                     >
-                      <img src={selectedItem.buktiFoto} alt="Bukti Transfer" className="max-h-48 w-auto object-contain rounded-lg" />
+                      <IncomeProofThumbnail src={selectedItem.buktiFoto} mime={selectedItem.buktiMime} />
                       <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold gap-1.5 transition">
                         <Eye className="w-4 h-4" /> Klik untuk Perbesar
                       </div>
@@ -946,15 +1020,15 @@ export default function IncomeTransactionsPage() {
                 </button>
               </div>
               <div className="bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center p-2 border border-slate-100 max-h-[70vh]">
-                <img src={previewMedia.src} alt={previewMedia.title} className="max-h-[65vh] w-auto object-contain rounded-lg shadow-xs" />
+                <IncomeProofViewer src={previewMedia.src} mime={previewMedia.mime} title={previewMedia.title} />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <a
                   href={previewMedia.src}
-                  download="bukti-transaksi.jpg"
+                  download={`bukti-transaksi.${isPdfProof(previewMedia.src, previewMedia.mime) ? "pdf" : "jpg"}`}
                   className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
                 >
-                  Unduh Foto
+                  Unduh Bukti
                 </a>
                 <button
                   type="button"

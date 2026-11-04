@@ -65,7 +65,7 @@ export default function StudentsCustomerPage() {
     kode_pos: "43211",
   });
 
-  const fetchStudents = async (active = true) => {
+  const fetchStudents = async (active = true, allowSync = true) => {
     setLoading(true);
     setLoadError("");
     try {
@@ -110,7 +110,7 @@ export default function StudentsCustomerPage() {
         setData(apiStudents);
 
         // Jika data masih kosong, otomatis tarik dari creativabridging.com
-        if (apiStudents.length === 0) {
+        if (apiStudents.length === 0 && allowSync) {
           handleSyncFromWeb(false);
         }
       }
@@ -128,46 +128,21 @@ export default function StudentsCustomerPage() {
   const handleSyncFromWeb = async (showNotification = true) => {
     setIsSyncing(true);
     try {
-      let webParticipants = [];
-      try {
-        const resp = await fetch("https://creativabridging.com/api_peserta.php?api_key=CREATIVA_SYNC_SECRET_2026");
-        const json = await resp.json();
-        if (json?.status && Array.isArray(json.data)) {
-          webParticipants = json.data;
-        }
-      } catch (clientFetchErr) {
-        console.warn("Direct fetch creativabridging.com error, continuing with server sync:", clientFetchErr);
+      const syncRes = await axios.post("/api/sync_students_web.php", {});
+      if (syncRes.data?.status !== "success" || !Array.isArray(syncRes.data.students)) {
+        throw new Error(syncRes.data?.message || "Data siswa dari web pendaftaran tidak valid.");
       }
+      const webParticipants = syncRes.data.students;
+      localStorage.setItem("local_only_students_finance", JSON.stringify(webParticipants));
+      await fetchStudents(true, false);
 
-      const syncRes = await axios.post("/api/sync_students_web.php", {
-        students: webParticipants.length > 0 ? webParticipants : undefined
-      });
-
-      // Bersihkan local_only_students_finance agar siswa yang sudah dihapus di web tidak ada lagi di local storage
-      if (webParticipants.length > 0) {
-        localStorage.setItem("local_only_students_finance", JSON.stringify(webParticipants));
-      }
-
-      await fetchStudents(true);
-
-      const totalCount = syncRes.data?.total || syncRes.data?.students?.length || webParticipants.length || data.length;
-      const deletedCount = Number(syncRes.data?.deleted || 0);
-      const invoicesGen = Number(syncRes.data?.invoices_generated || 0);
+      const totalCount = Number(syncRes.data.total ?? webParticipants.length);
 
       if (showNotification) {
-        let msgHtml = `Berhasil sinkronisasi <b>${totalCount} siswa pendaftar</b> dari <code>creativabridging.com</code>!`;
-        if (invoicesGen > 0) {
-          msgHtml += `<br/><div class="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2 font-medium">✓ <b>${invoicesGen} Invoice Tagihan Baru</b> berhasil diterbitkan otomatis & langsung masuk ke modul <b>Invoice Penagihan</b>.</div>`;
-        }
-        if (deletedCount > 0) {
-          msgHtml += `<br/><span class="text-xs text-rose-600 font-semibold">${deletedCount} siswa yang dihapus di website telah ikut dihapus dari sistem.</span>`;
-        } else {
-          msgHtml += `<br/><span class="text-xs text-slate-500">Alur Layer 2 Keuangan (Website → Data Siswa → Invoice Tagihan) berjalan sempurna.</span>`;
-        }
         Swal.fire({
           icon: "success",
           title: "Sinkronisasi Berhasil!",
-          html: msgHtml,
+          html: `Berhasil sinkronisasi <b>${totalCount} siswa pendaftar</b> dari <code>creativabridging.com</code>. Hanya data siswa yang diperbarui; invoice tidak dibuat atau dikirim otomatis.`,
           customClass: { popup: "rounded-2xl" },
           confirmButtonColor: "#2563eb"
         });

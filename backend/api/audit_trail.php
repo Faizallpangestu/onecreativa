@@ -46,12 +46,22 @@ $conn->query("ALTER TABLE accounting_audit_logs ADD COLUMN IF NOT EXISTS ip_addr
 $conn->query("ALTER TABLE accounting_audit_logs ADD COLUMN IF NOT EXISTS hash_prev  VARCHAR(64) NULL AFTER ip_address");
 $conn->query("ALTER TABLE accounting_audit_logs ADD COLUMN IF NOT EXISTS hash_self  VARCHAR(64) NULL AFTER hash_prev");
 
+// ── POST / GET CLEAR: RESET AUDIT TRAIL ──
+if (isset($_GET['clear']) || isset($_GET['reset']) || (isset($_POST['action']) && $_POST['action'] === 'clear') || $method === 'DELETE') {
+    $conn->query("TRUNCATE TABLE accounting_audit_logs");
+    echo json_encode([
+        'status'  => 'success',
+        'message' => 'Seluruh data audit trail forensik berhasil dibersihkan.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // ── GET: FETCH AUDIT TRAIL ──
 if ($method === 'GET') {
     $logs = [];
     $realIp = audit_real_ip();
 
-    // 1. accounting_audit_logs (all module events auto-logged)
+    // 1. accounting_audit_logs (only actual audit logs from real operations)
     $tableCheck = $conn->query("SHOW TABLES LIKE 'accounting_audit_logs'");
     if ($tableCheck && $tableCheck->num_rows > 0) {
         $limit = min((int)($_GET['limit'] ?? 100), 500);
@@ -116,117 +126,12 @@ if ($method === 'GET') {
         }
     }
 
-    // 2. Payroll audit from salary_requests
-    $salCheck = $conn->query("SHOW TABLES LIKE 'salary_requests'");
-    if ($salCheck && $salCheck->num_rows > 0) {
-        $salRes = $conn->query("SELECT * FROM salary_requests ORDER BY id DESC LIMIT 30");
-        if ($salRes) {
-            while ($s = $salRes->fetch_assoc()) {
-                $action = match($s['status'] ?? '') { 'paid' => 'DISBURSE', 'approved' => 'APPROVE', 'submitted' => 'SUBMIT', default => 'DRAFT' };
-                $payload = $s['id'] . $s['total_salary'] . $s['created_at'] . $s['status'];
-                $hash    = hash('sha256', $payload);
-                $logs[]  = [
-                    'id'               => 9000000 + (int)$s['id'],
-                    'audit_code'       => 'AUD-SAL-' . str_pad($s['id'], 5, '0', STR_PAD_LEFT),
-                    'timestamp'        => $s['paid_at'] ?: ($s['reviewed_at'] ?: $s['created_at']),
-                    'entity_type'      => 'payroll',
-                    'entity_id'        => 'PAYROLL-' . $s['id'],
-                    'action'           => $action,
-                    'actor_id'         => (int)($s['paid_by'] ?: $s['reviewed_by'] ?: $s['created_by'] ?: 0),
-                    'actor_name'       => $s['paid_by_name'] ?: ($s['reviewed_by_name'] ?: ($s['created_by_name'] ?: 'System')),
-                    'actor_role'       => 'Finance & Payroll Admin',
-                    'amount'           => (float)$s['total_salary'],
-                    'details'          => [
-                        'keterangan'        => 'Gaji ' . $s['employee_name'] . ' (' . $s['position_name'] . ') — ' . $s['month'],
-                        'gross_salary'      => (float)($s['gross_salary'] ?: $s['total_salary']),
-                        'total_deductions'  => (float)($s['total_deductions'] ?: 0),
-                        'bpjs_tk'           => (float)($s['bpjs_tk_deduction'] ?: 0),
-                        'bpjs_kes'          => (float)($s['bpjs_kes_deduction'] ?: 0),
-                        'pph21'             => (float)($s['pph21_deduction'] ?? 0),
-                        'kasbon'            => (float)($s['kasbon_deduction'] ?? 0),
-                        'bank_name'         => $s['bank_name'],
-                        'account_number'    => $s['account_number'],
-                        'transfer_reference'=> $s['transfer_reference'],
-                        'status'            => $s['status'],
-                        'period'            => $s['month'],
-                    ],
-                    'ip_address'       => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
-                    'hash_checksum'    => substr($hash, 0, 16) . '...',
-                    'integrity_status' => 'VERIFIED',
-                ];
-            }
-        }
-    }
-
-    // 3. Assets audit
-    $astCheck = $conn->query("SHOW TABLES LIKE 'assets'");
-    if ($astCheck && $astCheck->num_rows > 0) {
-        $astRes = $conn->query("SELECT * FROM assets ORDER BY id DESC LIMIT 20");
-        if ($astRes) {
-            while ($a = $astRes->fetch_assoc()) {
-                $hash   = hash('sha256', 'AST-' . $a['id'] . $a['purchase_price'] . $a['created_at']);
-                $logs[] = [
-                    'id'               => 8000000 + (int)$a['id'],
-                    'audit_code'       => 'AUD-AST-' . str_pad($a['id'], 5, '0', STR_PAD_LEFT),
-                    'timestamp'        => $a['created_at'],
-                    'entity_type'      => 'asset',
-                    'entity_id'        => $a['asset_code'] ?: ('AST-' . $a['id']),
-                    'action'           => 'CREATE',
-                    'actor_id'         => (int)($a['created_by'] ?: 1),
-                    'actor_name'       => 'GA & Asset Officer',
-                    'actor_role'       => 'General Affairs Admin',
-                    'amount'           => (float)$a['purchase_price'],
-                    'details'          => [
-                        'keterangan' => 'Registrasi Aset: ' . $a['name'] . ' (' . ($a['brand'] ?? '') . ' ' . ($a['model'] ?? '') . ')',
-                        'lokasi'     => $a['location'] ?? '',
-                        'kondisi'    => $a['condition'] ?? '',
-                        'status'     => $a['status'] ?? '',
-                    ],
-                    'ip_address'       => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
-                    'hash_checksum'    => substr($hash, 0, 16) . '...',
-                    'integrity_status' => 'VERIFIED',
-                ];
-            }
-        }
-    }
-
-    // 4. Login events from login_audit_log (if available)
-    $loginCheck = $conn->query("SHOW TABLES LIKE 'login_audit_log'");
-    if ($loginCheck && $loginCheck->num_rows > 0) {
-        $loginRes = $conn->query("SELECT * FROM login_audit_log ORDER BY id DESC LIMIT 20");
-        if ($loginRes) {
-            while ($l = $loginRes->fetch_assoc()) {
-                $hash   = hash('sha256', 'LOGIN-' . $l['id'] . $l['user_id'] . $l['created_at']);
-                $logs[] = [
-                    'id'               => 7000000 + (int)$l['id'],
-                    'audit_code'       => 'AUD-LOGIN-' . str_pad($l['id'], 5, '0', STR_PAD_LEFT),
-                    'timestamp'        => $l['created_at'],
-                    'entity_type'      => 'auth',
-                    'entity_id'        => 'USER-' . $l['user_id'],
-                    'action'           => strtoupper($l['action'] ?? 'LOGIN'),
-                    'actor_id'         => (int)$l['user_id'],
-                    'actor_name'       => $l['user_name'] ?? 'Unknown',
-                    'actor_role'       => $l['user_role'] ?? 'User',
-                    'amount'           => 0,
-                    'details'          => ['ip' => $l['ip_address'] ?? '', 'user_agent' => $l['user_agent'] ?? ''],
-                    'ip_address'       => $l['ip_address'] ?? '0.0.0.0',
-                    'hash_checksum'    => substr($hash, 0, 16) . '...',
-                    'integrity_status' => 'VERIFIED',
-                ];
-            }
-        }
-    }
-
-    // Sort by timestamp DESC
-    usort($logs, fn($a, $b) => strtotime((string)($b['timestamp'] ?? '')) - strtotime((string)($a['timestamp'] ?? '')));
-
-    $total = count($logs);
     echo json_encode([
         'status'              => 'success',
-        'total'               => $total,
+        'total'               => count($logs),
         'compliance_standard' => 'SAK ETAP, PSAK 1, UU ITE No.19/2016, PP PSTE No.71/2019 & Permenristekdikti',
         'chain_integrity'     => 'SHA-256 Hash Chain per entri — setiap log merujuk hash sebelumnya',
-        'server_ip'           => audit_real_ip(),
+        'server_ip'           => $realIp,
         'data'                => $logs,
     ], JSON_UNESCAPED_UNICODE);
     exit;

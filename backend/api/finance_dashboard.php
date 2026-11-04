@@ -394,23 +394,24 @@ try {
     // === ENRICH WITH BILLING INVOICES (Student Invoices -> Proyeksi & Realisasi) ===
     if (ac_table($conn, 'billing_invoices')) {
         $billingPaidExpr = ac_table($conn, 'billing_pembayaran')
-            ? '(SELECT COALESCE(SUM(bp.jumlah), 0) FROM billing_pembayaran bp WHERE bp.noInv = bi.id)'
+            ? "(SELECT COALESCE(SUM(bp.jumlah), 0) FROM billing_pembayaran bp WHERE bp.noInv = bi.id AND LOWER(TRIM(bp.statusVerif)) IN ('terverifikasi','verified'))"
             : '0';
+        $billingAppliedExpr = "LEAST(bi.total, {$billingPaidExpr})";
         $invStmt = $conn->prepare("
              SELECT bi.id,
                     CASE WHEN bi.tanggal REGEXP '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN STR_TO_DATE(bi.tanggal, '%d/%m/%Y') ELSE DATE(bi.tanggal) END AS transaction_date,
                    'income' AS type,
                     GREATEST(0, bi.total - {$billingPaidExpr}) AS amount,
                     bi.total AS invoice_amount,
-                    {$billingPaidExpr} AS paid_amount,
+                    {$billingAppliedExpr} AS paid_amount,
                     bi.customer AS party_name,
                     CONCAT('Tagihan Siswa - ', bi.customer) AS description,
                    'invoice_billing' AS source_type,
                    'Pemasukan Pelatihan' AS classification,
                    'approved' AS approval_status,
                     CASE
-                      WHEN bi.total > 0 AND bi.total - {$billingPaidExpr} <= 0 THEN 'paid'
-                      WHEN {$billingPaidExpr} > 0 THEN 'partial'
+                      WHEN bi.total > 0 AND bi.total - {$billingAppliedExpr} <= 0 THEN 'paid'
+                      WHEN {$billingAppliedExpr} > 0 THEN 'partial'
                       ELSE 'unpaid'
                     END AS status,
                    'Belum diverifikasi' AS cash_account_name,

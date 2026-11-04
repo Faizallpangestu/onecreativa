@@ -60,6 +60,10 @@ try {
 
   console.log('📦 Membuat zip deploy otomatis: One-creativa-dist-production.zip...');
   try {
+    const zipFile = path.join(__dirname, 'One-creativa-dist-production.zip');
+    if (fs.existsSync(zipFile)) {
+      try { fs.unlinkSync(zipFile); } catch (e) {}
+    }
     const { execSync } = await import('child_process');
     execSync('powershell -Command "Compress-Archive -Path \'dist\\*\' -DestinationPath \'One-creativa-dist-production.zip\' -Force"', { stdio: 'inherit' });
     console.log('🎉 Selesai! File One-creativa-dist-production.zip siap di-upload ke Hostinger.');

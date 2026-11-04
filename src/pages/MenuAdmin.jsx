@@ -1,9 +1,9 @@
 import { logoutUser } from "../utils/logoutUser";
 import { useNavigate } from "react-router-dom";
-import { 
-  Users, MapPin, ShieldCheck, Search, CalendarClock, LogOut, 
-  FileText, Settings, TrendingUp, TrendingDown, DollarSign, 
-  WalletCards, Briefcase, Clock, ClipboardList, ClipboardCheck, 
+import {
+  Users, MapPin, ShieldCheck, Search, CalendarClock, LogOut,
+  FileText, Settings, TrendingUp, TrendingDown, DollarSign,
+  WalletCards, Briefcase, Clock, ClipboardList, ClipboardCheck,
   Banknote, CreditCard, Box, BarChart2, ArrowRightLeft, Wrench, Home, LayoutDashboard, GraduationCap, CalendarCheck, Calendar as CalendarIcon, LayoutGrid, CheckCircle, Scan, BookOpen
 } from "lucide-react";
 import Layout from "../components/Layout";
@@ -87,32 +87,41 @@ export default function MenuAdmin() {
     <Layout hideMobileHeader={true} hideBottomNav={false}>
       <div className="min-h-screen bg-[#f8fafc] md:bg-slate-50 relative pb-24 md:pb-12">
         <div className="px-4 sm:px-10 pt-6 flex-1 flex flex-col w-full max-w-5xl mx-auto">
-          
-          {/* Hero Banner Sama Seperti Dashboard */}
-          <div className="relative w-full h-[180px] md:h-[240px] rounded-[1.25rem] md:rounded-[2rem] overflow-hidden shadow-lg bg-[#102a43] flex items-center mb-6 border border-blue-100/10">
-            <div className="absolute inset-0 z-0 bg-cover bg-center"
+
+          {/* Hero Banner dengan Nuansa Finance (Clean White & Soft Blue) */}
+          <div className="relative w-full h-[180px] md:h-[220px] rounded-[1.25rem] md:rounded-[2rem] overflow-hidden shadow-2xs bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/30 flex items-center mb-6 border border-slate-200/80">
+            {/* Subtle background ambient blur blobs */}
+            <div className="absolute -right-10 -top-10 w-60 h-60 bg-blue-100/50 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute right-1/3 -bottom-10 w-52 h-52 bg-sky-100/40 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Subtle decorative grid pattern */}
+            <div
+              className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
               style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=2000&auto=format&fit=crop')`,
-                backgroundPosition: 'center 40%',
+                backgroundImage: `radial-gradient(#1a73e8 1px, transparent 1px)`,
+                backgroundSize: '20px 20px'
               }}
             />
-            <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#102a43] via-[#102a43]/90 to-transparent"></div>
-            
+
             <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center px-6 md:px-12">
-              <div className="max-w-xl text-white">
-                <h1 className="text-2xl md:text-4xl font-black mb-1 md:mb-2 tracking-tight drop-shadow-md">
-                  {greet()}, <span className="text-yellow-400">Admin! 👋</span>
+              <div className="max-w-xl">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100 text-[#1a73e8] text-xs font-bold mb-2.5 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] animate-pulse"></span>
+                  Sistem Terintegrasi LPK Creativa
+                </div>
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 mb-1.5 tracking-tight">
+                  {greet()}, <span className="text-[#1a73e8]">Admin! 👋</span>
                 </h1>
-                <p className="text-blue-100/90 text-[13px] md:text-[15px] font-medium leading-relaxed drop-shadow-sm max-w-[250px] md:max-w-full line-clamp-2 md:line-clamp-none">
-                  Kelola seluruh operasional HRIS dengan lebih efektif dan efisien.
+                <p className="text-slate-500 text-[13px] md:text-[15px] font-medium leading-relaxed max-w-[280px] md:max-w-full line-clamp-2 md:line-clamp-none">
+                  Kelola seluruh operasional HRIS dan navigasi sistem secara terpusat.
                 </p>
               </div>
-              <div className="hidden lg:flex items-center gap-6 text-white">
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[140px] shadow-soft">
-                  <p className="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1">
+              <div className="hidden lg:flex items-center gap-6">
+                <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 text-center min-w-[150px] shadow-2xs">
+                  <p className="text-xs font-bold text-[#1a73e8] uppercase tracking-wider mb-1">
                     {timeNow.toLocaleDateString('id-ID', { weekday: 'long' })}
                   </p>
-                  <p className="text-lg font-black tracking-tight">
+                  <p className="text-lg font-black text-slate-800 tracking-tight">
                     {timeNow.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                 </div>
@@ -123,22 +132,22 @@ export default function MenuAdmin() {
           {/* Search Bar */}
           <div className="relative mb-8 w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Cari menu..." 
+            <input
+              type="text"
+              placeholder="Cari menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200/80 rounded-2xl text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]" 
+              className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200/80 rounded-2xl text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
             />
           </div>
 
           {/* Modules Grid */}
           <div className="space-y-8 md:space-y-10">
             {menuGroups.map((group, i) => {
-              const filteredItems = group.items.filter(item => 
+              const filteredItems = group.items.filter(item =>
                 item.title.toLowerCase().includes(searchQuery.toLowerCase())
               );
-              
+
               if (filteredItems.length === 0) return null;
 
               return (

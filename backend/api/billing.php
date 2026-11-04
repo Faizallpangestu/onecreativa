@@ -19,18 +19,146 @@ function respond($code, $payload) {
     exit;
 }
 
+function billing_ensure_proof_column($conn) {
+    try {
+        $column = mysqli_query($conn, "SHOW COLUMNS FROM billing_pembayaran LIKE 'proof_path'");
+    } catch (Throwable $error) {
+        error_log('Billing proof schema check: ' . $error->getMessage());
+        respond(500, ['status' => 'error', 'message' => 'Kolom bukti pembayaran gagal diperiksa.']);
+    }
+    if (!$column) respond(500, ['status' => 'error', 'message' => 'Kolom bukti pembayaran gagal diperiksa.']);
+    if (mysqli_num_rows($column) > 0) return;
+
+    try {
+        mysqli_query($conn, 'ALTER TABLE billing_pembayaran ADD COLUMN proof_path VARCHAR(255) NULL');
+    } catch (Throwable $error) {
+        error_log('Billing proof schema update: ' . $error->getMessage());
+    }
+
+    try {
+        $column = mysqli_query($conn, "SHOW COLUMNS FROM billing_pembayaran LIKE 'proof_path'");
+    } catch (Throwable $error) {
+        error_log('Billing proof schema verification: ' . $error->getMessage());
+        respond(500, ['status' => 'error', 'message' => 'Kolom penyimpanan bukti pembayaran belum tersedia.']);
+    }
+    if (!$column || mysqli_num_rows($column) === 0) {
+        respond(500, ['status' => 'error', 'message' => 'Kolom penyimpanan bukti pembayaran belum tersedia.']);
+    }
+}
+
+function billing_store_payment_proof($upload) {
+    if (!$upload || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
+    if (($upload['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'] ?? '')) {
+        ac_fail('Foto bukti pembayaran gagal diunggah.');
+    }
+
+    $size = filesize($upload['tmp_name']);
+    if ($size === false || $size < 1 || $size > 5 * 1024 * 1024) ac_fail('Bukti pembayaran maksimal 5 MB.');
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
+    $extensions = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'application/pdf' => 'pdf',
+    ];
+    if (!isset($extensions[$mime])) ac_fail('Bukti harus berupa foto JPG, PNG, WebP, atau PDF.');
+    if (str_starts_with($mime, 'image/') && !getimagesize($upload['tmp_name'])) {
+        ac_fail('File foto bukti tidak valid atau rusak.');
+    }
+
+    $directory = __DIR__ . '/../uploads/payment_proofs';
+    if (!is_dir($directory) && !mkdir($directory, 0750, true) && !is_dir($directory)) {
+        ac_fail('Folder penyimpanan bukti pembayaran tidak tersedia.', 500);
+    }
+    $filename = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+    if (!move_uploaded_file($upload['tmp_name'], $directory . '/' . $filename)) {
+        ac_fail('Foto bukti pembayaran gagal disimpan.', 500);
+    }
+    return 'payment_proofs/' . $filename;
+}
+
+function billing_remove_payment_proof($relativePath) {
+    if (!preg_match('#^payment_proofs/[a-f0-9]{32}\.(jpg|png|webp|pdf)$#D', (string)$relativePath)) return;
+    $file = __DIR__ . '/../uploads/' . basename($relativePath);
+    if (is_file($file)) unlink($file);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Dummy data seeder removed to allow empty tables
 
 if ($method === 'GET') {
+    billing_ensure_proof_column($conn);
+
+    if (($_GET['view'] ?? '') === 'payment_proof') {
+        $paymentId = ac_id($_GET['id'] ?? null, 'ID pembayaran');
+        $payment = ac_one($conn, 'SELECT proof_path FROM billing_pembayaran WHERE id=?', [$paymentId]);
+        $relativePath = (string)($payment['proof_path'] ?? '');
+        if (!preg_match('#^payment_proofs/[a-f0-9]{32}\.(jpg|png|webp|pdf)$#D', $relativePath)) {
+            respond(404, ['status' => 'error', 'message' => 'File bukti pembayaran tidak ditemukan.']);
+        }
+
+        $directory = realpath(__DIR__ . '/../uploads/payment_proofs');
+        $file = $directory ? realpath($directory . DIRECTORY_SEPARATOR . basename($relativePath)) : false;
+        if (!$file || !is_file($file) || strpos($file, $directory . DIRECTORY_SEPARATOR) !== 0) {
+            respond(404, ['status' => 'error', 'message' => 'File bukti pembayaran tidak ditemukan.']);
+        }
+
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file);
+        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'], true)) {
+            respond(415, ['status' => 'error', 'message' => 'Jenis file bukti pembayaran tidak didukung.']);
+        }
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: inline; filename="' . basename($file) . '"');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, max-age=3600');
+        readfile($file);
+        exit;
+    }
+
     $data = [];
+
+    // Load payments first so invoice balances/statuses can be derived from
+    // the persisted, verified payment records below.
+    $res = mysqli_query($conn, "SELECT * FROM billing_pembayaran ORDER BY created_at DESC");
+    $data['pembayaran'] = [];
+    $verifiedPaymentTotals = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $proofPath = (string)($r['proof_path'] ?? '');
+        $proofExtension = strtolower(pathinfo($proofPath, PATHINFO_EXTENSION));
+        $r['proof_url'] = $proofPath !== ''
+            ? '/api/billing.php?view=payment_proof&id=' . rawurlencode((string)$r['id'])
+            : '';
+        $r['proof_mime'] = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'][$proofExtension] ?? '';
+        $r['buktiBayar'] = $r['proof_url'];
+        $r['buktiMime'] = $r['proof_mime'];
+        unset($r['proof_path']);
+        $data['pembayaran'][] = $r;
+        if (in_array(strtolower(trim((string)($r['statusVerif'] ?? ''))), ['terverifikasi', 'verified'], true) && !empty($r['noInv'])) {
+            $invoiceId = (string)$r['noInv'];
+            $verifiedPaymentTotals[$invoiceId] = ac_add(
+                $verifiedPaymentTotals[$invoiceId] ?? 0,
+                ac_cents((string)($r['jumlah'] ?? '0'))
+            );
+        }
+    }
     
     // Invoices
     $res = mysqli_query($conn, "SELECT * FROM billing_invoices ORDER BY created_at DESC");
     $data['invoices'] = [];
     while ($r = mysqli_fetch_assoc($res)) {
-        $r['total'] = $r['total'];
+        $total = ac_cents((string)($r['total'] ?? '0'));
+        $paid = $verifiedPaymentTotals[$r['id']] ?? 0;
+        if ($paid > 0) {
+            $paid = min($paid, $total);
+            $r['status'] = $paid >= $total ? 'Paid' : 'Partially Paid';
+        } elseif (in_array(strtolower(trim((string)($r['status'] ?? ''))), ['paid', 'lunas'], true)) {
+            $paid = $total;
+            $r['status'] = 'Paid';
+        }
+        $r['terbayar'] = ac_decimal($paid);
+        $r['sisa'] = ac_decimal(max(0, $total - $paid));
         $data['invoices'][] = $r;
     }
 
@@ -39,15 +167,6 @@ if ($method === 'GET') {
     $data['terkirim'] = [];
     while ($r = mysqli_fetch_assoc($res)) {
         $data['terkirim'][] = $r;
-    }
-
-    // Pembayaran
-    $res = mysqli_query($conn, "SELECT * FROM billing_pembayaran ORDER BY created_at DESC");
-    $data['pembayaran'] = [];
-    while ($r = mysqli_fetch_assoc($res)) {
-        $r['jumlah'] = $r['jumlah'];
-        $r['sisa'] = $r['sisa'];
-        $data['pembayaran'][] = $r;
     }
 
     // Siswa (Union peserta_intensif dan billing_siswa dengan penghitungan invoice aktif)
@@ -129,11 +248,45 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
-    $raw = file_get_contents('php://input');
-    $body = json_decode($raw, true);
+    billing_ensure_proof_column($conn);
+    $isMultipart = str_contains((string)($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data');
+    $body = $isMultipart ? $_POST : json_decode(file_get_contents('php://input'), true);
+    if (!is_array($body)) $body = [];
     
     $action = $body['action'] ?? '';
-    
+
+    if ($action === 'attach_payment_proof') {
+        $paymentId = ac_id($body['payment_id'] ?? null, 'ID pembayaran');
+        $newProofPath = billing_store_payment_proof($_FILES['proof'] ?? null);
+        if (!$newProofPath) ac_fail('Pilih foto bukti yang akan disimpan.');
+
+        $oldProofPath = '';
+        try {
+            ac_atomic($conn, function () use ($conn, $actor, $paymentId, $newProofPath, &$oldProofPath) {
+                $payment = ac_one($conn, 'SELECT * FROM billing_pembayaran WHERE id=? FOR UPDATE', [$paymentId]);
+                if (!$payment) ac_fail('Pembayaran tidak ditemukan.', 404);
+                $oldProofPath = (string)($payment['proof_path'] ?? '');
+                ac_query($conn, 'UPDATE billing_pembayaran SET proof_path=? WHERE id=?', [$newProofPath, $paymentId]);
+                ac_audit($conn, $actor, 'billing_payment', (string)$paymentId, 'proof_attached', [
+                    'invoice_id' => (string)($payment['noInv'] ?? ''),
+                    'replaced_existing' => $oldProofPath !== ''
+                ]);
+            });
+        } catch (Throwable $e) {
+            billing_remove_payment_proof($newProofPath);
+            throw $e;
+        }
+
+        billing_remove_payment_proof($oldProofPath);
+        $extension = strtolower(pathinfo($newProofPath, PATHINFO_EXTENSION));
+        $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'][$extension] ?? '';
+        respond(200, ['status' => 'success', 'data' => [
+            'payment_id' => $paymentId,
+            'proof_url' => '/api/billing.php?view=payment_proof&id=' . $paymentId,
+            'proof_mime' => $mime
+        ]]);
+    }
+
     if ($action === 'add_invoice') {
         $id=ac_text($body['id']??'','Nomor invoice',50);$date=ac_date($body['tanggal']??'');$due=ac_date($body['jatuhTempo']??'');if($due<$date)ac_fail('Jatuh tempo harus setelah tanggal invoice.');
         $name=ac_text($body['customer']??'','Customer',255);$email=ac_text($body['email']??'','Email',255,false);if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))ac_fail('Email tidak valid.');$phone=ac_text($body['phone']??'','Telepon',50,false);$description=ac_text($body['keterangan']??'','Keterangan',10000,false);
@@ -144,6 +297,70 @@ if ($method === 'POST') {
             ac_one($conn,'SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$actor['id']]);$old=ac_one($conn,'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE',[$id]);if($old){if($old['tanggal']!==$date||$old['jatuhTempo']!==$due||$old['customer']!==$name||$old['email']!==$email||$old['phone']!==$phone||$old['keterangan']!==$description||$old['total']!==$amount)ac_fail('Nomor invoice sudah digunakan untuk data berbeda.',409);return ['id'=>$id];}
             ac_query($conn,'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan) VALUES(?,?,?,?,?,?,?, ?,?)',[$id,$date,$name,$email,$phone,$amount,$statusVal,$due,$description]);ac_audit($conn,$actor,'billing_invoice',$id,'created',['amount'=>$amount]);return ['id'=>$id];
         });respond(200,['status'=>'success','data'=>$result]);
+    }
+
+    if ($action === 'approve_payment') {
+        $invoiceId = ac_text($body['invoice_id'] ?? '', 'Nomor invoice', 50);
+        $paymentDate = ac_date($body['tglBayar'] ?? '');
+        $amount = ac_decimal(ac_cents((string)($body['jumlah'] ?? '')));
+        if ($amount === '0.00') ac_fail('Nominal pembayaran harus lebih dari nol.');
+        $method = ac_text($body['metode'] ?? 'Transfer Bank', 'Metode pembayaran', 50);
+        $customer = ac_text($body['customer'] ?? '', 'Nama pembayar', 255);
+
+        $conn->begin_transaction();
+        $proofPath = null;
+        try {
+            $invoice = ac_one($conn, 'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE', [$invoiceId]);
+            if (!$invoice) ac_fail('Invoice tidak ditemukan.', 404);
+
+            $payments = ac_rows($conn, "SELECT jumlah,statusVerif FROM billing_pembayaran WHERE noInv=? FOR UPDATE", [$invoiceId]);
+            $total = ac_cents((string)$invoice['total']);
+            $paid = 0;
+            foreach ($payments as $payment) {
+                if (in_array(strtolower(trim((string)$payment['statusVerif'])), ['terverifikasi', 'verified'], true)) {
+                    $paid = ac_add($paid, ac_cents((string)$payment['jumlah']));
+                }
+            }
+            if ($paid === 0 && in_array(strtolower(trim((string)$invoice['status'])), ['paid', 'lunas'], true)) {
+                $paid = $total;
+            }
+            $outstanding = max(0, $total - $paid);
+            $amountCents = ac_cents($amount);
+            if ($amountCents > $outstanding) ac_fail('Nominal pembayaran melebihi sisa tagihan.', 409);
+
+            $newPaid = ac_add($paid, $amountCents);
+            $remaining = max(0, $total - $newPaid);
+            $status = $remaining === 0 ? 'Paid' : 'Partially Paid';
+            $proofPath = billing_store_payment_proof($_FILES['proof'] ?? null);
+            ac_query($conn, "INSERT INTO billing_pembayaran(noInv,tglBayar,customer,metode,jumlah,sisa,statusVerif,proof_path) VALUES(?,?,?,?,?,?, 'Terverifikasi',?)",
+                [$invoiceId, $paymentDate, $customer, $method, $amount, ac_decimal($remaining), $proofPath]);
+            $paymentId = (int)$conn->insert_id;
+            ac_query($conn, 'UPDATE billing_invoices SET status=? WHERE id=?', [$status, $invoiceId]);
+            ac_audit($conn, $actor, 'billing_payment', (string)$paymentId, 'verified', [
+                'invoice_id' => $invoiceId,
+                'amount' => $amount,
+                'remaining' => ac_decimal($remaining),
+                'status' => $status
+            ]);
+            $conn->commit();
+        } catch (Throwable $e) {
+            $conn->rollback();
+            if ($proofPath) billing_remove_payment_proof($proofPath);
+            throw $e;
+        }
+
+        respond(200, [
+            'status' => 'success',
+            'data' => [
+                'payment_id' => $paymentId,
+                'invoice_id' => $invoiceId,
+                'status' => $status,
+                'terbayar' => ac_decimal($newPaid),
+                'sisa' => ac_decimal($remaining),
+                'proof_url' => $proofPath ? '/api/billing.php?view=payment_proof&id=' . $paymentId : '',
+                'proof_mime' => $proofPath ? (['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'][strtolower(pathinfo($proofPath, PATHINFO_EXTENSION))] ?? '') : ''
+            ]
+        ]);
     }
     
     respond(400, ['status' => 'error', 'message' => 'Aksi belum didukung. Tidak ada data yang disimpan.']);
@@ -161,6 +378,37 @@ if ($method === 'DELETE') {
         ac_audit($conn, $actor, 'billing_invoice', $id, 'deleted', []);
     } elseif ($type === 'terkirim') {
         mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id = '$idEsc'");
+    } elseif ($type === 'pembayaran' && ($_GET['scope'] ?? '') === 'single') {
+        billing_ensure_proof_column($conn);
+        $paymentId = ac_id($id, 'ID pembayaran');
+        $proofPathToDelete = '';
+        ac_atomic($conn, function () use ($conn, $actor, $paymentId, &$proofPathToDelete) {
+            $payment = ac_one($conn, 'SELECT * FROM billing_pembayaran WHERE id=? FOR UPDATE', [$paymentId]);
+            if (!$payment) ac_fail('Pembayaran tidak ditemukan.', 404);
+            $proofPathToDelete = (string)($payment['proof_path'] ?? '');
+            $invoiceId = (string)($payment['noInv'] ?? '');
+            $invoice = $invoiceId !== '' ? ac_one($conn, 'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE', [$invoiceId]) : null;
+            if (ac_table($conn, 'accounting_transactions') && ac_one($conn, "SELECT id FROM accounting_transactions WHERE source_type='billing_payment' AND source_id=? AND approval_status<>'cancelled' AND journal_status<>'reversed' LIMIT 1", [(string)$paymentId])) {
+                ac_fail('Pembayaran sudah terhubung ke transaksi akuntansi. Batalkan transaksi akuntansinya sebelum menghapus.', 409);
+            }
+
+            ac_query($conn, 'DELETE FROM billing_pembayaran WHERE id=?', [$paymentId]);
+            if ($invoice) {
+                $verifiedRows = ac_rows($conn, "SELECT jumlah FROM billing_pembayaran WHERE noInv=? AND LOWER(TRIM(statusVerif)) IN ('terverifikasi','verified')", [$invoiceId]);
+                $paid = 0;
+                foreach ($verifiedRows as $row) {
+                    $paid = ac_add($paid, ac_cents((string)$row['jumlah']));
+                }
+                $total = ac_cents((string)$invoice['total']);
+                $status = $paid >= $total ? 'Paid' : ($paid > 0 ? 'Partially Paid' : 'Unpaid');
+                ac_query($conn, 'UPDATE billing_invoices SET status=? WHERE id=?', [$status, $invoiceId]);
+            }
+            ac_audit($conn, $actor, 'billing_payment', (string)$paymentId, 'deleted', [
+                'invoice_id' => $invoiceId,
+                'amount' => (string)$payment['jumlah']
+            ]);
+        });
+        billing_remove_payment_proof($proofPathToDelete);
     } elseif ($type === 'pembayaran') {
         mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE id = '$idEsc' OR noInv = '$idEsc'");
     } elseif ($type === 'siswa') {

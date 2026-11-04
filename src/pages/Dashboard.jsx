@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [attendance, setAttendance] = useState([]);
   const [finance, setFinance] = useState([]);
   const [assets, setAssets] = useState([]);
-  
+
   // State for expanding full menu on mobile
   const [showFullMenu, setShowFullMenu] = useState(false);
 
@@ -103,10 +103,10 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const total = employees.length;
     const active = employees.filter(e => String(e.is_active) === "1").length;
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = new Date().toISOString().slice(0, 10);
     const todayLeaves = leaves.filter(l => {
-       if(l.status !== 'approved') return false;
-       return l.start_date <= todayStr && l.end_date >= todayStr;
+      if (l.status !== 'approved') return false;
+      return l.start_date <= todayStr && l.end_date >= todayStr;
     }).length;
     const todayPresence = attendance.filter(a => a.date === todayStr && (a.status === 'present' || a.status === 'Hadir')).length;
     const todayLate = attendance.filter(a => a.date === todayStr && (a.status === 'late' || a.status === 'Terlambat')).length;
@@ -128,13 +128,13 @@ export default function Dashboard() {
   }, [leaves, employees]);
 
   const todayAttendance = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = new Date().toISOString().slice(0, 10);
     return attendance.filter(a => a.date === todayStr).map(a => {
       return {
         name: a.name || 'Unknown',
         role: a.department || 'Lainnya',
         status: a.status === 'present' ? 'Hadir' : (a.status === 'late' ? 'Terlambat' : (a.status === 'absent' || a.status === 'alpa' ? 'Alpa' : 'Izin')),
-        time: a.check_in ? a.check_in.split(' ')[1]?.substring(0,5) || a.check_in : '-',
+        time: a.check_in ? a.check_in.split(' ')[1]?.substring(0, 5) || a.check_in : '-',
         c: a.status === 'present' ? 'bg-emerald-100 text-emerald-700' : (a.status === 'late' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'),
         initial: (a.name || 'U').charAt(0).toUpperCase()
       };
@@ -154,32 +154,32 @@ export default function Dashboard() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
     const data = months.map(m => ({ name: m, pemasukan: 0, pengeluaran: 0 }));
     finance.forEach(f => {
-       const d = new Date(f.transaction_date);
-       if (d.getFullYear() === year) {
-          const mIdx = d.getMonth();
-          if (f.type === 'income') data[mIdx].pemasukan += Number(f.amount) / 1000000;
-          else if (f.type === 'expense') data[mIdx].pengeluaran += Number(f.amount) / 1000000;
-       }
+      const d = new Date(f.transaction_date);
+      if (d.getFullYear() === year) {
+        const mIdx = d.getMonth();
+        if (f.type === 'income') data[mIdx].pemasukan += Number(f.amount) / 1000000;
+        else if (f.type === 'expense') data[mIdx].pengeluaran += Number(f.amount) / 1000000;
+      }
     });
     const currentMonth = new Date().getMonth();
     return data.slice(0, currentMonth + 1);
   }, [finance]);
 
   const hrStats = useMemo(() => {
-     const depts = {};
-     let total = 0;
-     employees.forEach(e => {
-        const d = e.department || 'Lainnya';
-        depts[d] = (depts[d] || 0) + 1;
-        total++;
-     });
-     const colors = ["bg-[#2563eb]", "bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500"];
-     return Object.entries(depts).sort((a,b) => b[1] - a[1]).slice(0, 5).map((entry, idx) => ({
-        lbl: entry[0],
-        val: entry[1],
-        max: total > 0 ? total : 50,
-        color: colors[idx % colors.length]
-     }));
+    const depts = {};
+    let total = 0;
+    employees.forEach(e => {
+      const d = e.department || 'Lainnya';
+      depts[d] = (depts[d] || 0) + 1;
+      total++;
+    });
+    const colors = ["bg-[#2563eb]", "bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500"];
+    return Object.entries(depts).sort((a, b) => b[1] - a[1]).slice(0, 5).map((entry, idx) => ({
+      lbl: entry[0],
+      val: entry[1],
+      max: total > 0 ? total : 50,
+      color: colors[idx % colors.length]
+    }));
   }, [employees]);
 
   const dynamicAssets = useMemo(() => {
@@ -197,36 +197,43 @@ export default function Dashboard() {
     <Layout hideMobileHeader={true} hideBottomNav={false}>
       <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-4 md:pb-12">
         <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6">
-          
-          {/* HERO BANNER dengan Efek "3D" */}
+
+          {/* HERO BANNER dengan Nuansa Finance (Clean White & Soft Blue) */}
           <div className="px-4 md:px-0">
-            <div className="relative w-full h-[180px] md:h-[240px] rounded-2xl md:rounded-[2rem] overflow-hidden shadow-lg bg-[#eef2ff] flex items-center mt-2 md:mt-0 border border-blue-100">
-              {/* Latar Belakang Gambar (Office modern/Corporate) */}
-              <div 
-                className="absolute inset-0 z-0 bg-cover bg-center"
+            <div className="relative w-full h-[180px] md:h-[220px] rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xs bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/30 flex items-center mt-2 md:mt-0 border border-slate-200/80">
+              {/* Subtle background ambient blur blobs */}
+              <div className="absolute -right-10 -top-10 w-60 h-60 bg-blue-100/50 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute right-1/3 -bottom-10 w-52 h-52 bg-sky-100/40 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute left-1/4 top-0 w-40 h-40 bg-indigo-50/50 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Subtle decorative grid pattern */}
+              <div
+                className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
                 style={{
-                  backgroundImage: `url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=2000&auto=format&fit=crop')`,
-                  backgroundPosition: 'center 40%',
+                  backgroundImage: `radial-gradient(#1a73e8 1px, transparent 1px)`,
+                  backgroundSize: '20px 20px'
                 }}
               />
-              {/* Gradient Overlay dari biru ke transparan */}
-              <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#102a43] via-[#102a43]/90 to-transparent"></div>
 
               <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center px-6 md:px-12">
-                <div className="max-w-xl text-white">
-                  <h1 className="text-2xl md:text-4xl font-black mb-1 md:mb-2 tracking-tight drop-shadow-md">
-                    {greet()}, <span className="text-yellow-400">Admin! 👋</span>
+                <div className="max-w-xl">
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100 text-[#1a73e8] text-xs font-bold mb-2.5 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] animate-pulse"></span>
+                    Sistem Terintegrasi LPK Creativa
+                  </div>
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 mb-1.5 tracking-tight">
+                    {greet()}, <span className="text-[#1a73e8]">Admin! 👋</span>
                   </h1>
-                  <p className="text-blue-100/90 text-[13px] md:text-[15px] font-medium leading-relaxed drop-shadow-sm max-w-[250px] md:max-w-full line-clamp-2 md:line-clamp-none">
-                    Kelola seluruh operasional HRIS dengan lebih efektif dan efisien.
+                  <p className="text-slate-500 text-[13px] md:text-[15px] font-medium leading-relaxed max-w-[280px] md:max-w-full line-clamp-2 md:line-clamp-none">
+                    Kelola seluruh operasional HRIS dan data perusahaan secara efektif, akurat, dan transparan.
                   </p>
                 </div>
-                <div className="hidden lg:flex items-center gap-6 text-white">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[140px] shadow-soft">
-                    <p className="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1">
+                <div className="hidden lg:flex items-center gap-6">
+                  <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 text-center min-w-[150px] shadow-2xs">
+                    <p className="text-xs font-bold text-[#1a73e8] uppercase tracking-wider mb-1">
                       {timeNow.toLocaleDateString('id-ID', { weekday: 'long' })}
                     </p>
-                    <p className="text-lg font-black tracking-tight">
+                    <p className="text-lg font-black text-slate-800 tracking-tight">
                       {timeNow.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
@@ -259,7 +266,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Total Karyawan</span>
                 </div>
-                <h3 className="text-[26px] font-black text-[#102a43] leading-none mb-1.5">{stats.total}</h3>
+                <h3 className="text-[26px] font-black text-slate-900 leading-none mb-1.5">{stats.total}</h3>
                 <span className="text-[10px] font-bold text-emerald-500 flex items-center"><TrendingUp className="w-3 h-3 mr-0.5" /> +12%</span>
               </div>
 
@@ -270,7 +277,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Hadir Hari Ini</span>
                 </div>
-                <h3 className="text-[26px] font-black text-[#102a43] leading-none mb-1.5">{stats.todayPresence || stats.active}</h3>
+                <h3 className="text-[26px] font-black text-slate-900 leading-none mb-1.5">{stats.todayPresence || stats.active}</h3>
                 <span className="text-[10px] font-bold text-emerald-500 flex items-center"><TrendingUp className="w-3 h-3 mr-0.5" /> +6%</span>
               </div>
 
@@ -281,7 +288,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Izin / Cuti</span>
                 </div>
-                <h3 className="text-[26px] font-black text-[#102a43] leading-none mb-1.5">{stats.todayLeaves}</h3>
+                <h3 className="text-[26px] font-black text-slate-900 leading-none mb-1.5">{stats.todayLeaves}</h3>
                 <span className="text-[10px] font-bold text-rose-500 flex items-center"><TrendingDown className="w-3 h-3 mr-0.5" /> -2%</span>
               </div>
 
@@ -292,7 +299,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Terlambat</span>
                 </div>
-                <h3 className="text-[26px] font-black text-[#102a43] leading-none mb-1.5">{stats.todayLate || 0}</h3>
+                <h3 className="text-[26px] font-black text-slate-900 leading-none mb-1.5">{stats.todayLate || 0}</h3>
                 <span className="text-[10px] font-bold text-rose-500 flex items-center"><TrendingDown className="w-3 h-3 mr-0.5" /> +1%</span>
               </div>
             </div>
@@ -300,16 +307,16 @@ export default function Dashboard() {
             {/* Menu Utama (Mobile) */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-[16px] font-black text-[#102a43]">Menu Utama</h3>
-                <button 
-                  onClick={() => setShowFullMenu(!showFullMenu)} 
+                <h3 className="text-[16px] font-black text-slate-900">Menu Utama</h3>
+                <button
+                  onClick={() => setShowFullMenu(!showFullMenu)}
                   className="text-[12px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
                 >
                   {showFullMenu ? 'Tutup' : 'Lihat Semua'}
                   {showFullMenu ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </button>
               </div>
-              
+
               {showFullMenu ? (
                 <div className="space-y-6 animate-fade-in">
                   {menuGroups.map((group, idx) => (
@@ -317,7 +324,7 @@ export default function Dashboard() {
                       <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{group.category}</h4>
                       <div className="grid grid-cols-4 gap-y-5 gap-x-2">
                         {group.items.map((item, itemIdx) => (
-                          <button key={itemIdx} onClick={() => window.location.href=item.path} className="flex flex-col items-center group">
+                          <button key={itemIdx} onClick={() => window.location.href = item.path} className="flex flex-col items-center group">
                             <div className={`w-[52px] h-[52px] rounded-[1.1rem] flex items-center justify-center mb-2.5 ${item.color} shadow-sm group-hover:scale-105 transition-transform`}>
                               <item.icon className="w-5 h-5" strokeWidth={2.5} />
                             </div>
@@ -340,7 +347,7 @@ export default function Dashboard() {
                     { title: "Lembur", icon: Clock, color: "text-amber-600 bg-amber-100", path: "/overtime" },
                     { title: "Pengaturan", icon: Settings, color: "text-purple-600 bg-purple-100", path: "/settings" },
                   ].map((item, idx) => (
-                    <button key={idx} onClick={() => window.location.href=item.path} className="flex flex-col items-center">
+                    <button key={idx} onClick={() => window.location.href = item.path} className="flex flex-col items-center">
                       <div className={`w-[52px] h-[52px] rounded-[1.1rem] flex items-center justify-center mb-2.5 ${item.color} shadow-sm`}>
                         <item.icon className="w-5 h-5" strokeWidth={2.5} />
                       </div>
@@ -363,7 +370,7 @@ export default function Dashboard() {
               <div key={i} className="min-w-[240px] md:min-w-0 snap-center bg-white rounded-[1rem] p-5 shadow-soft border border-slate-100 flex items-center justify-between group hover:-translate-y-1 transition-all duration-300">
                 <div>
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{stat.label}</p>
-                  <h3 className="text-2xl md:text-3xl font-black text-[#102a43] mb-2">{stat.val}</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-slate-900 mb-2">{stat.val}</h3>
                   <p className={`text-[11px] font-bold text-emerald-500 flex items-center gap-1`}>
                     <TrendingUp className="w-3 h-3" /> {stat.inc}
                   </p>
@@ -377,10 +384,10 @@ export default function Dashboard() {
 
           {/* MAIN GRID */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 px-4 md:px-0">
-            
+
             {/* LEFT COLUMN (Span 2) */}
             <div className="xl:col-span-2 space-y-6">
-              
+
               {/* Employee Verification */}
               <div className="bg-white rounded-[1rem] shadow-soft border border-slate-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -388,11 +395,11 @@ export default function Dashboard() {
                     <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
                       <Clock className="w-4 h-4" />
                     </div>
-                    <h2 className="text-[14px] md:text-[15px] font-bold text-[#102a43]">Verifikasi Karyawan</h2>
+                    <h2 className="text-[14px] md:text-[15px] font-bold text-slate-900">Verifikasi Karyawan</h2>
                   </div>
                   <button className="text-[12px] font-bold text-[#2563eb] hover:text-[#1d4ed8]">Lihat Semua</button>
                 </div>
-                
+
                 {/* Desktop Table (Hidden on Mobile) */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left">
@@ -440,7 +447,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold ${u.bg}`}>{u.initial}</div>
                           <div>
-                            <p className="text-[13px] font-bold text-[#102a43]">{u.name}</p>
+                            <p className="text-[13px] font-bold text-slate-900">{u.name}</p>
                             <p className="text-[11px] font-medium text-slate-500">{u.dept}</p>
                           </div>
                         </div>
@@ -461,7 +468,7 @@ export default function Dashboard() {
 
               {/* Middle Charts Row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* Bar Chart: HR Statistic */}
                 <div className="bg-white rounded-[1rem] shadow-soft border border-slate-100 p-5 flex flex-col h-[320px]">
                   <div className="flex items-center justify-between mb-5">
@@ -469,7 +476,7 @@ export default function Dashboard() {
                       <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
                         <Activity className="w-4 h-4" />
                       </div>
-                      <h3 className="text-[14px] font-bold text-[#102a43]">HR Statistic</h3>
+                      <h3 className="text-[14px] font-bold text-slate-900">HR Statistic</h3>
                     </div>
                   </div>
                   <div className="flex-1 flex flex-col justify-between">
@@ -477,9 +484,9 @@ export default function Dashboard() {
                       <div key={i} className="flex items-center gap-3">
                         <span className="w-1/3 text-[12px] font-medium text-slate-600 truncate">{bar.lbl}</span>
                         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${bar.color} rounded-full`} style={{ width: `${(bar.val/bar.max)*100}%` }} />
+                          <div className={`h-full ${bar.color} rounded-full`} style={{ width: `${(bar.val / bar.max) * 100}%` }} />
                         </div>
-                        <span className="w-6 text-right text-[12px] font-bold text-[#102a43]">{bar.val}</span>
+                        <span className="w-6 text-right text-[12px] font-bold text-slate-900">{bar.val}</span>
                       </div>
                     )) : (
                       <div className="text-center text-sm text-slate-500 mt-4">Belum ada data</div>
@@ -489,12 +496,12 @@ export default function Dashboard() {
 
                 {/* Arus Kas */}
                 <div className="bg-white rounded-[1rem] shadow-soft border border-slate-100 p-5 flex flex-col h-[320px]">
-                   <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
                         <span className="font-black text-lg">$</span>
                       </div>
-                      <h3 className="text-[14px] font-bold text-[#102a43]">Finance Summary</h3>
+                      <h3 className="text-[14px] font-bold text-slate-900">Finance Summary</h3>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -506,12 +513,12 @@ export default function Dashboard() {
                       <AreaChart data={cashFlowDynamic}>
                         <defs>
                           <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                           </linearGradient>
                           <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dy={10} />
@@ -529,16 +536,16 @@ export default function Dashboard() {
 
             {/* RIGHT COLUMN (Span 1) */}
             <div className="space-y-6">
-              
+
               {/* Kalender & Agenda */}
               <div className="bg-white rounded-[1rem] shadow-soft border border-slate-100 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="w-5 h-5 text-[#3b82f6]" />
-                    <h3 className="text-[14px] font-bold text-[#102a43]">Agenda</h3>
+                    <h3 className="text-[14px] font-bold text-slate-900">Agenda</h3>
                   </div>
                 </div>
-                
+
                 {/* Mini Calendar Mock */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-3 px-1">
@@ -547,11 +554,11 @@ export default function Dashboard() {
                     <button><ChevronRight className="w-4 h-4 text-slate-400" /></button>
                   </div>
                   <div className="grid grid-cols-7 gap-1 text-center">
-                    {['M','S','S','R','K','J','S'].map((d, i) => (
+                    {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map((d, i) => (
                       <div key={i} className="text-[10px] font-bold text-slate-400 py-1">{d}</div>
                     ))}
                     {[...Array(30)].map((_, i) => (
-                      <div key={i} className={`text-[12px] font-medium py-1.5 rounded-lg cursor-pointer ${i+1 === 27 ? 'bg-[#2563eb] text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                      <div key={i} className={`text-[12px] font-medium py-1.5 rounded-lg cursor-pointer ${i + 1 === 27 ? 'bg-[#2563eb] text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-50'}`}>
                         {i + 1}
                       </div>
                     ))}
@@ -571,7 +578,7 @@ export default function Dashboard() {
                         <div className={`w-2 h-2 rounded-full mt-1.5 z-10 shrink-0 ${ag.color} ring-4 ring-white`}></div>
                         {i !== 1 && <div className="absolute left-[3.25rem] top-3 bottom-[-1rem] w-px bg-slate-100 z-0"></div>}
                         <div>
-                          <p className="text-[12px] font-semibold text-[#102a43] leading-tight">{ag.title}</p>
+                          <p className="text-[12px] font-semibold text-slate-900 leading-tight">{ag.title}</p>
                           <p className="text-[10px] font-medium text-slate-400">{ag.loc}</p>
                         </div>
                       </div>
@@ -586,24 +593,24 @@ export default function Dashboard() {
                   <div className="w-6 h-6 rounded-md bg-[#eff6ff] flex items-center justify-center text-[#2563eb]">
                     <TrendingUp className="w-3.5 h-3.5" />
                   </div>
-                  <h3 className="text-[14px] font-bold text-[#102a43]">Quick Actions</h3>
+                  <h3 className="text-[14px] font-bold text-slate-900">Quick Actions</h3>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-[#bfdbfe] hover:bg-[#eff6ff] transition text-left group">
                     <UserPlus className="w-5 h-5 text-[#3b82f6] group-hover:scale-110 transition-transform" />
-                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Tambah<br/>Employee</span>
+                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Tambah<br />Employee</span>
                   </button>
                   <button className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition text-left group">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Approval<br/>Cuti</span>
+                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Approval<br />Cuti</span>
                   </button>
                   <button className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-purple-200 hover:bg-purple-50 transition text-left group">
                     <FileText className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Report<br/>Bulanan</span>
+                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Report<br />Bulanan</span>
                   </button>
                   <button className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-orange-200 hover:bg-orange-50 transition text-left group">
                     <Download className="w-5 h-5 text-orange-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Export<br/>Data</span>
+                    <span className="text-[11px] font-semibold text-slate-700 leading-tight">Export<br />Data</span>
                   </button>
                 </div>
               </div>
@@ -613,13 +620,13 @@ export default function Dashboard() {
 
           {/* BOTTOM WIDGETS ROW */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 md:px-0">
-            
+
             {/* Absensi Hari Ini (Mobile Card view, Desktop list) */}
             <div className="bg-white rounded-[1rem] shadow-soft border border-slate-100 p-5 flex flex-col h-[320px]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#3b82f6]" />
-                  <h3 className="text-[14px] font-bold text-[#102a43]">Attendance Summary</h3>
+                  <h3 className="text-[14px] font-bold text-slate-900">Attendance Summary</h3>
                 </div>
               </div>
               <div className="space-y-3 overflow-y-auto pr-2 no-scrollbar">
@@ -628,7 +635,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[13px] font-bold">{emp.initial}</div>
                       <div>
-                        <p className="text-[13px] font-bold text-[#102a43] leading-none">{emp.name}</p>
+                        <p className="text-[13px] font-bold text-slate-900 leading-none">{emp.name}</p>
                         <p className="text-[11px] font-medium text-slate-500 mt-1">{emp.role}</p>
                       </div>
                     </div>
@@ -648,7 +655,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-orange-500" />
-                  <h3 className="text-[14px] font-bold text-[#102a43]">GA Asset Report</h3>
+                  <h3 className="text-[14px] font-bold text-slate-900">GA Asset Report</h3>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto pr-2 no-scrollbar">
@@ -658,16 +665,15 @@ export default function Dashboard() {
                       <div className={`w-6 h-6 rounded-md ${asset.colorClass} flex items-center justify-center shrink-0`}>
                         <FileText className="w-3 h-3" />
                       </div>
-                      <p className="text-[12px] font-bold text-[#102a43] truncate">{asset.title}</p>
+                      <p className="text-[12px] font-bold text-slate-900 truncate">{asset.title}</p>
                     </div>
                     <div className="flex items-center justify-between mt-1">
                       <div>
                         <p className="text-[10px] font-medium text-slate-400">{asset.loc}</p>
                         <p className="text-[10px] font-medium text-slate-600 truncate max-w-[80px]">{asset.user}</p>
                       </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                         ['Bagus', 'Baik', 'Good'].includes(asset.cond) ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${['Bagus', 'Baik', 'Good'].includes(asset.cond) ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                        }`}>
                         {asset.cond}
                       </span>
                     </div>

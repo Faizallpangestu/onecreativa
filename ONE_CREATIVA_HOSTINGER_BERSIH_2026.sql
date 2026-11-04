@@ -261,6 +261,7 @@ CREATE TABLE IF NOT EXISTS `billing_pembayaran` (
   `jumlah` decimal(15,2) DEFAULT 0.00,
   `sisa` decimal(15,2) DEFAULT 0.00,
   `statusVerif` varchar(50) DEFAULT 'Menunggu',
+  `proof_path` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

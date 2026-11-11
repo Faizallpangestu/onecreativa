@@ -10,8 +10,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../services/rpa_automation.php';
 
-$EXPECTED_SECRET = 'CREATIVA_SYNC_SECRET_2026';
+$EXPECTED_SECRET = rpa_get_secret();
 
 // 1. Health check & Documentation via GET
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -123,6 +124,8 @@ try {
         'affiliator' => 'VARCHAR(100) DEFAULT NULL',
         'nis' => 'VARCHAR(50) DEFAULT NULL',
         'program' => "VARCHAR(150) DEFAULT 'Program Pelatihan Jepang'",
+        'metode_pembayaran' => 'VARCHAR(100) DEFAULT NULL',
+        'total_biaya' => 'DECIMAL(15,2) DEFAULT NULL',
         'batch' => "VARCHAR(100) DEFAULT 'Batch 2'",
         'level' => "VARCHAR(50) DEFAULT 'N5'",
         'alamat' => 'TEXT DEFAULT NULL',
@@ -140,10 +143,37 @@ try {
         }
     }
 
+    // Pastikan kolom meta_json & public_token ada pada billing_invoices
+    foreach (['public_token' => 'VARCHAR(64) NULL', 'meta_json' => 'LONGTEXT NULL'] as $bCol => $bDef) {
+        $chkB = @mysqli_query($conn, "SHOW COLUMNS FROM `billing_invoices` LIKE '{$bCol}'");
+        if ($chkB && mysqli_num_rows($chkB) === 0) {
+            @mysqli_query($conn, "ALTER TABLE `billing_invoices` ADD COLUMN `{$bCol}` {$bDef}");
+        }
+    }
+
     $currentYear = date('y');
     $currentMonth = date('m');
     $todayDate = date('Y-m-d');
-    $dueDate = date('Y-m-d', strtotime('+14 days'));
+    $baseDueDate = date('Y-m-d', strtotime('+2 days'));
+    $deliveryModePending = !empty($body['defer_delivery_log']);
+
+    $officialIncludes = [
+        'Kelas Bahasa Jepang Level N5 & N4',
+        'Kelas Persiapan Ujian JFT & SSW',
+        'Biaya Ujian JFT A2.2 & SSW (masing-masing tercover 1x)',
+        'Buku & Materi Pelajaran',
+        'Panel & Moodle (Learning Online System for Student)',
+        'Seragam, ID Card & Suripa',
+        'Sertifikat Kompetensi LPK',
+        'Fasilitas Kelas & Asrama selama 7 bulan',
+        'Praktek & Kegiatan LPK (FMD, Kunjungan Matsuri, Bukber, Acara Kelulusan, dll) *kondisional',
+        'Konsultasi Pendidikan/Pelatihan & Peluang Karir di Jepang (kapan pun selama Pelatihan)',
+    ];
+    $officialExcludes = [
+        'Biaya Utilitas (Air, Listrik, Internet, & IPL Asrama per Bulan)',
+        'Biaya Makan',
+        'Keperluan Pribadi Lainnya',
+    ];
 
     $results = [];
     $createdStudents = 0;
@@ -158,24 +188,30 @@ try {
         $phone = trim($p['phone'] ?? $p['no_wa'] ?? $p['kontak'] ?? '');
         $email = trim($p['email'] ?? '');
         $noKtp = trim($p['noKtp'] ?? $p['no_ktp'] ?? $p['nik'] ?? '');
-        $program = trim($p['program'] ?? 'Program Pelatihan Jepang');
+        $program = trim($p['program'] ?? $p['programMinat'] ?? 'Intensif Offline');
         $rawStatus = trim($p['status'] ?? 'Menunggu Pembayaran');
         $status = ($rawStatus === 'Pending' || $rawStatus === 'Pembayaran') ? 'Menunggu Pembayaran' : ($rawStatus ?: 'Aktif');
         $kota = trim($p['kotaDomisili'] ?? $p['kota'] ?? 'Cianjur');
         $lokasi = trim($p['lokasiTinggal'] ?? '');
         $alamat = trim($p['alamat'] ?? ($kota . ($lokasi ? ', ' . $lokasi : ', Jawa Barat')));
         $batch = !empty($p['batch']) ? $p['batch'] : 'Batch 2';
-        $skema = strtolower(trim($p['skema'] ?? 'cicilan'));
+        $metodeRaw = trim((string)($p['metodePembayaran'] ?? $p['metode_pembayaran'] ?? $p['tipe_pembayaran'] ?? $p['skema'] ?? 'Full Payment'));
+        $skema = (stripos($metodeRaw, 'cicil') !== false || stripos($metodeRaw, 'dp') !== false) ? 'cicilan' : 'full';
+        $metodeLabel = $skema === 'cicilan' ? 'Cicilan' : 'Full Payment';
 
         // Biaya Program Resmi Creativa
-        $programAmount = 15000000.00;
-        if (stripos($program, 'sotsugyousei') !== false) {
+        $programAmount = $skema === 'cicilan' ? 18000000.00 : 15000000.00;
+        if (stripos($program, 'kaigo') !== false || stripos($program, 'talang') !== false) {
+            $programAmount = 17760000.00;
+        } elseif (stripos($program, 'sotsugyousei') !== false) {
             $programAmount = 7500000.00;
         } elseif (stripos($program, 'reguler') !== false) {
             $programAmount = 5000000.00;
         }
         if (!empty($p['nominal']) && is_numeric($p['nominal'])) {
             $programAmount = (float)$p['nominal'];
+        } elseif (!empty($p['total_biaya']) && is_numeric($p['total_biaya']) && (float)$p['total_biaya'] > 0) {
+            $programAmount = (float)$p['total_biaya'];
         }
 
         // Generate NIS resmi LPK: TGCJ + Tahun(2 digit) + Bulan(2 digit) + ID urut
@@ -193,14 +229,14 @@ try {
         if ($existing) {
             $studentId = (int)$existing['id'];
             $nis = !empty($existing['nis']) ? $existing['nis'] : $nis;
-            $updateStmt = $conn->prepare("UPDATE peserta_intensif SET no_wa=?, email=?, no_ktp=?, program=?, status=?, kota=?, alamat=?, nis=?, web_id=?, source='creativabridging.com' WHERE id=?");
-            $updateStmt->bind_param("ssssssssii", $phone, $email, $noKtp, $program, $status, $kota, $alamat, $nis, $rawWebId, $studentId);
+            $updateStmt = $conn->prepare("UPDATE peserta_intensif SET no_wa=?, email=?, no_ktp=?, program=?, metode_pembayaran=?, total_biaya=?, status=?, kota=?, alamat=?, nis=?, web_id=?, source='creativabridging.com' WHERE id=?");
+            $updateStmt->bind_param("sssssdssssii", $phone, $email, $noKtp, $program, $metodeLabel, $programAmount, $status, $kota, $alamat, $nis, $rawWebId, $studentId);
             $updateStmt->execute();
             $updateStmt->close();
             $updatedStudents++;
         } else {
-            $insertStmt = $conn->prepare("INSERT INTO peserta_intensif (nama_lengkap, no_wa, email, no_ktp, program, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'Jawa Barat', 'Indonesia', ?, ?, ?, 'N5', ?, 'creativabridging.com')");
-            $insertStmt->bind_param("ssssssssssi", $name, $phone, $email, $noKtp, $program, $status, $kota, $alamat, $nis, $batch, $rawWebId);
+            $insertStmt = $conn->prepare("INSERT INTO peserta_intensif (nama_lengkap, no_wa, email, no_ktp, program, metode_pembayaran, total_biaya, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Jawa Barat', 'Indonesia', ?, ?, ?, 'N5', ?, 'creativabridging.com')");
+            $insertStmt->bind_param("ssssssdsssssi", $name, $phone, $email, $noKtp, $program, $metodeLabel, $programAmount, $status, $kota, $alamat, $nis, $batch, $rawWebId);
             $insertStmt->execute();
             $studentId = $conn->insert_id;
             $insertStmt->close();
@@ -208,38 +244,137 @@ try {
         }
 
         // ── B. Cek & Auto-Generate Invoice Tagihan (billing_invoices) ──
-        // Cek apakah invoice untuk pendaftar ini sudah pernah dibuat
+        // Cek apakah invoice untuk pendaftar + program ini sudah pernah dibuat (idempotency)
         $existingInv = null;
-        $invStmt = $conn->prepare("SELECT id, total, status FROM billing_invoices WHERE customer = ? OR id = ? LIMIT 1");
-        $invStmt->bind_param("ss", $name, $nis);
+        $progKeyword = stripos($program, 'kaigo') !== false ? 'Kaigo' : (stripos($program, 'matching') !== false ? 'Matching' : (stripos($program, 'sotsug') !== false ? 'Sotsug' : 'Intensif'));
+        $likeProg = '%' . $progKeyword . '%';
+        $invStmt = $conn->prepare("SELECT id, total, status, jatuhTempo, public_token, meta_json FROM billing_invoices WHERE (id = ? OR (email != '' AND email = ? AND keterangan LIKE ?) OR (customer = ? AND keterangan LIKE ?)) LIMIT 1");
+        $invStmt->bind_param("sssss", $nis, $email, $likeProg, $name, $likeProg);
         $invStmt->execute();
         $existingInv = $invStmt->get_result()->fetch_assoc();
         $invStmt->close();
 
+        // Susun item & termin cicilan resmi sesuai program & metode pembayaran
+        $lokasiLabel = trim((string)($kota ?: 'Cianjur'));
+        $itemTitle = "{$program} ({$metodeLabel})";
+        $itemSubtitle = "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - {$lokasiLabel}";
+        $installments = [];
+        if ($skema === 'cicilan') {
+            if (abs($programAmount - 18000000.00) < 1) {
+                $presetCicilan = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
+                foreach ($presetCicilan as $cIdx => $cAmt) {
+                    $installments[] = [
+                        'id' => $cIdx + 1,
+                        'deskripsi' => $cIdx === 0 ? 'DP Pendaftaran' : 'Cicilan ' . ($cIdx + 1),
+                        'keterangan' => $cIdx === 0 ? 'DP PENDAFTARAN' : 'CICILAN KE-' . ($cIdx + 1),
+                        'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
+                        'nominal' => $cAmt,
+                    ];
+                }
+            } else {
+                $dp = (int)round($programAmount * 0.4);
+                $c2 = (int)round($programAmount * 0.3);
+                $c3 = max(0, (int)round($programAmount) - $dp - $c2);
+                foreach ([[ 'DP PENDAFTARAN', $dp ], [ 'CICILAN KE-2', $c2 ], [ 'CICILAN KE-3', $c3 ]] as $cIdx => $pair) {
+                    $installments[] = [
+                        'id' => $cIdx + 1,
+                        'deskripsi' => $pair[0],
+                        'keterangan' => $pair[0],
+                        'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
+                        'nominal' => $pair[1],
+                    ];
+                }
+            }
+        } else {
+            $installments[] = [
+                'id' => 1,
+                'deskripsi' => 'FULL PAYMENT',
+                'keterangan' => 'FULL PAYMENT',
+                'jatuhTempo' => $baseDueDate,
+                'nominal' => (float)$programAmount,
+            ];
+        }
+
+        $dueDate = $installments[0]['jatuhTempo'] ?? $baseDueDate;
+        $dueNowNominal = (float)($installments[0]['nominal'] ?? $programAmount);
+        $metaArray = [
+            'skema' => $skema,
+            'program' => $program,
+            'lokasi' => $lokasiLabel,
+            'durasi' => '7 Bulan',
+            'subtotal' => (float)$programAmount,
+            'items' => [[
+                'id' => 1,
+                'deskripsi' => $itemTitle,
+                'subdeskripsi' => $itemSubtitle,
+                'harga' => (float)$programAmount,
+                'diskon' => 0,
+                'jumlah' => (float)$programAmount,
+            ]],
+            'installments' => $installments,
+            'includes' => $officialIncludes,
+            'excludes' => $officialExcludes,
+            'bank_name' => 'BCA',
+            'account_number' => '1832-918-428',
+            'account_holder' => 'CREATIVA BRIDGING INTERN',
+            'source' => 'rpa-phase1-webhook',
+            'web_id' => $rawWebId,
+            'screening' => $p['screening'] ?? null,
+        ];
+
         $invoiceId = null;
         $invoiceStatus = 'Unpaid';
         $invoiceCreatedNow = false;
+        $publicToken = '';
+        $deliveryStatus = $deliveryModePending ? 'Menunggu Bot' : 'Terkirim';
 
         if ($existingInv) {
             $invoiceId = $existingInv['id'];
             $invoiceStatus = $existingInv['status'];
             $programAmount = (float)$existingInv['total'];
+            $dueDate = !empty($existingInv['jatuhTempo']) ? $existingInv['jatuhTempo'] : $dueDate;
+            $publicToken = trim((string)($existingInv['public_token'] ?? ''));
+            if ($publicToken === '') {
+                $publicToken = bin2hex(random_bytes(16));
+                $tokStmt = $conn->prepare("UPDATE billing_invoices SET public_token = ? WHERE id = ?");
+                $tokStmt->bind_param("ss", $publicToken, $invoiceId);
+                $tokStmt->execute();
+                $tokStmt->close();
+            }
+            if (!empty($existingInv['meta_json'])) {
+                $decodedExistingMeta = json_decode((string)$existingInv['meta_json'], true);
+                if (is_array($decodedExistingMeta) && !empty($decodedExistingMeta['installments'])) {
+                    $installments = $decodedExistingMeta['installments'];
+                    $dueNowNominal = (float)($installments[0]['nominal'] ?? $programAmount);
+                }
+            }
+            // Cek apakah antrean pengiriman bot masih berstatus 'Menunggu Bot' atau belum ada log terkirim
+            $delivStmt = $conn->prepare("SELECT statusKirim FROM billing_terkirim WHERE id = ? ORDER BY created_at DESC LIMIT 1");
+            if ($delivStmt) {
+                $delivStmt->bind_param("s", $invoiceId);
+                $delivStmt->execute();
+                $delivRow = $delivStmt->get_result()->fetch_assoc();
+                $delivStmt->close();
+                $deliveryStatus = $delivRow ? trim((string)($delivRow['statusKirim'] ?? 'Terkirim')) : 'Menunggu Bot';
+            }
         } else {
-            // Generate Invoice ID standar: INV-YYYYMM-XXXX
-            // Ambil nomor urut invoice bulan ini
-            $prefix = 'INV-' . date('Ym') . '-';
-            $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '$prefix%' ORDER BY id DESC LIMIT 1");
+            // Generate Invoice ID resmi LPK: TGCJ + YYMM + 4 digit urut
+            $prefix = 'TGCJ' . $currentYear . $currentMonth;
+            $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 1");
             $nextSeq = 1;
             if ($numRes && $row = mysqli_fetch_assoc($numRes)) {
-                $lastNum = (int)substr($row['id'], -4);
-                $nextSeq = $lastNum + 1;
+                $tail = substr((string)$row['id'], strlen($prefix));
+                if (ctype_digit($tail)) {
+                    $nextSeq = (int)$tail + 1;
+                }
             }
-            $invoiceId = $prefix . str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
+            $invoiceId = $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+            $publicToken = bin2hex(random_bytes(16));
+            $metaJson = json_encode($metaArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $keterangan = "{$program} ({$metodeLabel})";
 
-            $keterangan = "Biaya Pendaftaran & Pelatihan: " . $program . " (" . ($skema === 'full' ? 'Full Payment' : 'Skema Cicilan / DP') . ")";
-            
-            $createInvStmt = $conn->prepare("INSERT INTO billing_invoices (id, tanggal, customer, email, phone, total, status, jatuhTempo, keterangan, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?, ?, NOW())");
-            $createInvStmt->bind_param("sssssdss", $invoiceId, $todayDate, $name, $email, $phone, $programAmount, $dueDate, $keterangan);
+            $createInvStmt = $conn->prepare("INSERT INTO billing_invoices (id, tanggal, customer, email, phone, total, status, jatuhTempo, keterangan, public_token, meta_json, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?, ?, ?, ?, NOW())");
+            $createInvStmt->bind_param("sssssdssss", $invoiceId, $todayDate, $name, $email, $phone, $programAmount, $dueDate, $keterangan, $publicToken, $metaJson);
             $createInvStmt->execute();
             $createInvStmt->close();
             $createdInvoices++;
@@ -248,28 +383,63 @@ try {
             // ── C. Auto-Log ke Riwayat Pengiriman (billing_terkirim) ──
             $kanal = ($phone && $phone !== '-') ? 'WhatsApp' : 'Email';
             $penerima = $kanal === 'WhatsApp' ? $phone : ($email ?: '-');
-            $terkirimStmt = $conn->prepare("INSERT INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, ?, ?, 'Terkirim', 'Pending', NOW())");
-            $terkirimStmt->bind_param("sssss", $invoiceId, $todayDate, $name, $kanal, $penerima);
+            $initDeliveryStatus = $deliveryModePending ? 'Menunggu Bot' : 'Terkirim';
+            $deliveryStatus = $initDeliveryStatus;
+            $terkirimStmt = $conn->prepare("INSERT INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW())");
+            $terkirimStmt->bind_param("ssssss", $invoiceId, $todayDate, $name, $kanal, $penerima, $initDeliveryStatus);
             $terkirimStmt->execute();
             $terkirimStmt->close();
         }
 
-        // ── D. Format Tautan WhatsApp Notifikasi Tagihan ──
-        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
-        if (str_starts_with($cleanPhone, '0')) {
-            $cleanPhone = '62' . substr($cleanPhone, 1);
-        }
-        $formattedNominal = "Rp " . number_format($programAmount, 0, ',', '.');
-        $waMessage = rawurlencode(
-            "Halo {$name},\n\nTerima kasih telah mendaftar di LPK Creativa Bridging International.\n\nBerikut rincian tagihan invoice Anda:\n" .
-            "• No. Invoice: {$invoiceId}\n" .
-            "• Program: {$program}\n" .
-            "• Total Tagihan: {$formattedNominal}\n" .
-            "• Jatuh Tempo: {$dueDate}\n" .
-            "• Rekening Pembayaran: BCA 1832-918-428 a.n. PT CREATIVA BRIDGING INTERNATIONAL\n\n" .
-            "Setelah melakukan pembayaran, mohon konfirmasi dengan mengirimkan bukti transfer. Terima kasih!\n- Finance LPK Creativa"
+        $needsDelivery = !$deliveryModePending && (
+            $invoiceCreatedNow ||
+            strtolower(trim($deliveryStatus)) === 'menunggu bot'
         );
-        $waLink = $cleanPhone ? "https://api.whatsapp.com/send?phone={$cleanPhone}&text={$waMessage}" : null;
+
+        $urls = rpa_build_public_urls($invoiceId, $publicToken);
+        $invoiceDocUrl = $urls['invoice_url'];
+        $pdfRenderUrl  = $urls['pdf_render_url'];
+        $statusPortalUrl = $urls['status_url'];
+
+        // ── D. Format Pesan WhatsApp & Email Otomatis untuk n8n & Fallback ──
+        $cleanPhone = rpa_format_wa_phone($phone);
+        $formattedTotal = "Rp " . number_format($programAmount, 0, ',', '.');
+        $formattedDueNow = "Rp " . number_format($dueNowNominal, 0, ',', '.');
+        $plainWaMessage =
+            "Halo *{$name}*,\n\n" .
+            "Terima kasih telah mendaftar di *LPK Creativa Bridging International*.\n" .
+            "Berikut rincian invoice resmi Anda:\n\n" .
+            "• No. Invoice: *{$invoiceId}*\n" .
+            "• Program: *{$program}*\n" .
+            "• Skema: *{$metodeLabel}*\n" .
+            "• Tagihan Awal (" . ($skema === 'cicilan' ? 'DP / Termin 1' : 'Full Payment') . "): *{$formattedDueNow}*\n" .
+            "• Total Biaya Program: *{$formattedTotal}*\n" .
+            "• Jatuh Tempo: *{$dueDate}*\n" .
+            "• Rekening Resmi: *Bank BCA 1832-918-428* a.n. *CREATIVA BRIDGING INTERN*\n\n" .
+            "Lihat / Cetak Invoice Resmi:\n{$invoiceDocUrl}\n\n" .
+            "Pantau Status Pendaftaran & Unduh Receipt:\n{$statusPortalUrl}\n\n" .
+            "Mohon cantumkan No. Invoice *{$invoiceId}* pada berita transfer dan kirimkan bukti transfer ke finance@creativabridging.com atau WA Finance +62 815-2222-672.\n" .
+            "Terima kasih! 🙏";
+        $waLink = $cleanPhone ? "https://api.whatsapp.com/send?phone={$cleanPhone}&text=" . rawurlencode($plainWaMessage) : null;
+
+        $emailSubject = "Invoice Pendaftaran Resmi #{$invoiceId} - {$name} ({$program})";
+        $emailHtml = "<div style='font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.6;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;padding:24px;'>"
+            . "<h2 style='color:#163660;margin-top:0;'>Invoice Resmi LPK Creativa Bridging International</h2>"
+            . "<p>Halo <strong>" . htmlspecialchars($name) . "</strong>,</p>"
+            . "<p>Pendaftaran Anda untuk program <strong>" . htmlspecialchars($program) . "</strong> telah kami terima. Terlampir / tercantum tautan invoice tagihan resmi Anda:</p>"
+            . "<table cellpadding='6' cellspacing='0' style='width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;margin:14px 0;'>"
+            . "<tr><td><strong>Nomor Invoice</strong></td><td>" . htmlspecialchars($invoiceId) . "</td></tr>"
+            . "<tr><td><strong>Metode Pembayaran</strong></td><td>" . htmlspecialchars($metodeLabel) . "</td></tr>"
+            . "<tr><td><strong>Tagihan Jatuh Tempo (" . htmlspecialchars($dueDate) . ")</strong></td><td><strong>" . htmlspecialchars($formattedDueNow) . "</strong></td></tr>"
+            . "<tr><td><strong>Total Biaya Program</strong></td><td>" . htmlspecialchars($formattedTotal) . "</td></tr>"
+            . "<tr><td><strong>Rekening Tujuan</strong></td><td>Bank BCA <strong>1832-918-428</strong> a/n <strong>CREATIVA BRIDGING INTERN</strong></td></tr>"
+            . "</table>"
+            . "<p style='margin:18px 0;display:flex;gap:10px;flex-wrap:wrap;'>"
+            . "<a href='" . htmlspecialchars($invoiceDocUrl) . "' style='background:#163660;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin-right:8px;'>Lihat &amp; Unduh Invoice Resmi</a>"
+            . "<a href='" . htmlspecialchars($statusPortalUrl) . "' style='background:#047857;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;'>Pantau Status Pendaftaran</a>"
+            . "</p>"
+            . "<p style='font-size:12px;color:#64748b;'>Cantumkan Nomor Invoice pada berita transfer dan kirim bukti transfer ke finance@creativabridging.com atau WA +62 815-2222-672.</p>"
+            . "</div>";
 
         $results[] = [
             'student_id' => $studentId,
@@ -277,13 +447,32 @@ try {
             'nama' => $name,
             'email' => $email,
             'phone' => $phone,
+            'whatsapp_phone' => $cleanPhone,
             'program' => $program,
+            'skema' => $skema,
+            'metode_pembayaran' => $metodeLabel,
             'invoice_id' => $invoiceId,
+            'public_token' => $publicToken,
+            'invoice_url' => $invoiceDocUrl,
+            'pdf_render_url' => $pdfRenderUrl,
+            'status_url' => $statusPortalUrl,
             'nominal' => $programAmount,
+            'due_now_nominal' => $dueNowNominal,
             'status_invoice' => $invoiceStatus,
             'jatuh_tempo' => $dueDate,
+            'installments' => $installments,
+            'bank' => [
+                'bank_name' => 'BCA',
+                'account_number' => '1832-918-428',
+                'account_holder' => 'CREATIVA BRIDGING INTERN',
+            ],
             'invoice_created_now' => $invoiceCreatedNow,
-            'whatsapp_link' => $waLink
+            'needs_delivery' => $needsDelivery,
+            'delivery_status' => $deliveryStatus,
+            'whatsapp_link' => $waLink,
+            'whatsapp_message' => $plainWaMessage,
+            'email_subject' => $emailSubject,
+            'email_html' => $emailHtml,
         ];
     }
 

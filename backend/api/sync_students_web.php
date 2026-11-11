@@ -18,31 +18,50 @@ try {
 
     api_session_guard($conn, 'prepare');
 
-    $apiUrl = "https://creativabridging.com/api_peserta.php?api_key=CREATIVA_SYNC_SECRET_2026";
-    $ch = curl_init($apiUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_TIMEOUT => 15,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_USERAGENT => 'OneCreativa/2.0 (Sync)',
-    ]);
-    $response = curl_exec($ch);
-    $curlError = curl_error($ch);
-    $httpStatus = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $fetchJson = function (string $url) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT => 'OneCreativa/2.0 (Sync)',
+        ]);
+        $res = curl_exec($ch);
+        $err = curl_error($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($res === false || $status < 200 || $status >= 300) {
+            return ['ok' => false, 'error' => $err ?: ('HTTP ' . $status), 'data' => null];
+        }
+        $decoded = json_decode($res, true);
+        if (!is_array($decoded)) {
+            return ['ok' => false, 'error' => 'Respons bukan JSON valid', 'data' => null];
+        }
+        return ['ok' => true, 'error' => '', 'data' => $decoded];
+    };
 
-    if ($response === false || $httpStatus < 200 || $httpStatus >= 300) {
-        error_log('Student sync upstream request failed: ' . ($curlError ?: 'HTTP ' . $httpStatus));
-        throw new RuntimeException('Data siswa dari web pendaftaran gagal diambil. Silakan coba lagi.');
+    // 1. Prioritaskan endpoint lengkap (participants) yang memuat program, metode pembayaran, total_biaya & details
+    $remoteData = null;
+    $primaryRes = $fetchJson("https://creativabridging.com/api/index.php?table=participants");
+    if ($primaryRes['ok']) {
+        if (isset($primaryRes['data']['data']) && is_array($primaryRes['data']['data'])) {
+            $remoteData = $primaryRes['data']['data'];
+        } elseif (array_is_list($primaryRes['data'])) {
+            $remoteData = $primaryRes['data'];
+        }
     }
 
-    $payload = json_decode($response, true);
-    if (!is_array($payload) || !isset($payload['data']) || !is_array($payload['data'])) {
-        throw new RuntimeException('Respons data siswa dari web pendaftaran tidak valid.');
+    // 2. Fallback ke api_peserta.php jika endpoint utama gagal
+    if (!is_array($remoteData)) {
+        $fallbackRes = $fetchJson("https://creativabridging.com/api_peserta.php?api_key=CREATIVA_SYNC_SECRET_2026");
+        if (!$fallbackRes['ok'] || !isset($fallbackRes['data']['data']) || !is_array($fallbackRes['data']['data'])) {
+            error_log('Student sync upstream request failed: ' . ($primaryRes['error'] ?: $fallbackRes['error']));
+            throw new RuntimeException('Data siswa dari web pendaftaran gagal diambil. Silakan coba lagi.');
+        }
+        $remoteData = $fallbackRes['data']['data'];
     }
-    $remoteData = $payload['data'];
 
     // Pastikan seluruh kolom yang dibutuhkan peserta_intensif sudah ada (self-healing migration)
     $existingCols = [];
@@ -56,6 +75,8 @@ try {
         'affiliator' => 'VARCHAR(100) DEFAULT NULL',
         'nis' => 'VARCHAR(50) DEFAULT NULL',
         'program' => "VARCHAR(150) DEFAULT 'Program Pelatihan Jepang'",
+        'metode_pembayaran' => 'VARCHAR(100) DEFAULT NULL',
+        'total_biaya' => 'DECIMAL(15,2) DEFAULT NULL',
         'batch' => "VARCHAR(100) DEFAULT 'Batch 2'",
         'level' => "VARCHAR(50) DEFAULT 'N5'",
         'alamat' => 'TEXT DEFAULT NULL',
@@ -77,24 +98,47 @@ try {
     $updated = 0;
 
     foreach ($remoteData as $p) {
-        $name = trim($p['nama'] ?? $p['nama_lengkap'] ?? '');
+        if (!is_array($p)) continue;
+
+        $details = [];
+        if (!empty($p['details'])) {
+            if (is_array($p['details'])) {
+                $details = $p['details'];
+            } elseif (is_string($p['details'])) {
+                $parsedDet = json_decode($p['details'], true);
+                if (is_array($parsedDet)) $details = $parsedDet;
+            }
+        }
+
+        $name = trim((string)($p['nama'] ?? $p['name'] ?? $p['namaLengkap'] ?? $details['namaLengkap'] ?? ''));
         if (!$name) continue;
 
         $rawId = (int)($p['id'] ?? 0);
 
-        $phone = trim($p['phone'] ?? $p['no_wa'] ?? '');
-        $email = trim($p['email'] ?? '');
-        $noKtp = trim($p['noKtp'] ?? $p['no_ktp'] ?? '');
-        $program = trim($p['program'] ?? 'Program Pelatihan Jepang');
-        $rawStatus = trim($p['status'] ?? 'Aktif');
+        $phone = trim((string)($p['phone'] ?? $p['no_wa'] ?? $p['noWhatsapp'] ?? $details['noWhatsapp'] ?? ''));
+        $email = trim((string)($p['email'] ?? $details['email'] ?? ''));
+        $noKtp = trim((string)($p['noKtp'] ?? $p['no_ktp'] ?? $details['noKtp'] ?? ''));
+        $program = trim((string)($p['program'] ?? $p['programMinat'] ?? $details['programMinat'] ?? 'Intensif Offline'));
+        $metodePembayaran = trim((string)($details['metodePembayaran'] ?? $p['metodePembayaran'] ?? $p['metode_pembayaran'] ?? $p['tipe_pembayaran'] ?? ''));
+        if ($metodePembayaran === '') {
+            if (stripos($program, 'cicil') !== false) {
+                $metodePembayaran = 'Cicilan';
+            } elseif (stripos($program, 'full') !== false) {
+                $metodePembayaran = 'Full Payment';
+            }
+        }
+        $totalBiaya = (float)($p['total_biaya'] ?? $details['total_biaya'] ?? 0);
+
+        $rawStatus = trim((string)($p['status'] ?? 'Aktif'));
         $status = ($rawStatus === 'Pembayaran' || $rawStatus === 'Pending') ? 'Menunggu Pembayaran' : ($rawStatus ?: 'Aktif');
-        $kota = trim($p['kotaDomisili'] ?? $p['kota'] ?? 'Cianjur');
-        $lokasi = trim($p['lokasiTinggal'] ?? '');
-        $alamat = $kota . ($lokasi ? ', ' . $lokasi : ', Jawa Barat');
-        $batch = !empty($p['batch']) ? $p['batch'] : 'Batch 2';
+        $kota = trim((string)($p['kotaDomisili'] ?? $p['kota'] ?? $details['kotaDomisili'] ?? 'Cianjur'));
+        $lokasi = trim((string)($p['lokasiTinggal'] ?? $details['lokasiTinggal'] ?? ''));
+        $alamatLengkap = trim((string)($details['alamatLengkap'] ?? ''));
+        $alamat = $alamatLengkap !== '' ? ($alamatLengkap . ($kota ? ', ' . $kota : '')) : ($kota . ($lokasi ? ', ' . $lokasi : ', Jawa Barat'));
+        $batch = !empty($p['batch']) ? trim((string)$p['batch']) : 'Batch 2';
 
         // Format NIS resmi LPK: TGCJ + Tahun(2 digit) + Bulan(2 digit) + ID urut (3 digit)
-        $nis = !empty($p['nis']) ? $p['nis'] : ('TGCJ' . date('ym') . str_pad($rawId ?: random_int(1, 999), 3, '0', STR_PAD_LEFT));
+        $nis = !empty($p['nis']) ? trim((string)$p['nis']) : ('TGCJ' . date('ym') . str_pad($rawId ?: random_int(1, 999), 3, '0', STR_PAD_LEFT));
 
         $existing = null;
         if ($rawId > 0) {
@@ -120,16 +164,16 @@ try {
         }
 
         if ($existing) {
-            $existingId = $existing['id'];
+            $existingId = (int)$existing['id'];
             $existingNis = !empty($existing['nis']) ? $existing['nis'] : $nis;
-            $updateStmt = $conn->prepare("UPDATE peserta_intensif SET nama_lengkap=?, no_wa=?, email=?, no_ktp=?, program=?, status=?, kota=?, alamat=?, nis=?, batch=?, web_id=?, source='creativabridging.com' WHERE id=?");
-            $updateStmt->bind_param("ssssssssssii", $name, $phone, $email, $noKtp, $program, $status, $kota, $alamat, $existingNis, $batch, $rawId, $existingId);
+            $updateStmt = $conn->prepare("UPDATE peserta_intensif SET nama_lengkap=?, no_wa=?, email=?, no_ktp=?, program=?, metode_pembayaran=?, total_biaya=?, status=?, kota=?, alamat=?, nis=?, batch=?, web_id=?, source='creativabridging.com' WHERE id=?");
+            $updateStmt->bind_param("ssssssdsssssii", $name, $phone, $email, $noKtp, $program, $metodePembayaran, $totalBiaya, $status, $kota, $alamat, $existingNis, $batch, $rawId, $existingId);
             $updateStmt->execute();
             $updateStmt->close();
             $updated++;
         } else {
-            $insertStmt = $conn->prepare("INSERT INTO peserta_intensif (nama_lengkap, no_wa, email, no_ktp, program, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'Jawa Barat', 'Indonesia', ?, ?, ?, 'N5', ?, 'creativabridging.com')");
-            $insertStmt->bind_param("ssssssssssi", $name, $phone, $email, $noKtp, $program, $status, $kota, $alamat, $nis, $batch, $rawId);
+            $insertStmt = $conn->prepare("INSERT INTO peserta_intensif (nama_lengkap, no_wa, email, no_ktp, program, metode_pembayaran, total_biaya, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Jawa Barat', 'Indonesia', ?, ?, ?, 'N5', ?, 'creativabridging.com')");
+            $insertStmt->bind_param("ssssssdsssssi", $name, $phone, $email, $noKtp, $program, $metodePembayaran, $totalBiaya, $status, $kota, $alamat, $nis, $batch, $rawId);
             $insertStmt->execute();
             $insertStmt->close();
             $inserted++;
@@ -138,7 +182,7 @@ try {
 
     // Ambil data terbaru setelah sync
     $allStudents = [];
-    $res = mysqli_query($conn, "SELECT id, nama_lengkap AS name, nama_lengkap AS nama, no_wa, no_wa AS kontak, email, no_ktp, program, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source, created_at FROM peserta_intensif WHERE source = 'creativabridging.com' OR web_id IS NOT NULL ORDER BY id DESC");
+    $res = mysqli_query($conn, "SELECT id, nama_lengkap AS name, nama_lengkap AS nama, no_wa, no_wa AS kontak, email, no_ktp, program, metode_pembayaran, total_biaya, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source, created_at FROM peserta_intensif WHERE source = 'creativabridging.com' OR web_id IS NOT NULL ORDER BY id DESC");
     while ($r = mysqli_fetch_assoc($res)) {
         $r['fromWeb'] = true;
         $allStudents[] = $r;
@@ -146,7 +190,7 @@ try {
 
     echo json_encode([
         'status' => 'success',
-        'message' => "Data siswa berhasil disinkronkan. $inserted siswa ditambahkan dan $updated siswa diperbarui. Tidak ada invoice yang dibuat atau dikirim.",
+        'message' => "Data siswa, program, dan skema pembayaran berhasil disinkronkan. $inserted siswa ditambahkan dan $updated siswa diperbarui.",
         'total' => count($allStudents),
         'inserted' => $inserted,
         'updated' => $updated,

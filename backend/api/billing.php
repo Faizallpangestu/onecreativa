@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__.'/../config/database.php';
 require_once __DIR__.'/../services/api_session_guard.php';
+require_once __DIR__.'/../services/rpa_automation.php';
 $actor=api_session_guard($conn,$_SERVER['REQUEST_METHOD']==='GET'?'read':'prepare');
 
 function respond($code, $payload) {
@@ -43,6 +44,17 @@ function billing_ensure_proof_column($conn) {
     }
     if (!$column || mysqli_num_rows($column) === 0) {
         respond(500, ['status' => 'error', 'message' => 'Kolom penyimpanan bukti pembayaran belum tersedia.']);
+    }
+}
+
+function billing_ensure_meta_column($conn) {
+    try {
+        $column = mysqli_query($conn, "SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'");
+        if ($column && mysqli_num_rows($column) === 0) {
+            @mysqli_query($conn, 'ALTER TABLE billing_invoices ADD COLUMN meta_json LONGTEXT NULL');
+        }
+    } catch (Throwable $error) {
+        error_log('Billing meta_json schema check: ' . $error->getMessage());
     }
 }
 
@@ -90,6 +102,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     billing_ensure_proof_column($conn);
+    billing_ensure_meta_column($conn);
 
     if (($_GET['view'] ?? '') === 'payment_proof') {
         $paymentId = ac_id($_GET['id'] ?? null, 'ID pembayaran');
@@ -148,6 +161,17 @@ if ($method === 'GET') {
     $res = mysqli_query($conn, "SELECT * FROM billing_invoices ORDER BY created_at DESC");
     $data['invoices'] = [];
     while ($r = mysqli_fetch_assoc($res)) {
+        if (!empty($r['meta_json'])) {
+            $decodedMeta = json_decode((string)$r['meta_json'], true);
+            if (is_array($decodedMeta)) {
+                foreach (['skema', 'program', 'lokasi', 'durasi', 'salesCode', 'subtotal', 'discount', 'items', 'installments', 'includes', 'excludes', 'notes', 'bank_name', 'account_number', 'account_holder'] as $metaKey) {
+                    if (array_key_exists($metaKey, $decodedMeta) && !isset($r[$metaKey])) {
+                        $r[$metaKey] = $decodedMeta[$metaKey];
+                    }
+                }
+            }
+        }
+        unset($r['meta_json']);
         $total = ac_cents((string)($r['total'] ?? '0'));
         $paid = $verifiedPaymentTotals[$r['id']] ?? 0;
         if ($paid > 0) {
@@ -249,6 +273,7 @@ if ($method === 'GET') {
 
 if ($method === 'POST') {
     billing_ensure_proof_column($conn);
+    billing_ensure_meta_column($conn);
     $isMultipart = str_contains((string)($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data');
     $body = $isMultipart ? $_POST : json_decode(file_get_contents('php://input'), true);
     if (!is_array($body)) $body = [];
@@ -293,9 +318,24 @@ if ($method === 'POST') {
         $amount=ac_decimal(ac_cents(is_int($body['total']??null)?(string)$body['total']:($body['total']??'')));if($amount==='0.00')ac_fail('Nominal invoice harus positif.');
         $statusInput = $body['status'] ?? 'Unpaid';
         $statusVal = in_array($statusInput, ['Unpaid', 'Paid', 'Partially Paid', 'Overdue', 'Belum Lunas', 'Lunas', 'Sebagian']) ? $statusInput : 'Unpaid';
-        $result=ac_atomic($conn,function()use($conn,$actor,$id,$date,$due,$name,$email,$phone,$description,$amount,$statusVal){
+        $metaPayload = [];
+        foreach (['skema', 'program', 'lokasi', 'durasi', 'salesCode', 'subtotal', 'discount', 'items', 'installments', 'includes', 'excludes', 'notes', 'bank_name', 'account_number', 'account_holder'] as $metaKey) {
+            if (array_key_exists($metaKey, $body)) {
+                $metaPayload[$metaKey] = $body[$metaKey];
+            }
+        }
+        $metaJson = !empty($metaPayload) ? json_encode($metaPayload, JSON_UNESCAPED_UNICODE) : null;
+        $hasMetaCol = false;
+        $metaColRes = mysqli_query($conn, "SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'");
+        if ($metaColRes && mysqli_num_rows($metaColRes) > 0) $hasMetaCol = true;
+        $result=ac_atomic($conn,function()use($conn,$actor,$id,$date,$due,$name,$email,$phone,$description,$amount,$statusVal,$metaJson,$hasMetaCol){
             ac_one($conn,'SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$actor['id']]);$old=ac_one($conn,'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE',[$id]);if($old){if($old['tanggal']!==$date||$old['jatuhTempo']!==$due||$old['customer']!==$name||$old['email']!==$email||$old['phone']!==$phone||$old['keterangan']!==$description||$old['total']!==$amount)ac_fail('Nomor invoice sudah digunakan untuk data berbeda.',409);return ['id'=>$id];}
-            ac_query($conn,'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan) VALUES(?,?,?,?,?,?,?, ?,?)',[$id,$date,$name,$email,$phone,$amount,$statusVal,$due,$description]);ac_audit($conn,$actor,'billing_invoice',$id,'created',['amount'=>$amount]);return ['id'=>$id];
+            if ($hasMetaCol) {
+                ac_query($conn,'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan,meta_json) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$date,$name,$email,$phone,$amount,$statusVal,$due,$description,$metaJson]);
+            } else {
+                ac_query($conn,'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan) VALUES(?,?,?,?,?,?,?, ?,?)',[$id,$date,$name,$email,$phone,$amount,$statusVal,$due,$description]);
+            }
+            ac_audit($conn,$actor,'billing_invoice',$id,'created',['amount'=>$amount]);return ['id'=>$id];
         });respond(200,['status'=>'success','data'=>$result]);
     }
 
@@ -349,14 +389,114 @@ if ($method === 'POST') {
             throw $e;
         }
 
+        // Phase 2 RPA: Siapkan token, nomor receipt, dokumen resmi, dan picu n8n jika dikonfigurasi
+        $publicToken = rpa_ensure_invoice_token($conn, $invoiceId);
+        $receiptNumber = rpa_format_receipt_number($paymentId, $paymentDate);
+        $urls = rpa_build_public_urls($invoiceId, $publicToken, $paymentId);
+        $metaDecoded = !empty($invoice['meta_json']) ? (json_decode((string)$invoice['meta_json'], true) ?: []) : [];
+        $programTitle = trim((string)($metaDecoded['program'] ?? $invoice['keterangan'] ?? 'Program Pelatihan Jepang'));
+        $waPhone = rpa_format_wa_phone((string)($invoice['phone'] ?? ''));
+        $emailAddr = trim((string)($invoice['email'] ?? ''));
+        $amtNumeric = (float)$amount;
+        $paidTotalNumeric = (float)ac_decimal($newPaid);
+        $remNumeric = (float)ac_decimal($remaining);
+        $terbilang = rpa_terbilang($amtNumeric);
+
+        $fmtAmt = 'Rp ' . number_format($amtNumeric, 0, ',', '.');
+        $fmtPaid = 'Rp ' . number_format($paidTotalNumeric, 0, ',', '.');
+        $fmtRem = 'Rp ' . number_format($remNumeric, 0, ',', '.');
+        $waReceiptMsg =
+            "Halo *{$customer}*,\n\n" .
+            "Pembayaran Anda telah *TERVERIFIKASI* oleh Finance *LPK Creativa Bridging International*.\n\n" .
+            "• No. Receipt: *{$receiptNumber}*\n" .
+            "• No. Invoice: *{$invoiceId}*\n" .
+            "• Program: *{$programTitle}*\n" .
+            "• Nominal Dibayar: *{$fmtAmt}* ({$method})\n" .
+            "• Total Terbayar: *{$fmtPaid}*\n" .
+            "• Sisa Tagihan: *{$fmtRem}*\n" .
+            "• Status Invoice: *{$status}*\n\n" .
+            "Unduh Receipt Resmi:\n{$urls['receipt_url']}\n\n" .
+            "Pantau Status Pendaftaran Anda:\n{$urls['status_url']}\n\n" .
+            "Terima kasih atas kepercayaannya! 🙏";
+
+        $emailSubject = "Receipt Pembayaran Resmi #{$receiptNumber} (Invoice {$invoiceId}) - {$customer}";
+        $emailHtml = "<div style='font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.6;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;padding:24px;'>"
+            . "<h2 style='color:#065f46;margin-top:0;'>Receipt Pembayaran Resmi — LPK Creativa Bridging International</h2>"
+            . "<p>Halo <strong>" . htmlspecialchars($customer) . "</strong>,</p>"
+            . "<p>Terima kasih, pembayaran Anda untuk program <strong>" . htmlspecialchars($programTitle) . "</strong> telah berhasil kami verifikasi.</p>"
+            . "<table cellpadding='6' cellspacing='0' style='width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;margin:14px 0;'>"
+            . "<tr><td><strong>No. Receipt</strong></td><td><strong>" . htmlspecialchars($receiptNumber) . "</strong></td></tr>"
+            . "<tr><td><strong>No. Invoice</strong></td><td>" . htmlspecialchars($invoiceId) . "</td></tr>"
+            . "<tr><td><strong>Tanggal Bayar</strong></td><td>" . htmlspecialchars($paymentDate) . "</td></tr>"
+            . "<tr><td><strong>Nominal Diterima</strong></td><td><strong>" . htmlspecialchars($fmtAmt) . "</strong></td></tr>"
+            . "<tr><td><strong>Terbilang</strong></td><td><em>" . htmlspecialchars($terbilang) . "</em></td></tr>"
+            . "<tr><td><strong>Sisa Tagihan</strong></td><td><strong>" . htmlspecialchars($fmtRem) . "</strong> (" . htmlspecialchars($status) . ")</td></tr>"
+            . "</table>"
+            . "<p style='margin:18px 0;'>"
+            . "<a href='" . htmlspecialchars($urls['receipt_url']) . "' style='background:#065f46;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin-right:8px;'>Unduh Receipt Resmi</a>"
+            . "<a href='" . htmlspecialchars($urls['status_url']) . "' style='background:#163660;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;'>Lihat Status Pendaftaran</a>"
+            . "</p>"
+            . "</div>";
+
+        $receiptPayload = [
+            'event' => 'payment_verified',
+            'payment_id' => $paymentId,
+            'receipt_number' => $receiptNumber,
+            'invoice_id' => $invoiceId,
+            'public_token' => $publicToken,
+            'customer' => $customer,
+            'email' => $emailAddr,
+            'phone' => (string)($invoice['phone'] ?? ''),
+            'whatsapp_phone' => $waPhone,
+            'program' => $programTitle,
+            'payment_date' => $paymentDate,
+            'payment_method' => $method,
+            'amount' => $amtNumeric,
+            'terbilang' => $terbilang,
+            'terbayar' => $paidTotalNumeric,
+            'sisa' => $remNumeric,
+            'status_invoice' => $status,
+            'receipt_url' => $urls['receipt_url'],
+            'receipt_pdf_render_url' => $urls['receipt_pdf_render_url'],
+            'invoice_url' => $urls['invoice_url'],
+            'status_url' => $urls['status_url'],
+            'whatsapp_message' => $waReceiptMsg,
+            'email_subject' => $emailSubject,
+            'email_html' => $emailHtml,
+        ];
+
+        $n8nReceiptUrl = defined('N8N_RECEIPT_WEBHOOK_URL')
+            ? trim((string)N8N_RECEIPT_WEBHOOK_URL)
+            : trim((string)(getenv('N8N_RECEIPT_WEBHOOK_URL') ?: ''));
+        $rpaDispatched = false;
+        if ($n8nReceiptUrl !== '') {
+            $dispatch = rpa_dispatch_webhook($n8nReceiptUrl, $receiptPayload, rpa_get_secret(), 4);
+            $rpaDispatched = !empty($dispatch['sent']);
+            rpa_record_log(
+                $conn,
+                $invoiceId,
+                'phase2_receipt_trigger',
+                'n8n',
+                $rpaDispatched ? 'Terkirim' : 'Gagal',
+                $emailAddr ?: $waPhone,
+                ['receipt_number' => $receiptNumber, 'payment_id' => $paymentId, 'http_code' => $dispatch['http_code'] ?? null],
+                (string)($dispatch['error'] ?? '')
+            );
+        }
+
         respond(200, [
             'status' => 'success',
             'data' => [
                 'payment_id' => $paymentId,
+                'receipt_number' => $receiptNumber,
                 'invoice_id' => $invoiceId,
                 'status' => $status,
                 'terbayar' => ac_decimal($newPaid),
                 'sisa' => ac_decimal($remaining),
+                'receipt_url' => $urls['receipt_url'],
+                'invoice_url' => $urls['invoice_url'],
+                'status_url' => $urls['status_url'],
+                'rpa_dispatched' => $rpaDispatched,
                 'proof_url' => $proofPath ? '/api/billing.php?view=payment_proof&id=' . $paymentId : '',
                 'proof_mime' => $proofPath ? (['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'][strtolower(pathinfo($proofPath, PATHINFO_EXTENSION))] ?? '') : ''
             ]

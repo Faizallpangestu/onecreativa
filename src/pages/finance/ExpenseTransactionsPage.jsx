@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Layout from "../../components/Layout";
-import { 
-  FinancePageHeader, 
-  FinanceFilterBar, 
-  FinanceTable, 
-  FinanceBadge, 
-  FinanceModal, 
-  formatRupiah, 
-  exportToExcel 
+import {
+  FinancePageHeader,
+  FinanceFilterBar,
+  FinanceTable,
+  FinanceBadge,
+  FinanceModal,
+  formatRupiah,
+  exportToExcel
 } from "./FinancePageComponents";
-import { accountingGet, accountingMutate } from "../../utils/accountingApi";
+import { accountingGet } from "../../utils/accountingApi";
+import { fetchCashBankOptions, buildCashBankOptions, findMatchingCashBankOption } from "../../utils/cashBankAccounts";
 import { Eye, Plus, Pencil, Trash2, AlertTriangle, Building2, UserCheck, Clock, FileText, UploadCloud, Link as LinkIcon, X } from "lucide-react";
 
 function getNowDateTimeLocal() {
@@ -70,24 +71,11 @@ async function saveLegacyProof(itemId, form) {
   }
 }
 
-const INITIAL_EXPENSE_DATA = [];
+export const DEFAULT_EXPENSE_DATA = [];
 
 export default function ExpenseTransactionsPage() {
-  const [data, setData] = useState(() => {
-    try {
-      const saved = localStorage.getItem("finance_expense_data");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const dummyDesks = ["Laptop Admin", "Listrik Kantor Gedung LPK", "Transport Dinas", "Gaji Bulanan", "Langganan Internet Dedicated Fiber", "Buku Pelajaran & Modul N5"];
-          const clean = parsed.filter(item => !dummyDesks.includes(item.deskripsi));
-          return clean;
-        }
-      }
-    } catch (e) {}
-    return [];
-  });
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-12-31");
@@ -101,14 +89,7 @@ export default function ExpenseTransactionsPage() {
   const [deletingItem, setDeletingItem] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // Sync to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem("finance_expense_data", JSON.stringify(data));
-    } catch (e) {}
-  }, [data]);
-
-  // Master vendor list untuk autocomplete agar nama vendor selalu sama & sinkron
+  // Master vendor list untuk autocomplete agar nama vendor selalu sinkron dengan data server / Menu Vendor
   const [vendorList, setVendorList] = useState(() => {
     try {
       const vRaw = localStorage.getItem("finance_vendors_data");
@@ -118,16 +99,8 @@ export default function ExpenseTransactionsPage() {
           return parsed.map(v => v.nama || v.name).filter(Boolean);
         }
       }
-    } catch (e) {}
-    return [
-      "CV Sukses Listrik",
-      "PT Maju Internet",
-      "Toko Office Equipment",
-      "Percetakan Mitra",
-      "Toko ATK Sentosa",
-      "Klinik Medika Pratama",
-      "PLN Persero",
-    ];
+    } catch (e) { }
+    return [];
   });
 
   useEffect(() => {
@@ -140,7 +113,7 @@ export default function ExpenseTransactionsPage() {
             setVendorList(parsed.map(v => v.nama || v.name).filter(Boolean));
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     window.addEventListener("storage", updateVendors);
     window.addEventListener("finance_vendors_updated", updateVendors);
@@ -160,52 +133,66 @@ export default function ExpenseTransactionsPage() {
     };
   }, []);
 
-  // Form State
-  const [form, setForm] = useState({
-    tanggal: new Date().toISOString().slice(0, 10),
-    waktuPelunasan: getNowDateTimeLocal(),
-    petugasPelunasan: "FINANCE LPK CREATIVA",
-    kategori: "Operasional Kantor",
-    deskripsi: "",
-    sumberDana: "Petty Cash (Kasir)",
-    nominal: "",
-    status: "Paid",
-    vendor: "CV Sukses Listrik",
-    buktiType: "file",
-    buktiFoto: "",
-    buktiNama: "",
-    buktiLink: "",
+  // Form State & Live Cash & Bank Rekening List
+  const [bankOptions, setBankOptions] = useState(() => buildCashBankOptions(null));
+  const [form, setForm] = useState(() => {
+    const initialList = buildCashBankOptions(null);
+    return {
+      tanggal: new Date().toISOString().slice(0, 10),
+      waktuPelunasan: getNowDateTimeLocal(),
+      petugasPelunasan: "FINANCE LPK CREATIVA",
+      kategori: "Operasional Kantor",
+      deskripsi: "",
+      sumberDana: initialList[0]?.value || "BCA (1832-918-428)",
+      bankAccountId: initialList[0]?.bankAccountId || 0,
+      nominal: "",
+      status: "Paid",
+      vendor: "",
+      buktiType: "file",
+      buktiFoto: "",
+      buktiNama: "",
+      buktiLink: "",
+    };
   });
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = async () => {
     setEditingItem(null);
+    const currentOpts = bankOptions.length > 0 ? bankOptions : await fetchCashBankOptions();
+    const firstAcc = currentOpts[0] || {};
     setForm({
       tanggal: new Date().toISOString().slice(0, 10),
       waktuPelunasan: getNowDateTimeLocal(),
       petugasPelunasan: "FINANCE LPK CREATIVA",
       kategori: "Operasional Kantor",
       deskripsi: "",
-      sumberDana: "Petty Cash (Kasir)",
+      sumberDana: firstAcc.value || "BCA (1832-918-428)",
+      bankAccountId: Number(firstAcc.bankAccountId || 0),
       nominal: "",
       status: "Paid",
-      vendor: "CV Sukses Listrik",
+      vendor: "",
       buktiType: "file",
       buktiFoto: "",
       buktiNama: "",
       buktiLink: "",
     });
     setIsModalOpen(true);
+    fetchCashBankOptions().then(fresh => {
+      setBankOptions(fresh);
+    });
   };
 
   const handleOpenEdit = (item) => {
     setEditingItem(item);
+    const rawDana = item.sumberDana || item.akun || "";
+    const matched = findMatchingCashBankOption(bankOptions, rawDana, item.bankAccountId);
     setForm({
       tanggal: item.tanggal,
       waktuPelunasan: item.waktuPelunasan || (item.tanggal ? `${item.tanggal}T10:30` : getNowDateTimeLocal()),
       petugasPelunasan: item.petugasPelunasan || "FINANCE LPK CREATIVA",
       kategori: item.kategori,
       deskripsi: item.deskripsi || item.keterangan || "",
-      sumberDana: item.sumberDana || item.akun || "Petty Cash (Kasir)",
+      sumberDana: matched ? matched.value : (rawDana || bankOptions[0]?.value || ""),
+      bankAccountId: matched ? Number(matched.bankAccountId || 0) : Number(item.bankAccountId || 0),
       nominal: item.nominal,
       status: item.status,
       vendor: item.vendor || item.pihak || "",
@@ -215,98 +202,109 @@ export default function ExpenseTransactionsPage() {
       buktiLink: item.buktiLink || "",
     });
     setIsModalOpen(true);
+    fetchCashBankOptions().then(fresh => {
+      setBankOptions(fresh);
+      const refreshedMatch = findMatchingCashBankOption(fresh, rawDana, item.bankAccountId);
+      if (refreshedMatch) {
+        setForm(prev => ({
+          ...prev,
+          sumberDana: refreshedMatch.value,
+          bankAccountId: Number(refreshedMatch.bankAccountId || 0),
+        }));
+      }
+    });
   };
 
   const confirmDelete = async () => {
     if (!deletingItem) return;
     setBusy(true);
     const targetId = String(deletingItem.id);
-    const updated = data.filter(d => String(d.id) !== targetId);
-    setData(updated);
+    const rawId = targetId.replace(/^legacy:/, '');
 
-    // Langsung simpan perubahan ke localStorage
     try {
-      localStorage.setItem("finance_expense_data", JSON.stringify(updated));
-      const deletedIds = JSON.parse(localStorage.getItem("finance_expense_deleted_ids") || "[]");
-      if (!deletedIds.includes(targetId)) {
-        deletedIds.push(targetId);
-        localStorage.setItem("finance_expense_deleted_ids", JSON.stringify(deletedIds));
+      if (/^\d+$/.test(rawId)) {
+        await axios.post("/api/finance.php", { action: "delete", id: rawId });
       }
-    } catch (e) {}
-
-    try {
-      await accountingMutate({
-        action: "delete",
-        id: deletingItem.id,
-        type: "expense",
-      });
-    } catch {
-      // Local state fallback
+      const updated = data.filter(d => String(d.id) !== targetId);
+      setData(updated);
+      fetchCashBankOptions().then(fresh => setBankOptions(fresh));
+      setDeletingItem(null);
+    } catch (e) {
+      console.warn("Gagal menghapus pengeluaran di server:", e);
+      alert("Gagal menghapus pengeluaran di server: " + (e.response?.data?.message || e.message));
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-    setDeletingItem(null);
   };
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoadError("");
     Promise.all([
-      accountingGet("ledger", { type: "expense" }).catch(() => ({ data: { rows: [] } })),
-      axios.get("/api/finance.php", { params: { type: "expense", _t: Date.now() } }).catch(() => ({ data: { data: [] } })),
+      accountingGet("ledger", { type: "expense" }).catch(() => null),
+      axios.get("/api/finance.php", { params: { type: "expense", _t: Date.now() } }).catch(() => null),
+      accountingGet("lookups").catch(() => ({ data: { banks: [], vendors: [] } })),
     ])
-      .then(([res, legacyRes]) => {
+      .then(([res, legacyRes, lookupRes]) => {
         if (!active) return;
-        const apiRows = (res.data?.rows || [])
+        if (!res && !legacyRes) {
+          throw new Error("Server pengeluaran tidak dapat dijangkau.");
+        }
+        if (lookupRes?.data) {
+          setBankOptions(buildCashBankOptions(lookupRes.data));
+          const dbVendors = (lookupRes.data.vendors || [])
+            .filter(v => Number(v.is_active) !== 0)
+            .map(v => v.name || v.nama)
+            .filter(Boolean);
+          if (dbVendors.length > 0) {
+            setVendorList(prev => Array.from(new Set([...dbVendors, ...prev])));
+          }
+        }
+        const apiRows = (res?.data?.rows || [])
           .map((r, i) => ({
             id: r.ledger_id || r.id || i + 1,
             tanggal: r.transaction_date || r.date,
             kategori: r.category || "Operasional",
             deskripsi: r.description || "Pengeluaran",
             sumberDana: r.cash_account_name || "Kas/Bank",
+            bankAccountId: r.cash_account_id ? Number(r.cash_account_id) : null,
             nominal: Number(r.outgoing_amount || r.amount || 0),
             status: r.approval_status === "approved" ? "Approved" : r.payment_status === "paid" ? "Paid" : "Pending",
             vendor: r.party_name || r.vendor_name || "—",
             buktiFoto: r.source_type === "legacy_finance" && r.source_id ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.source_id)}` : "",
-          }))
-          ;
-        const legacyRows = (legacyRes.data?.data || []).map((r, i) => ({
+          }));
+        const legacyRows = (legacyRes?.data?.data || []).map((r, i) => ({
           id: `legacy:${r.id || i + 1}`,
           tanggal: r.transaction_date,
           kategori: r.category || "Pengeluaran",
           deskripsi: r.description || "Transaksi historis",
           sumberDana: r.bank_name || r.metode || "Kas/Bank",
+          bankAccountId: r.bank_account_id ? Number(r.bank_account_id) : null,
           nominal: Number(r.amount || 0),
-          status: "Paid",
-          vendor: r.account_name || r.source || "-",
+          status: r.status || "Paid",
+          vendor: r.party_name || r.account_name || r.source || "-",
           buktiFoto: r.photo_path ? `/api/finance.php?view=photo&id=${encodeURIComponent(r.id)}` : "",
           buktiLink: r.drive_link || "",
           salary_request_id: r.salary_request_id || null,
         }));
-        const savedRaw = localStorage.getItem("finance_expense_data");
-        const existingLocal = savedRaw ? JSON.parse(savedRaw) : [];
-        const deletedIds = new Set(JSON.parse(localStorage.getItem("finance_expense_deleted_ids") || "[]").map(String));
+
+        // Bersihkan cache localStorage lama agar data lokal/dummy tidak pernah menimpa database live
+        try {
+          localStorage.removeItem("finance_expense_data");
+          localStorage.removeItem("finance_expense_deleted_ids");
+        } catch {
+          // Ignore storage cleanup errors.
+        }
 
         const rowsById = new Map();
         [...apiRows, ...legacyRows].forEach(row => {
-          if (!deletedIds.has(String(row.id))) {
-            rowsById.set(String(row.id), row);
-          }
+          rowsById.set(String(row.id), row);
         });
-        if (Array.isArray(existingLocal)) {
-          existingLocal.forEach(row => {
-            const rId = String(row.id);
-            if (!deletedIds.has(rId) && !rowsById.has(rId)) {
-              rowsById.set(rId, row);
-            }
-          });
-        }
+
         const rows = [...rowsById.values()];
         rows.sort((a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
         setData(rows);
-        try {
-          localStorage.setItem("finance_expense_data", JSON.stringify(rows));
-        } catch {
-          // Local persistence is best effort.
-        }
       })
       .catch(error => { if (active) setLoadError(error.message || "Transaksi pengeluaran gagal dimuat."); })
       .finally(() => {
@@ -355,125 +353,140 @@ export default function ExpenseTransactionsPage() {
     if (!form.deskripsi || !form.nominal) return;
     setBusy(true);
 
-    if (editingItem) {
-      setData(data.map(d => d.id === editingItem.id ? {
-        ...d,
-        tanggal: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
-        waktuPelunasan: form.waktuPelunasan || getNowDateTimeLocal(),
-        petugasPelunasan: form.petugasPelunasan || "FINANCE LPK CREATIVA",
-        kategori: form.kategori,
-        deskripsi: form.deskripsi,
-        keterangan: form.deskripsi,
-        sumberDana: form.sumberDana,
-        akun: form.sumberDana,
-        nominal: Number(form.nominal),
-        status: form.status,
-        vendor: form.vendor || "Staff/Vendor",
-        pihak: form.vendor || "Staff/Vendor",
-      } : d));
-      try {
-        await accountingMutate({
-          action: "update",
-          id: editingItem.id,
-          type: "expense",
-          transaction_date: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
-          description: form.deskripsi,
-          category: form.kategori,
-          amount: Number(form.nominal),
-          party_name: form.vendor,
-        });
-      } catch {}
-      try { await saveLegacyProof(editingItem.id, form); } catch (proofError) { console.warn("Bukti pengeluaran gagal disimpan", proofError); }
-    } else {
-      const newItem = {
-        id: Date.now(),
-        tanggal: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
-        waktuPelunasan: form.waktuPelunasan || getNowDateTimeLocal(),
-        petugasPelunasan: form.petugasPelunasan || "FINANCE LPK CREATIVA",
-        kategori: form.kategori,
-        deskripsi: form.deskripsi,
-        keterangan: form.deskripsi,
-        sumberDana: form.sumberDana,
-        akun: form.sumberDana,
-        nominal: Number(form.nominal),
-        status: form.status,
-        vendor: form.vendor || "Staff/Vendor",
-        pihak: form.vendor || "Staff/Vendor",
-      };
-      try {
-        await accountingMutate({
-          action: "create",
-          type: "expense",
-          transaction_date: form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal,
-          description: form.deskripsi,
-          category: form.kategori,
-          amount: Number(form.nominal),
-          party_name: form.vendor,
-        });
-      } catch {
-        // Local state update ensures immediate UX response
+    try {
+      const isEdit = !!editingItem;
+      const formData = new FormData();
+      formData.append("action", isEdit ? "update" : "create");
+      if (isEdit) {
+        formData.append("id", String(editingItem.id).replace(/^legacy:/, ''));
+      }
+      formData.append("type", "expense");
+      formData.append("tanggal", form.waktuPelunasan ? form.waktuPelunasan.slice(0, 10) : form.tanggal);
+      formData.append("vendor", form.vendor || "Staff/Vendor");
+      formData.append("party_name", form.vendor || "Staff/Vendor");
+      formData.append("kategori", form.kategori);
+      const matchedOpt = findMatchingCashBankOption(bankOptions, form.sumberDana, form.bankAccountId);
+      const selectedBankId = Number(form.bankAccountId || matchedOpt?.bankAccountId || 0);
+      formData.append("sumberDana", form.sumberDana);
+      if (selectedBankId > 0) {
+        formData.append("bank_account_id", String(selectedBankId));
+      }
+      formData.append("nominal", form.nominal);
+      formData.append("status", form.status || "Paid");
+      formData.append("deskripsi", form.deskripsi || "");
+
+      if (form.buktiType === "link" && form.buktiLink) {
+        formData.append("buktiLink", form.buktiLink);
+      } else if (form.buktiFoto && form.buktiFoto.startsWith("data:")) {
+        const file = dataUrlToFile(form.buktiFoto, form.buktiNama || "bukti-pengeluaran.jpg");
+        if (file) formData.append("proof", file);
       }
 
-      // Potong saldo rekening di COA (finance_rekening_data) jika pengeluaran langsung Paid
-      if (newItem.status === "Paid") {
-        try {
-          const rekRaw = localStorage.getItem("finance_rekening_data");
-          if (rekRaw) {
-            const rekList = JSON.parse(rekRaw);
-            const amt = Number(newItem.nominal) || 0;
-            if (Array.isArray(rekList) && amt > 0) {
-              const updated = rekList.map(r => {
-                const sDana = (newItem.sumberDana || "").toLowerCase();
-                const match = (r.bank && r.bank.toLowerCase().includes(sDana)) ||
-                              (r.nama && r.nama.toLowerCase().includes(sDana)) ||
-                              (sDana.includes("bca") && (r.noRek?.includes("1832-918-428") || r.noRek?.includes("1234567890")));
-                if (match) {
-                  return { ...r, saldo: Math.max(0, (Number(r.saldo) || 0) - amt) };
-                }
-                return r;
-              });
-              localStorage.setItem("finance_rekening_data", JSON.stringify(updated));
-            }
-          }
-        } catch (e) {
-          console.warn("Gagal update saldo rekening pengeluaran:", e);
+      const res = await axios.post("/api/finance.php", formData);
+      if (res.data?.status === "success" && res.data.data) {
+        const savedDb = res.data.data;
+        const mappedItem = {
+          id: `legacy:${savedDb.id}`,
+          sourceType: "legacy_finance",
+          tanggal: savedDb.tanggal,
+          waktuPelunasan: form.waktuPelunasan || `${savedDb.tanggal}T10:30`,
+          petugasPelunasan: form.petugasPelunasan || "FINANCE LPK CREATIVA",
+          vendor: savedDb.vendor || form.vendor,
+          pihak: savedDb.vendor || form.vendor,
+          kategori: savedDb.kategori,
+          sumberDana: savedDb.sumberDana,
+          akun: savedDb.sumberDana,
+          bankAccountId: savedDb.bank_account_id ? Number(savedDb.bank_account_id) : (selectedBankId || null),
+          nominal: Number(savedDb.nominal),
+          status: savedDb.status,
+          deskripsi: savedDb.deskripsi,
+          keterangan: savedDb.deskripsi,
+          buktiFoto: savedDb.buktiFoto,
+          buktiLink: savedDb.buktiLink || "",
+        };
+
+        if (isEdit) {
+          setData(prev => prev.map(d => d.id === editingItem.id ? mappedItem : d));
+        } else {
+          setData(prev => [mappedItem, ...prev]);
         }
+
+        // Refresh daftar saldo rekening real-time dari server setelah pemotongan kas/bank
+        fetchCashBankOptions().then(fresh => setBankOptions(fresh));
+
+        // Potong saldo rekening di COA (finance_rekening_data) jika pengeluaran langsung Paid
+        if (mappedItem.status === "Paid") {
+          try {
+            const rekRaw = localStorage.getItem("finance_rekening_data");
+            if (rekRaw) {
+              const rekList = JSON.parse(rekRaw);
+              const amt = Number(mappedItem.nominal) || 0;
+              if (Array.isArray(rekList) && amt > 0) {
+                const updated = rekList.map(r => {
+                  const sDana = (mappedItem.sumberDana || "").toLowerCase();
+                  const match = (r.bank && r.bank.toLowerCase().includes(sDana)) ||
+                    (r.nama && r.nama.toLowerCase().includes(sDana)) ||
+                    (sDana.includes("bca") && (r.noRek?.includes("1832-918-428") || r.noRek?.includes("1234567890")));
+                  if (match) {
+                    return { ...r, saldo: Math.max(0, (Number(r.saldo) || 0) - amt) };
+                  }
+                  return r;
+                });
+                localStorage.setItem("finance_rekening_data", JSON.stringify(updated));
+              }
+            }
+          } catch (e) {
+            console.warn("Gagal update saldo rekening pengeluaran:", e);
+          }
+        }
+
+        // Bersihkan cache localStorage lama agar tidak menimpa data server
+        try {
+          localStorage.removeItem("finance_expense_data");
+        } catch {
+          // Ignore storage cleanup errors.
+        }
+
+        setIsModalOpen(false);
+        setEditingItem(null);
+        setForm({
+          tanggal: new Date().toISOString().slice(0, 10),
+          waktuPelunasan: getNowDateTimeLocal(),
+          petugasPelunasan: "FINANCE LPK CREATIVA",
+          kategori: "Operasional Kantor",
+          deskripsi: "",
+          sumberDana: bankOptions[0]?.value || "",
+          bankAccountId: Number(bankOptions[0]?.bankAccountId || 0),
+          nominal: "",
+          status: "Paid",
+          vendor: "",
+          buktiType: "file",
+          buktiFoto: "",
+          buktiNama: "",
+          buktiLink: "",
+        });
+      } else {
+        alert(res.data?.message || "Gagal menyimpan pengeluaran ke database.");
       }
-
-      setData([newItem, ...data]);
+    } catch (err) {
+      console.error("Save expense error:", err);
+      alert(err.response?.data?.message || err.message || "Gagal menyimpan pengeluaran.");
+    } finally {
+      setBusy(false);
     }
-
-    setBusy(false);
-    setIsModalOpen(false);
-    setEditingItem(null);
-    setForm({
-      tanggal: new Date().toISOString().slice(0, 10),
-      waktuPelunasan: getNowDateTimeLocal(),
-      petugasPelunasan: "FINANCE LPK CREATIVA",
-      kategori: "Operasional Kantor",
-      deskripsi: "",
-      sumberDana: "Petty Cash (Kasir)",
-      nominal: "",
-      status: "Paid",
-      vendor: "CV Sukses Listrik",
-      buktiType: "file",
-      buktiFoto: "",
-      buktiNama: "",
-      buktiLink: "",
-    });
   };
 
   const columns = [
     { header: "No", accessor: "no", align: "center", className: "w-12 text-slate-400 font-medium", render: (_, i) => (page - 1) * perPage + i + 1 },
-    { 
-      header: "Tanggal & Jam", 
-      accessor: "waktuPelunasan", 
+    {
+      header: "Tanggal & Jam",
+      accessor: "waktuPelunasan",
       className: "whitespace-nowrap font-medium text-slate-700 text-xs",
       render: (r) => formatWaktuIndo(r.waktuPelunasan, r.tanggal)
     },
-    { 
-      header: "Pihak / Vendor", 
-      accessor: "vendor", 
+    {
+      header: "Pihak / Vendor",
+      accessor: "vendor",
       className: "font-semibold text-slate-900",
       render: (r) => (
         <span className="inline-flex items-center gap-1.5 font-bold text-slate-800">
@@ -483,21 +496,21 @@ export default function ExpenseTransactionsPage() {
       )
     },
     { header: "Kategori", accessor: "kategori", className: "text-slate-600 font-medium text-xs" },
-    { 
-      header: "Deskripsi Pengeluaran", 
-      accessor: "deskripsi", 
+    {
+      header: "Deskripsi Pengeluaran",
+      accessor: "deskripsi",
       className: "max-w-xs truncate text-xs text-slate-600",
       render: (r) => r.deskripsi || r.keterangan || r.uraian || r.description || (r.vendor ? `Pengadaan ${r.vendor}` : "Beban Operasional LPK")
     },
-    { 
-      header: "Sumber Dana", 
+    {
+      header: "Sumber Dana",
       accessor: "sumberDana",
       className: "text-xs font-semibold text-slate-700",
       render: (r) => r.sumberDana || r.akun || r.rekening || r.bank || (Number(r.nominal) > 5000000 ? "Bank BCA Operasional" : "Petty Cash (Kasir)")
     },
     { header: "Nominal", accessor: "nominal", align: "right", className: "font-bold text-slate-900 font-mono text-xs", render: (r) => formatRupiah(r.nominal) },
-    { 
-      header: "Petugas Pelunasan", 
+    {
+      header: "Petugas Pelunasan",
       accessor: "petugasPelunasan",
       render: (r) => (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 whitespace-nowrap">
@@ -522,9 +535,9 @@ export default function ExpenseTransactionsPage() {
         </a>
       ) : <span className="text-slate-300 text-xs">—</span>
     },
-    { 
-      header: "Aksi", 
-      accessor: "aksi", 
+    {
+      header: "Aksi",
+      accessor: "aksi",
       align: "center",
       className: "w-28",
       render: (r) => (
@@ -709,17 +722,32 @@ export default function ExpenseTransactionsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Sumber Dana Kas/Bank</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Sumber Dana Kas/Bank (Cash &amp; Bank)</label>
               <select
                 value={form.sumberDana}
-                onChange={e => setForm({ ...form, sumberDana: e.target.value })}
+                onChange={e => {
+                  const chosenVal = e.target.value;
+                  const matched = bankOptions.find(opt => opt.value === chosenVal);
+                  setForm({
+                    ...form,
+                    sumberDana: chosenVal,
+                    bankAccountId: matched ? Number(matched.bankAccountId || 0) : 0,
+                  });
+                }}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-slate-800"
               >
-                <option value="Petty Cash (Kasir)">Petty Cash (Kas Kecil Tunai & Vendor Kecil)</option>
-                <option value="Bank BCA Operasional">Bank BCA Operasional (LPK Creativa Bridging Intern)</option>
-                <option value="Rekening Cadangan Mandiri">Rekening Cadangan Mandiri</option>
-                <option value="E-Wallet Bisnis">E-Wallet Bisnis (DANA / Flip)</option>
+                {form.sumberDana && !bankOptions.some(opt => opt.value === form.sumberDana) && (
+                  <option value={form.sumberDana}>{form.sumberDana} (Data Sebelumnya)</option>
+                )}
+                {bankOptions.map(opt => (
+                  <option key={opt.id} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Saldo rekening Cash &amp; Bank terpilih akan otomatis terpotong saat status Paid/Lunas.
+              </p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Nominal (Rp)</label>

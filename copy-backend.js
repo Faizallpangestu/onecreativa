@@ -50,6 +50,9 @@ try {
   if (fs.existsSync(path.join(__dirname, 'perbaiki_hostinger.php'))) {
     fs.copyFileSync(path.join(__dirname, 'perbaiki_hostinger.php'), path.join(destDir, 'perbaiki_hostinger.php'));
   }
+  if (fs.existsSync(path.join(__dirname, 'export_fintrack_juni_oktober.php'))) {
+    fs.copyFileSync(path.join(__dirname, 'export_fintrack_juni_oktober.php'), path.join(destDir, 'export_fintrack_juni_oktober.php'));
+  }
   const distConfigDir = path.join(destDir, 'config');
   if (!fs.existsSync(distConfigDir)) fs.mkdirSync(distConfigDir, { recursive: true });
   fs.writeFileSync(

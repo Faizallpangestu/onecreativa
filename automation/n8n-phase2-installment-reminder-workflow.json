@@ -1,0 +1,168 @@
+{
+  "name": "OneCreativa - Reminder Cicilan H-3 Phase 2 (n8n Cron)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-cron-trigger",
+      "name": "1. Jadwal Harian (09:00 WIB)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.ONECREATIVA_BASE_URL || 'https://one.creativabridging.com'}}/api/automation_status.php",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "due_installments"
+            },
+            {
+              "name": "days",
+              "value": "3"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-fetch-due",
+      "name": "2. Ambil Cicilan Jatuh Tempo H-3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const list = $input.first().json.data || [];\nreturn list.map((item) => ({ json: item }));"
+      },
+      "id": "node-split-items",
+      "name": "3. Pecah Per Kandidat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.WA_API_URL || 'https://api.fonnte.com/send'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$env.WA_API_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "target",
+              "value": "={{$json.whatsapp_phone}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$json.whatsapp_message}}"
+            }
+          ]
+        }
+      },
+      "id": "node-wa-remind",
+      "name": "4a. Kirim Pengingat WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 190],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "finance@creativabridging.com",
+        "toEmail": "={{$json.email}}",
+        "subject": "={{$json.email_subject}}",
+        "emailFormat": "html",
+        "html": "={{$json.email_html}}"
+      },
+      "id": "node-email-remind",
+      "name": "4b. Kirim Pengingat Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [940, 410],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ONECREATIVA_BASE_URL || 'https://one.creativabridging.com'}}/api/automation_status.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'mark_installment_reminder', invoice_id: $('3. Pecah Per Kandidat').item.json.invoice_id, kanal: 'Keduanya', penerima: $('3. Pecah Per Kandidat').item.json.whatsapp_phone || $('3. Pecah Per Kandidat').item.json.email, statusKirim: 'Terkirim', details: { term_label: $('3. Pecah Per Kandidat').item.json.term_label, due_date: $('3. Pecah Per Kandidat').item.json.due_date } }) }}"
+      },
+      "id": "node-log-remind",
+      "name": "5. Catat Log Pengingat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1210, 190]
+    }
+  ],
+  "connections": {
+    "1. Jadwal Harian (09:00 WIB)": {
+      "main": [[{ "node": "2. Ambil Cicilan Jatuh Tempo H-3", "type": "main", "index": 0 }]]
+    },
+    "2. Ambil Cicilan Jatuh Tempo H-3": {
+      "main": [[{ "node": "3. Pecah Per Kandidat", "type": "main", "index": 0 }]]
+    },
+    "3. Pecah Per Kandidat": {
+      "main": [
+        [
+          { "node": "4a. Kirim Pengingat WhatsApp", "type": "main", "index": 0 },
+          { "node": "4b. Kirim Pengingat Email", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "4a. Kirim Pengingat WhatsApp": {
+      "main": [[{ "node": "5. Catat Log Pengingat", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+

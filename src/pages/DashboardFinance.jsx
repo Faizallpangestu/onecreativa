@@ -476,7 +476,7 @@ function AuditModal({ item, related, onClose, onSwitchTab, currentTab }) {
           </div>
 
           <div className={`fd-audit-result ${isBalanced ? 'fd-audit-result--balanced' : isSelisih ? 'fd-audit-result--selisih' : ''}`}
-               style={{ marginTop: 16 }}>
+            style={{ marginTop: 16 }}>
             <span className={`fd-tag ${isBalanced ? 'fd-tag--balanced' : isSelisih ? 'fd-tag--selisih' : 'fd-tag--projection'}`} style={{ fontSize: 12 }}>
               {isBalanced ? '✓ BALANCED' : isSelisih ? '⚠ ADA SELISIH' : '⏳ BELUM TEREALISASI'}
             </span>
@@ -484,8 +484,8 @@ function AuditModal({ item, related, onClose, onSwitchTab, currentTab }) {
               {isBalanced
                 ? 'Proyeksi = Realisasi (Sinkron & Balance)'
                 : isSelisih
-                ? `Selisih: ${money(Math.abs(diff))}`
-                : 'Menunggu proses realisasi pembayaran'}
+                  ? `Selisih: ${money(Math.abs(diff))}`
+                  : 'Menunggu proses realisasi pembayaran'}
             </strong>
           </div>
         </div>
@@ -576,7 +576,7 @@ function AdjustInflowModal({ item, onClose, onSave, banks = [], coaAccounts = []
   const incomeAccounts = useMemo(() => effectiveCoa.filter(a => [4, 8].includes(Number(a.group_id))), [effectiveCoa]);
   const otherAccounts = useMemo(() => effectiveCoa.filter(a => ![2, 3, 4, 8].includes(Number(a.group_id))), [effectiveCoa]);
 
-  const [realizedAmount, setRealizedAmount] = useState(Number(item.expected_amount || item.amount || 21000000));
+  const [realizedAmount, setRealizedAmount] = useState(Number(item.expected_amount || item.amount || 0));
   const [adjustedBy, setAdjustedBy] = useState(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
@@ -603,9 +603,9 @@ function AdjustInflowModal({ item, onClose, onSave, banks = [], coaAccounts = []
     if (item.credit_coa) return item.credit_coa;
     if (item.source_category?.includes('[')) return item.source_category;
     const isSamitOrModal = (item.party_name || '').toLowerCase().includes('samit') ||
-                           (item.classification || '').toLowerCase().includes('modal') ||
-                           (item.description || '').toLowerCase().includes('modal') ||
-                           (item.description || '').toLowerCase().includes('suntikan');
+      (item.classification || '').toLowerCase().includes('modal') ||
+      (item.description || '').toLowerCase().includes('modal') ||
+      (item.description || '').toLowerCase().includes('suntikan');
     if (isSamitOrModal) {
       const samitAcc = equityAccounts.find(a => (a.name || '').toLowerCase().includes('samit') || a.code === '3-10002');
       if (samitAcc) return `[${samitAcc.code}] ${samitAcc.name}`;
@@ -1372,7 +1372,7 @@ export default function DashboardFinance() {
     try {
       const saved = JSON.parse(localStorage.getItem('finance_rekening_data') || '[]');
       if (Array.isArray(saved) && saved.length > 0) return saved;
-    } catch {}
+    } catch { }
     return [];
   });
 
@@ -1380,7 +1380,7 @@ export default function DashboardFinance() {
     try {
       const saved = JSON.parse(localStorage.getItem('finance_coa_data') || '[]');
       if (Array.isArray(saved) && saved.length > 0) return saved;
-    } catch {}
+    } catch { }
     return [];
   });
 
@@ -1389,13 +1389,13 @@ export default function DashboardFinance() {
     try {
       const savedRek = JSON.parse(localStorage.getItem('finance_rekening_data') || '[]');
       if (Array.isArray(savedRek) && savedRek.length > 0) setRegisteredBanks(savedRek);
-    } catch {}
+    } catch { }
     try {
       const savedCoa = JSON.parse(localStorage.getItem('finance_coa_data') || '[]');
       if (Array.isArray(savedCoa) && savedCoa.length > 0) setCoaAccounts(savedCoa);
-    } catch {}
+    } catch { }
 
-    axios.get('/api/accounting.php?view=lookups')
+    axios.get('/api/accounting.php', { params: { view: 'lookups', _t: Date.now() } })
       .then(res => {
         const rawBanks = res.data?.data?.banks || res.data?.banks || [];
         const rawAccounts = res.data?.data?.accounts || res.data?.accounts || [];
@@ -1406,7 +1406,7 @@ export default function DashboardFinance() {
           setCoaAccounts(rawAccounts);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -1780,6 +1780,7 @@ export default function DashboardFinance() {
           rawIncome.forEach(inc => {
             const incIdStr = String(inc.id || inc.noTransaksi || '');
             if (!incIdStr || deletedIncomeIds.has(incIdStr)) return;
+            if (incIdStr.startsWith('legacy:') || inc.sourceType === 'legacy_finance') return;
             const incomeDescription = String(inc.deskripsi || '');
             const isManualRealizationAdjustment = /disesuaikan oleh/i.test(incomeDescription);
             if (isManualRealizationAdjustment) {
@@ -1884,188 +1885,189 @@ export default function DashboardFinance() {
         console.warn('Gagal memproses finance_income_data:', err);
       }
 
-        // ── KONDISI C: TRANSAKSI PENGELUARAN & PENGGAJIAN LOKAL (finance_expense_data) ──
-        try {
-          const rawExpenses = JSON.parse(localStorage.getItem('finance_expense_data') || '[]');
-          const deletedExpenseIds = new Set(JSON.parse(localStorage.getItem('finance_expense_deleted_ids') || '[]').map(String));
-          if (Array.isArray(rawExpenses) && rawExpenses.length > 0) {
-            const existingExpIds = new Set((cloned.projection_items || []).map(p => String(p.id || p.number)));
-            (cloned.realization_items || []).forEach(r => {
-              if (r.id) existingExpIds.add(String(r.id));
-              if (r.number) existingExpIds.add(String(r.number));
-              if (r.salary_request_id) existingExpIds.add(`sal_${r.salary_request_id}`);
+      // ── KONDISI C: TRANSAKSI PENGELUARAN & PENGGAJIAN LOKAL (finance_expense_data) ──
+      try {
+        const rawExpenses = JSON.parse(localStorage.getItem('finance_expense_data') || '[]');
+        const deletedExpenseIds = new Set(JSON.parse(localStorage.getItem('finance_expense_deleted_ids') || '[]').map(String));
+        if (Array.isArray(rawExpenses) && rawExpenses.length > 0) {
+          const existingExpIds = new Set((cloned.projection_items || []).map(p => String(p.id || p.number)));
+          (cloned.realization_items || []).forEach(r => {
+            if (r.id) existingExpIds.add(String(r.id));
+            if (r.number) existingExpIds.add(String(r.number));
+            if (r.salary_request_id) existingExpIds.add(`sal_${r.salary_request_id}`);
+          });
+
+          rawExpenses.forEach(exp => {
+            const expIdStr = String(exp.id);
+            if (deletedExpenseIds.has(expIdStr)) return;
+            if (expIdStr.startsWith('legacy:') || exp.sourceType === 'legacy_finance') return;
+            const docNum = exp.nomor || (expIdStr.startsWith('PAYROLL-') ? expIdStr : `EXP-${expIdStr.padStart(4, '0')}`);
+            if (existingExpIds.has(docNum) || existingExpIds.has(expIdStr)) return;
+            if (exp.salary_request_id && existingExpIds.has(`sal_${exp.salary_request_id}`)) return;
+            existingExpIds.add(docNum);
+            existingExpIds.add(expIdStr);
+
+            const expDate = exp.tanggal || new Date().toISOString().split('T')[0];
+            const d = new Date(expDate);
+            if (isNaN(d.getTime())) return;
+            const expYear = d.getFullYear();
+            const expMonth = d.getMonth() + 1;
+            if (expYear !== Number(year)) return;
+
+            const amount = Number(exp.nominal) || 0;
+            const isPaid = (exp.status || '').toLowerCase() === 'paid';
+            const isSalary = (exp.kategori || '').toLowerCase().includes('gaji') ||
+              (exp.kategori || '').toLowerCase().includes('payroll') ||
+              (exp.deskripsi || '').toLowerCase().includes('gaji');
+
+            // Deduplicate if already present in server realization items
+            const isDuplicateOfServer = (cloned.realization_items || []).some(r => {
+              if (r.type !== 'expense') return false;
+              if (exp.salary_request_id && r.salary_request_id && Number(exp.salary_request_id) === Number(r.salary_request_id)) return true;
+              if (expIdStr === `legacy:${r.id}` || expIdStr === String(r.id)) return true;
+              if (isSalary && (r.classification === 'Penggajian Karyawan' || r.source_type === 'salary') && Math.abs(Number(r.amount) - amount) < 1) {
+                return true;
+              }
+              return false;
             });
+            if (isDuplicateOfServer) return;
 
-            rawExpenses.forEach(exp => {
-              const expIdStr = String(exp.id);
-              if (deletedExpenseIds.has(expIdStr)) return;
-              const docNum = exp.nomor || (expIdStr.startsWith('PAYROLL-') ? expIdStr : `EXP-${expIdStr.padStart(4, '0')}`);
-              if (existingExpIds.has(docNum) || existingExpIds.has(expIdStr)) return;
-              if (exp.salary_request_id && existingExpIds.has(`sal_${exp.salary_request_id}`)) return;
-              existingExpIds.add(docNum);
-              existingExpIds.add(expIdStr);
+            // 1. Proyeksi Kas Keluar
+            const projExpItem = {
+              id: docNum,
+              number: docNum,
+              transaction_date: expDate,
+              type: 'expense',
+              amount: amount,
+              party_name: exp.vendor || (isSalary ? 'Karyawan LPK' : 'Pihak Ketiga'),
+              description: exp.deskripsi || `${exp.kategori || 'Beban Operasional'} - ${exp.vendor || ''}`,
+              source_type: isSalary ? 'salary' : 'expense_record',
+              classification: isSalary ? 'Penggajian Karyawan' : (exp.kategori || 'Beban Operasional'),
+              approval_status: 'approved',
+              payment_status: isPaid ? 'paid' : 'unpaid',
+              cash_account_name: exp.sumberDana ? `${exp.sumberDana}` : 'BCA (1832-918-428)',
+              jatuh_tempo: expDate,
+              salary_request_id: exp.salary_request_id || null,
+            };
+            if (!cloned.projection_items) cloned.projection_items = [];
+            cloned.projection_items.unshift(projExpItem);
 
-              const expDate = exp.tanggal || new Date().toISOString().split('T')[0];
-              const d = new Date(expDate);
-              if (isNaN(d.getTime())) return;
-              const expYear = d.getFullYear();
-              const expMonth = d.getMonth() + 1;
-              if (expYear !== Number(year)) return;
+            if (cloned.months && cloned.months[expMonth - 1]) {
+              cloned.months[expMonth - 1].projection = (
+                Number(cloned.months[expMonth - 1].projection || 0) + amount
+              ).toFixed(2);
+            }
 
-              const amount = Number(exp.nominal) || 0;
-              const isPaid = (exp.status || '').toLowerCase() === 'paid';
-              const isSalary = (exp.kategori || '').toLowerCase().includes('gaji') ||
-                               (exp.kategori || '').toLowerCase().includes('payroll') ||
-                               (exp.deskripsi || '').toLowerCase().includes('gaji');
-
-              // Deduplicate if already present in server realization items
-              const isDuplicateOfServer = (cloned.realization_items || []).some(r => {
-                if (r.type !== 'expense') return false;
-                if (exp.salary_request_id && r.salary_request_id && Number(exp.salary_request_id) === Number(r.salary_request_id)) return true;
-                if (expIdStr === `legacy:${r.id}` || expIdStr === String(r.id)) return true;
-                if (isSalary && (r.classification === 'Penggajian Karyawan' || r.source_type === 'salary') && Math.abs(Number(r.amount) - amount) < 1) {
-                  return true;
-                }
-                return false;
-              });
-              if (isDuplicateOfServer) return;
-
-              // 1. Proyeksi Kas Keluar
-              const projExpItem = {
-                id: docNum,
-                number: docNum,
-                transaction_date: expDate,
-                type: 'expense',
-                amount: amount,
-                party_name: exp.vendor || (isSalary ? 'Karyawan LPK' : 'Pihak Ketiga'),
-                description: exp.deskripsi || `${exp.kategori || 'Beban Operasional'} - ${exp.vendor || ''}`,
-                source_type: isSalary ? 'salary' : 'expense_record',
-                classification: isSalary ? 'Penggajian Karyawan' : (exp.kategori || 'Beban Operasional'),
-                approval_status: 'approved',
-                payment_status: isPaid ? 'paid' : 'unpaid',
-                cash_account_name: exp.sumberDana ? `${exp.sumberDana}` : 'BCA (1832-918-428)',
-                jatuh_tempo: expDate,
-                salary_request_id: exp.salary_request_id || null,
+            // 2. Realisasi Kas Keluar (Paid) atau Pasangan Reconciled (Unpaid/Overdue)
+            if (isPaid) {
+              const realExpItem = {
+                ...projExpItem,
+                number: 'FIN-' + docNum,
+                payment_status: 'paid',
+                paid_at: expDate,
+                related_proj_id: docNum,
+                related_proj_number: docNum,
               };
-              if (!cloned.projection_items) cloned.projection_items = [];
-              cloned.projection_items.unshift(projExpItem);
+              if (!cloned.realization_items) cloned.realization_items = [];
+              cloned.realization_items.unshift(realExpItem);
 
               if (cloned.months && cloned.months[expMonth - 1]) {
-                cloned.months[expMonth - 1].projection = (
-                  Number(cloned.months[expMonth - 1].projection || 0) + amount
+                cloned.months[expMonth - 1].realization = (
+                  Number(cloned.months[expMonth - 1].realization || 0) + amount
+                ).toFixed(2);
+                cloned.months[expMonth - 1].expense = (
+                  Number(cloned.months[expMonth - 1].expense || 0) + amount
                 ).toFixed(2);
               }
-
-              // 2. Realisasi Kas Keluar (Paid) atau Pasangan Reconciled (Unpaid/Overdue)
-              if (isPaid) {
-                const realExpItem = {
-                  ...projExpItem,
-                  number: 'FIN-' + docNum,
-                  payment_status: 'paid',
-                  paid_at: expDate,
-                  related_proj_id: docNum,
-                  related_proj_number: docNum,
-                };
-                if (!cloned.realization_items) cloned.realization_items = [];
-                cloned.realization_items.unshift(realExpItem);
-
-                if (cloned.months && cloned.months[expMonth - 1]) {
-                  cloned.months[expMonth - 1].realization = (
-                    Number(cloned.months[expMonth - 1].realization || 0) + amount
-                  ).toFixed(2);
-                  cloned.months[expMonth - 1].expense = (
-                    Number(cloned.months[expMonth - 1].expense || 0) + amount
-                  ).toFixed(2);
-                }
-              } else {
-                const todayIso = new Date().toISOString().split('T')[0];
-                const isOverdue = todayIso > expDate;
-                const pendingExpItem = {
-                  ...projExpItem,
-                  id: `PENDING-${docNum}`,
-                  number: `MENUNGGU-${docNum}`,
-                  amount: 0,
-                  expected_amount: amount,
-                  payment_status: isOverdue ? 'overdue' : 'unpaid',
-                  paid_at: null,
-                  is_pending_realization: true,
-                  related_proj_id: docNum,
-                  related_proj_number: docNum,
-                };
-                if (!cloned.realization_items) cloned.realization_items = [];
-                cloned.realization_items.push(pendingExpItem);
-              }
-            });
-          }
-        } catch (errExp) {
-          console.warn('Gagal sinkronisasi data expense lokal:', errExp);
-        }
-
-        // ── 3. UNIVERSAL RECONCILIATION: Pastikan semua transaksi di Proyeksi memiliki baris di Realisasi ──
-        const existingRealKeys = new Set();
-        (cloned.realization_items || []).forEach(r => {
-          if (r.related_proj_id) existingRealKeys.add(String(r.related_proj_id));
-          if (r.related_proj_number) existingRealKeys.add(String(r.related_proj_number));
-          if (r.salary_request_id) existingRealKeys.add(`sal_${r.salary_request_id}`);
-          if (r.budget_request_id) existingRealKeys.add(`bud_${r.budget_request_id}`);
-          if (r.id) existingRealKeys.add(String(r.id));
-          if (r.number) {
-            existingRealKeys.add(String(r.number));
-            const numClean = String(r.number).replace(/^(FIN-|PROJ-|PAYROLL-|MENUNGGU-)/, '');
-            if (numClean) existingRealKeys.add(numClean);
-          }
-        });
-
-        (cloned.projection_items || []).forEach(p => {
-          const pId = String(p.id || '');
-          const pNum = String(p.number || '');
-          const pNumClean = pNum.replace(/^(PROJ-|FIN-|PAYROLL-|MENUNGGU-)/, '');
-          const salKey = p.salary_request_id ? `sal_${p.salary_request_id}` : null;
-          const budKey = p.budget_request_id ? `bud_${p.budget_request_id}` : null;
-
-          const hasReal = existingRealKeys.has(pId) ||
-                          existingRealKeys.has(pNum) ||
-                          (pNumClean && existingRealKeys.has(pNumClean)) ||
-                          (salKey && existingRealKeys.has(salKey)) ||
-                          (budKey && existingRealKeys.has(budKey));
-
-          if (!hasReal) {
-            const todayIso = new Date().toISOString().split('T')[0];
-            const isOverdue = todayIso > (p.jatuh_tempo || p.transaction_date);
-            const pendingItem = {
-              ...p,
-              id: `PENDING-${p.id || p.number}`,
-              number: `MENUNGGU-${p.number || p.id}`,
-              amount: 0,
-              expected_amount: Number(p.amount) || 0,
-              payment_status: isOverdue ? 'overdue' : 'unpaid',
-              paid_at: null,
-              is_pending_realization: true,
-              related_proj_id: p.id,
-              related_proj_number: p.number,
-            };
-            if (!cloned.realization_items) cloned.realization_items = [];
-            cloned.realization_items.push(pendingItem);
-          }
-        });
-
-        // Recalculate Totals
-        if (cloned.totals) {
-          const totalProj = (cloned.projection_items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-          const totalReal = (cloned.realization_items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-          cloned.totals.projection = totalProj.toFixed(2);
-          cloned.totals.realization = totalReal.toFixed(2);
-
-          let totalInc = 0;
-          let totalExp = 0;
-          (cloned.months || []).forEach(m => {
-            totalInc += Number(m.income) || 0;
-            totalExp += Number(m.expense) || 0;
+            } else {
+              const todayIso = new Date().toISOString().split('T')[0];
+              const isOverdue = todayIso > expDate;
+              const pendingExpItem = {
+                ...projExpItem,
+                id: `PENDING-${docNum}`,
+                number: `MENUNGGU-${docNum}`,
+                amount: 0,
+                expected_amount: amount,
+                payment_status: isOverdue ? 'overdue' : 'unpaid',
+                paid_at: null,
+                is_pending_realization: true,
+                related_proj_id: docNum,
+                related_proj_number: docNum,
+              };
+              if (!cloned.realization_items) cloned.realization_items = [];
+              cloned.realization_items.push(pendingExpItem);
+            }
           });
-          cloned.totals.income = totalInc.toFixed(2);
-          cloned.totals.expense = totalExp.toFixed(2);
-          cloned.totals.balance = (totalInc - totalExp).toFixed(2);
         }
+      } catch (errExp) {
+        console.warn('Gagal sinkronisasi data expense lokal:', errExp);
+      }
+
+      // ── 3. UNIVERSAL RECONCILIATION: Pastikan semua transaksi di Proyeksi memiliki baris di Realisasi ──
+      const existingRealKeys = new Set();
+      (cloned.realization_items || []).forEach(r => {
+        if (r.related_proj_id) existingRealKeys.add(String(r.related_proj_id));
+        if (r.related_proj_number) existingRealKeys.add(String(r.related_proj_number));
+        if (r.salary_request_id) existingRealKeys.add(`sal_${r.salary_request_id}`);
+        if (r.budget_request_id) existingRealKeys.add(`bud_${r.budget_request_id}`);
+        if (r.id) existingRealKeys.add(String(r.id));
+        if (r.number) {
+          existingRealKeys.add(String(r.number));
+          const numClean = String(r.number).replace(/^(FIN-|PROJ-|PAYROLL-|MENUNGGU-)/, '');
+          if (numClean) existingRealKeys.add(numClean);
+        }
+      });
+
+      (cloned.projection_items || []).forEach(p => {
+        const pId = String(p.id || '');
+        const pNum = String(p.number || '');
+        const pNumClean = pNum.replace(/^(PROJ-|FIN-|PAYROLL-|MENUNGGU-)/, '');
+        const salKey = p.salary_request_id ? `sal_${p.salary_request_id}` : null;
+        const budKey = p.budget_request_id ? `bud_${p.budget_request_id}` : null;
+
+        const hasReal = existingRealKeys.has(pId) ||
+          existingRealKeys.has(pNum) ||
+          (pNumClean && existingRealKeys.has(pNumClean)) ||
+          (salKey && existingRealKeys.has(salKey)) ||
+          (budKey && existingRealKeys.has(budKey));
+
+        if (!hasReal) {
+          const todayIso = new Date().toISOString().split('T')[0];
+          const isOverdue = todayIso > (p.jatuh_tempo || p.transaction_date);
+          const pendingItem = {
+            ...p,
+            id: `PENDING-${p.id || p.number}`,
+            number: `MENUNGGU-${p.number || p.id}`,
+            amount: 0,
+            expected_amount: Number(p.amount) || 0,
+            payment_status: isOverdue ? 'overdue' : 'unpaid',
+            paid_at: null,
+            is_pending_realization: true,
+            related_proj_id: p.id,
+            related_proj_number: p.number,
+          };
+          if (!cloned.realization_items) cloned.realization_items = [];
+          cloned.realization_items.push(pendingItem);
+        }
+      });
+
+      // Recalculate Totals
+      if (cloned.totals) {
+        const totalProj = (cloned.projection_items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        const totalReal = (cloned.realization_items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        cloned.totals.projection = totalProj.toFixed(2);
+        cloned.totals.realization = totalReal.toFixed(2);
+
+        let totalInc = 0;
+        let totalExp = 0;
+        (cloned.months || []).forEach(m => {
+          totalInc += Number(m.income) || 0;
+          totalExp += Number(m.expense) || 0;
+        });
+        cloned.totals.income = totalInc.toFixed(2);
+        cloned.totals.expense = totalExp.toFixed(2);
+        cloned.totals.balance = (totalInc - totalExp).toFixed(2);
+      }
     } catch (e) {
       console.warn('Gagal sinkronisasi invoice lokal ke audit keuangan', e);
     }
@@ -2146,7 +2148,7 @@ export default function DashboardFinance() {
 
     // 3. Normalized document number matching
     if (item.number) {
-        const numClean = normalizeAuditDocumentKey(item.number);
+      const numClean = normalizeAuditDocumentKey(item.number);
       const match = items.find(r => {
         if (!r.number) return false;
         if (r.number === item.number) return true;
@@ -2416,8 +2418,8 @@ export default function DashboardFinance() {
           const targetStr = (formData.target_bank_coa || '').toLowerCase();
           const updatedReks = rekList.map(r => {
             const rMatch = targetStr.includes((r.nama || '').toLowerCase()) ||
-                           (r.noRek && targetStr.includes(r.noRek)) ||
-                           (r.bank && targetStr.includes(r.bank.toLowerCase()));
+              (r.noRek && targetStr.includes(r.noRek)) ||
+              (r.bank && targetStr.includes(r.bank.toLowerCase()));
             if (rMatch) {
               return { ...r, saldo: Number(r.saldo || 0) + Number(formData.realized_amount) };
             }
@@ -2442,7 +2444,7 @@ export default function DashboardFinance() {
 
           const updatedCoa = coaList.map(c => {
             const isTargetBank = (c.kategori === 'Cash and Bank' || c.subtype?.includes('cash') || c.subtype?.includes('AST-CB') || Number(c.account_group) === 1) &&
-                                 (targetStr.includes((c.nama || '').toLowerCase()) || (c.kode && targetStr.includes(c.kode)));
+              (targetStr.includes((c.nama || '').toLowerCase()) || (c.kode && targetStr.includes(c.kode)));
             const isCreditAccount = creditCode ? (c.kode === creditCode) : (formData.credit_coa && formData.credit_coa.includes(c.nama));
 
             if (isTargetBank || isCreditAccount) {
@@ -2599,23 +2601,22 @@ export default function DashboardFinance() {
                 <button
                   type="button"
                   onClick={() => setIsPeriodMenuOpen(v => !v)}
-                  className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs font-semibold shadow-2xs transition cursor-pointer ${
-                    globalPeriod === 'all'
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/20'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs font-semibold shadow-2xs transition cursor-pointer ${globalPeriod === 'all'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/20'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
                   title="Pilih filter periode komparasi"
                 >
                   <svg className={`w-3.5 h-3.5 ${globalPeriod === 'all' ? 'text-white' : 'text-slate-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
                   <span>
                     {globalPeriod === 'all' ? 'Semua Periode' : globalPeriod.startsWith('Q') ? `Kuartal ${globalPeriod.slice(1)} ${year}` : 'Pilih Periode'}
                   </span>
-                  <svg className={`w-3 h-3 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className={`w-3 h-3 transition-transform ${isPeriodMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                 </button>
 
                 {isPeriodMenuOpen && (
@@ -2699,11 +2700,10 @@ export default function DashboardFinance() {
                   {activeData.alerts.map((al, idx) => (
                     <div
                       key={idx}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
-                        al.type === 'danger'
-                          ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-2xs'
-                          : 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs'
-                      }`}
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${al.type === 'danger'
+                        ? 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-2xs'
+                        : 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${al.type === 'danger' ? 'bg-rose-500 animate-pulse' : 'bg-amber-500'}`} />
@@ -3030,7 +3030,7 @@ export default function DashboardFinance() {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer transition"
                       >
                         <span>{getPeriodLabel(incomePeriod)}</span>
-                        <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isIncomePeriodOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isIncomePeriodOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                       </button>
 
                       {isIncomePeriodOpen && (
@@ -3149,7 +3149,7 @@ export default function DashboardFinance() {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer transition"
                       >
                         <span>{getPeriodLabel(expensePeriod)}</span>
-                        <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpensePeriodOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpensePeriodOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                       </button>
 
                       {isExpensePeriodOpen && (
@@ -3328,425 +3328,425 @@ export default function DashboardFinance() {
                   </div>
                 </div>
 
-                  {/* Summary Banner for selected month */}
-                  <div className="fd-split-banner">
-                    <div className="fd-split-banner-info">
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: monthStats.isBalanced ? '#10b981' : '#f59e0b' }} />
-                      <h4>
-                        Periode Audit: <span style={{ color: '#1e40af' }}>{activePeriodLabel}</span>
-                        {flowFilter === 'income' && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-bold">Fokus: Tagihan Siswa (Inflow)</span>}
-                        {flowFilter === 'expense' && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 font-bold">Fokus: Beban & Gaji (Outflow)</span>}
-                        {flowFilter === 'all' && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-800 font-bold">Net Cashflow</span>}
-                      </h4>
+                {/* Summary Banner for selected month */}
+                <div className="fd-split-banner">
+                  <div className="fd-split-banner-info">
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: monthStats.isBalanced ? '#10b981' : '#f59e0b' }} />
+                    <h4>
+                      Periode Audit: <span style={{ color: '#1e40af' }}>{activePeriodLabel}</span>
+                      {flowFilter === 'income' && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-bold">Fokus: Tagihan Siswa (Inflow)</span>}
+                      {flowFilter === 'expense' && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 font-bold">Fokus: Beban & Gaji (Outflow)</span>}
+                      {flowFilter === 'all' && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-800 font-bold">Net Cashflow</span>}
+                    </h4>
+                  </div>
+                  <div className="fd-split-banner-stats">
+                    <div className="fd-split-stat fd-split-stat--proj">
+                      <span>{flowFilter === 'income' ? 'Total Tagihan:' : flowFilter === 'expense' ? 'Total Rencana Beban:' : 'Net Proyeksi:'}</span>
+                      <strong>{money(monthStats.projTotal)}</strong>
+                      <span style={{ fontSize: 10, color: '#94a3b8' }}>({monthStats.projCount} trx)</span>
                     </div>
-                    <div className="fd-split-banner-stats">
-                      <div className="fd-split-stat fd-split-stat--proj">
-                        <span>{flowFilter === 'income' ? 'Total Tagihan:' : flowFilter === 'expense' ? 'Total Rencana Beban:' : 'Net Proyeksi:'}</span>
-                        <strong>{money(monthStats.projTotal)}</strong>
-                        <span style={{ fontSize: 10, color: '#94a3b8' }}>({monthStats.projCount} trx)</span>
+                    <div style={{ color: '#cbd5e1' }}>•</div>
+                    <div className="fd-split-stat fd-split-stat--real">
+                      <span>{flowFilter === 'income' ? 'Total Diterima:' : flowFilter === 'expense' ? 'Total Terbayar:' : 'Net Realisasi:'}</span>
+                      <strong>{money(monthStats.realTotal)}</strong>
+                      <span style={{ fontSize: 10, color: '#94a3b8' }}>({monthStats.realCount} trx)</span>
+                    </div>
+                    <div style={{ color: '#cbd5e1' }}>•</div>
+                    <div className="fd-split-stat">
+                      <span>Status Audit:</span>
+                      {monthStats.projCount === 0 && monthStats.realCount === 0 ? (
+                        <span className="fd-tag" style={{ background: '#f1f5f9', color: '#64748b' }}>Belum Ada Data</span>
+                      ) : monthStats.isBalanced ? (
+                        <span className="fd-tag fd-tag--balanced">✓ Balanced (Sinkron 100%)</span>
+                      ) : (
+                        <span className="fd-tag fd-tag--selisih">⚠ Selisih {money(Math.abs(monthStats.diff))}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Dual Screen Mode (Split Screen) ── */}
+                {viewMode === 'split' ? (
+                  <div className="fd-split-grid">
+                    {/* LAYAR KIRI: PROYEKSI */}
+                    <div className="fd-bs-card" style={{ borderTop: '3px solid #3b82f6' }}>
+                      <div className="fd-bs-header">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="rounded p-1.5 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: '#eff6ff', color: '#2563eb' }}>
+                            <FileTextIcon style={{ width: 17, height: 17 }} />
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Proyeksi Arus Kas</h4>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>Rencana penerimaan & pengeluaran tagihan</span>
+                          </div>
+                        </div>
+                        <div className="text-end">
+                          <span style={{ fontSize: 9.5, textTransform: 'uppercase', fontWeight: 700, color: '#64748b', display: 'block' }}>
+                            {flowFilter === 'income' ? 'Total Tagihan (Inflow)' : flowFilter === 'expense' ? 'Total Rencana Beban' : 'Net Proyeksi Kas'}
+                          </span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: '#1d4ed8' }}>{money(monthStats.projTotal)}</span>
+                        </div>
                       </div>
-                      <div style={{ color: '#cbd5e1' }}>•</div>
-                      <div className="fd-split-stat fd-split-stat--real">
-                        <span>{flowFilter === 'income' ? 'Total Diterima:' : flowFilter === 'expense' ? 'Total Terbayar:' : 'Net Realisasi:'}</span>
-                        <strong>{money(monthStats.realTotal)}</strong>
-                        <span style={{ fontSize: 10, color: '#94a3b8' }}>({monthStats.realCount} trx)</span>
+
+                      <div className="fd-bs-table-wrap">
+                        <table className="fd-bs-table">
+                          <thead>
+                            <tr>
+                              <th style={{ width: '18%' }}>No. Dokumen</th>
+                              <th style={{ width: '12%' }}>Tanggal</th>
+                              <th style={{ width: '16%' }}>Pihak / Rekanan</th>
+                              <th style={{ width: '13%' }}>Klasifikasi</th>
+                              <th style={{ width: '14%' }}>Nominal</th>
+                              <th style={{ width: '12%' }}>Rekening</th>
+                              <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
+                              <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredProjectionItems.length === 0 ? (
+                              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
+                                Tidak ada data proyeksi untuk periode {activePeriodLabel}.
+                              </td></tr>
+                            ) : (
+                              filteredProjectionItems.map((item, i) => {
+                                const related = findRelated(item, 'projection');
+                                const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
+                                const mKey = getMatchKey(item, related);
+                                const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
+                                const isHigh = highlightedId === (item.id || item.number);
+                                const isPaidStatus = item.projection_status === 'realized' || item.was_realized || item.payment_status === 'paid' || (related && (related.payment_status === 'paid' || Number(related.amount) > 0));
+                                return (
+                                  <tr
+                                    key={item.id || item.number || i}
+                                    id={`audit-row-${item.id || item.number}`}
+                                    className={`fd-row-clickable ${isHovered ? 'fd-row-linked-active-blue' : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
+                                    onMouseEnter={() => setHoveredMatchKey(mKey)}
+                                    onMouseLeave={() => setHoveredMatchKey(null)}
+                                    onClick={() => handleAuditClick(item)}
+                                    title="Arahkan kursor untuk menyorot pasangan di layar Realisasi. Klik untuk detail audit."
+                                  >
+                                    <td>
+                                      <div style={{ fontWeight: 700, color: '#1e293b' }}>{item.number || `#${item.id}`}</div>
+                                      {item.termin_info && (
+                                        <span className="badge-bs badge-bs-secondary" style={{ fontSize: 9, padding: '1px 5px', marginTop: 2 }}>
+                                          {item.termin_info}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                      <div style={{ color: '#334155' }}>{item.transaction_date}</div>
+                                      {item.jatuh_tempo && item.jatuh_tempo !== item.transaction_date && (
+                                        <div style={{ fontSize: 9, color: '#94a3b8' }}>JT: {item.jatuh_tempo}</div>
+                                      )}
+                                    </td>
+                                    <td style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: '#1e293b' }}>
+                                      {item.party_name || '-'}
+                                    </td>
+                                    <td>
+                                      <span className={`badge-bs ${item.type === 'income' ? 'badge-bs-success' : 'badge-bs-danger'}`}>
+                                        {item.classification === 'Penggajian Karyawan' || item.source_type === 'salary' ? 'Penggajian' : (item.type === 'income' ? 'Pemasukan' : 'Pengeluaran')}
+                                      </span>
+                                    </td>
+                                    <td style={{ fontWeight: 700, color: item.type === 'income' ? '#0f766e' : '#be123c', whiteSpace: 'nowrap' }}>
+                                      {money(item.amount)}
+                                    </td>
+                                    <td>
+                                      <span className="badge-bs badge-bs-secondary" style={{ whiteSpace: 'nowrap' }}>
+                                        {getCashAccountDisplay(item)}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                      {(() => {
+                                        if (item.projection_status === 'realized' || item.was_realized || item.payment_status === 'paid') {
+                                          return <span className="badge-bs badge-bs-success">✓ Sudah Direalisasikan</span>;
+                                        }
+                                        if (related && (related.payment_status === 'paid' || Number(related.amount) > 0)) {
+                                          if (isBalanced) {
+                                            return <span className="badge-bs badge-bs-success">✓ Paid</span>;
+                                          }
+                                          return (
+                                            <span className="badge-bs badge-bs-primary">
+                                              ⚡ Partial ({money(related.amount)})
+                                            </span>
+                                          );
+                                        }
+                                        const todayIso = new Date().toISOString().split('T')[0];
+                                        const isOverdue = todayIso > (item.jatuh_tempo || item.transaction_date);
+                                        if (isOverdue) {
+                                          return <span className="badge-bs badge-bs-danger">⚠ Overdue</span>;
+                                        }
+                                        return <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>;
+                                      })()}
+                                    </td>
+                                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                      {isPaidStatus ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAuditClick(item)}
+                                          className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
+                                          title="Lihat Detail & Bukti Audit"
+                                        >
+                                          <FileTextIcon style={{ width: 11, height: 11 }} /> Audit
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAuditClick(item)}
+                                          className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                          title="Lihat Detail Tagihan Siswa"
+                                        >
+                                          <FileTextIcon style={{ width: 11, height: 11 }} /> Detail
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                      <div style={{ color: '#cbd5e1' }}>•</div>
-                      <div className="fd-split-stat">
-                        <span>Status Audit:</span>
-                        {monthStats.projCount === 0 && monthStats.realCount === 0 ? (
-                          <span className="fd-tag" style={{ background: '#f1f5f9', color: '#64748b' }}>Belum Ada Data</span>
-                        ) : monthStats.isBalanced ? (
-                          <span className="fd-tag fd-tag--balanced">✓ Balanced (Sinkron 100%)</span>
-                        ) : (
-                          <span className="fd-tag fd-tag--selisih">⚠ Selisih {money(Math.abs(monthStats.diff))}</span>
-                        )}
+                    </div>
+
+                    {/* LAYAR KANAN: REALISASI */}
+                    <div className="fd-bs-card" style={{ borderTop: '3px solid #10b981' }}>
+                      <div className="fd-bs-header">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="rounded p-1.5 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: '#ecfdf5', color: '#059669' }}>
+                            <FileCheck style={{ width: 17, height: 17 }} />
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Realisasi Arus Kas</h4>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>Realisasi aktual penerimaan tagihan & beban operasional</span>
+                          </div>
+                        </div>
+                        <div className="text-end">
+                          <span style={{ fontSize: 9.5, textTransform: 'uppercase', fontWeight: 700, color: '#64748b', display: 'block' }}>
+                            {flowFilter === 'income' ? 'Total Diterima (Inflow)' : flowFilter === 'expense' ? 'Total Terbayar' : 'Net Realisasi Kas'}
+                          </span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: '#047857' }}>{money(monthStats.realTotal)}</span>
+                        </div>
+                      </div>
+
+                      <div className="fd-bs-table-wrap">
+                        <table className="fd-bs-table">
+                          <thead>
+                            <tr>
+                              <th style={{ width: '18%' }}>No. Dokumen</th>
+                              <th style={{ width: '12%' }}>Tanggal</th>
+                              <th style={{ width: '16%' }}>Pihak / Rekanan</th>
+                              <th style={{ width: '13%' }}>Klasifikasi</th>
+                              <th style={{ width: '14%' }}>Nominal</th>
+                              <th style={{ width: '12%' }}>Rekening</th>
+                              <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
+                              <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredRealizationItems.length === 0 ? (
+                              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
+                                Tidak ada data realisasi untuk periode {activePeriodLabel}.
+                              </td></tr>
+                            ) : (
+                              filteredRealizationItems.map((item, i) => {
+                                const related = findRelated(item, 'realization');
+                                const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
+                                const mKey = getMatchKey(item, related);
+                                const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
+                                const isHigh = highlightedId === (item.id || item.number);
+                                const isPending = item.is_pending_realization || Number(item.amount) === 0;
+                                return (
+                                  <tr
+                                    key={item.id || item.number || i}
+                                    id={`audit-row-${item.id || item.number}`}
+                                    className={`fd-row-clickable ${isHovered ? 'fd-row-linked-active' : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
+                                    onMouseEnter={() => setHoveredMatchKey(mKey)}
+                                    onMouseLeave={() => setHoveredMatchKey(null)}
+                                    onClick={() => handleAuditClick(item)}
+                                    title="Arahkan kursor untuk menyorot pasangan di layar Proyeksi. Klik untuk detail audit."
+                                  >
+                                    <td>
+                                      {isPending ? (
+                                        <div>
+                                          <div style={{ fontWeight: 700, color: '#334155' }}>
+                                            {item.related_proj_number || item.number}
+                                          </div>
+                                          <span className="badge-bs badge-bs-secondary" style={{ fontSize: 9, padding: '1px 5px', marginTop: 2 }}>
+                                            {item.payment_status === 'overdue' ? 'Lewat Jatuh Tempo' : 'Menunggu Bayar'}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div style={{ fontWeight: 700, color: '#047857' }}>{item.number || `#${item.id}`}</div>
+                                      )}
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                      <div style={{ color: '#334155' }}>{item.transaction_date}</div>
+                                      {item.paid_at && <div style={{ fontSize: 9, color: '#059669', fontWeight: 600 }}>Bayar: {item.paid_at}</div>}
+                                    </td>
+                                    <td style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: '#1e293b' }}>
+                                      {item.party_name || '-'}
+                                    </td>
+                                    <td>
+                                      <span className={`badge-bs ${item.type === 'income' ? 'badge-bs-success' : 'badge-bs-danger'}`}>
+                                        {item.classification === 'Penggajian Karyawan' || item.source_type === 'salary' ? 'Penggajian' : (item.type === 'income' ? 'Pemasukan' : 'Pengeluaran')}
+                                      </span>
+                                    </td>
+                                    <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                      {isPending ? (
+                                        <div>
+                                          <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>Rp 0</span>
+                                          <div style={{ fontSize: 9, color: item.payment_status === 'overdue' ? '#dc2626' : '#d97706', fontWeight: 500 }}>
+                                            {item.type === 'expense' ? 'Rencana: ' : 'Tagihan: '}{money(item.expected_amount || item.amount)}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <span style={{ color: item.type === 'income' ? '#047857' : '#be123c' }}>
+                                          {money(item.amount)}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td>
+                                      <span className="badge-bs badge-bs-secondary" style={{ whiteSpace: 'nowrap' }}>
+                                        {getCashAccountDisplay(item)}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                      {isPending ? (
+                                        item.payment_status === 'overdue' ? (
+                                          <span className="badge-bs badge-bs-danger">⚠ Overdue</span>
+                                        ) : (
+                                          <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>
+                                        )
+                                      ) : related ? (
+                                        <span className="badge-bs badge-bs-success">
+                                          {isBalanced ? '✓ Paid' : `⚡ Partial (${money(item.amount)})`}
+                                        </span>
+                                      ) : (
+                                        <span className="badge-bs badge-bs-success">✓ Paid</span>
+                                      )}
+                                    </td>
+                                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                      {isPending ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAuditClick(item)}
+                                          className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                          title="Lihat Detail Rencana"
+                                        >
+                                          <FileTextIcon style={{ width: 11, height: 11 }} /> Detail
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAuditClick(item)}
+                                          className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
+                                          title="Lihat Detail & Bukti Audit"
+                                        >
+                                          <FileTextIcon style={{ width: 11, height: 11 }} /> Audit
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>
-
-                  {/* ── Dual Screen Mode (Split Screen) ── */}
-                  {viewMode === 'split' ? (
-                    <div className="fd-split-grid">
-                      {/* LAYAR KIRI: PROYEKSI */}
-                      <div className="fd-bs-card" style={{ borderTop: '3px solid #3b82f6' }}>
-                        <div className="fd-bs-header">
-                          <div className="d-flex align-items-center gap-2">
-                            <div className="rounded p-1.5 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: '#eff6ff', color: '#2563eb' }}>
-                              <FileTextIcon style={{ width: 17, height: 17 }} />
-                            </div>
-                            <div>
-                              <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Proyeksi Arus Kas</h4>
-                              <span style={{ fontSize: 10, color: '#64748b' }}>Rencana penerimaan & pengeluaran tagihan</span>
-                            </div>
-                          </div>
-                          <div className="text-end">
-                            <span style={{ fontSize: 9.5, textTransform: 'uppercase', fontWeight: 700, color: '#64748b', display: 'block' }}>
-                              {flowFilter === 'income' ? 'Total Tagihan (Inflow)' : flowFilter === 'expense' ? 'Total Rencana Beban' : 'Net Proyeksi Kas'}
-                            </span>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: '#1d4ed8' }}>{money(monthStats.projTotal)}</span>
-                          </div>
-                        </div>
-
-                        <div className="fd-bs-table-wrap">
-                          <table className="fd-bs-table">
-                            <thead>
-                              <tr>
-                                <th style={{ width: '18%' }}>No. Dokumen</th>
-                                <th style={{ width: '12%' }}>Tanggal</th>
-                                <th style={{ width: '16%' }}>Pihak / Rekanan</th>
-                                <th style={{ width: '13%' }}>Klasifikasi</th>
-                                <th style={{ width: '14%' }}>Nominal</th>
-                                <th style={{ width: '12%' }}>Rekening</th>
-                                <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
-                                <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filteredProjectionItems.length === 0 ? (
-                                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
-                                  Tidak ada data proyeksi untuk periode {activePeriodLabel}.
-                                </td></tr>
-                              ) : (
-                                filteredProjectionItems.map((item, i) => {
-                                  const related = findRelated(item, 'projection');
-                                  const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
-                                  const mKey = getMatchKey(item, related);
-                                  const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
-                                  const isHigh = highlightedId === (item.id || item.number);
-                                  const isPaidStatus = item.projection_status === 'realized' || item.was_realized || item.payment_status === 'paid' || (related && (related.payment_status === 'paid' || Number(related.amount) > 0));
-                                  return (
-                                    <tr
-                                      key={item.id || item.number || i}
-                                      id={`audit-row-${item.id || item.number}`}
-                                      className={`fd-row-clickable ${isHovered ? 'fd-row-linked-active-blue' : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
-                                      onMouseEnter={() => setHoveredMatchKey(mKey)}
-                                      onMouseLeave={() => setHoveredMatchKey(null)}
-                                      onClick={() => handleAuditClick(item)}
-                                      title="Arahkan kursor untuk menyorot pasangan di layar Realisasi. Klik untuk detail audit."
-                                    >
-                                      <td>
-                                        <div style={{ fontWeight: 700, color: '#1e293b' }}>{item.number || `#${item.id}`}</div>
-                                        {item.termin_info && (
-                                          <span className="badge-bs badge-bs-secondary" style={{ fontSize: 9, padding: '1px 5px', marginTop: 2 }}>
-                                            {item.termin_info}
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td style={{ whiteSpace: 'nowrap' }}>
-                                        <div style={{ color: '#334155' }}>{item.transaction_date}</div>
-                                        {item.jatuh_tempo && item.jatuh_tempo !== item.transaction_date && (
-                                          <div style={{ fontSize: 9, color: '#94a3b8' }}>JT: {item.jatuh_tempo}</div>
-                                        )}
-                                      </td>
-                                      <td style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: '#1e293b' }}>
-                                        {item.party_name || '-'}
-                                      </td>
-                                      <td>
-                                        <span className={`badge-bs ${item.type === 'income' ? 'badge-bs-success' : 'badge-bs-danger'}`}>
-                                          {item.classification === 'Penggajian Karyawan' || item.source_type === 'salary' ? 'Penggajian' : (item.type === 'income' ? 'Pemasukan' : 'Pengeluaran')}
-                                        </span>
-                                      </td>
-                                      <td style={{ fontWeight: 700, color: item.type === 'income' ? '#0f766e' : '#be123c', whiteSpace: 'nowrap' }}>
-                                        {money(item.amount)}
-                                      </td>
-                                      <td>
-                                        <span className="badge-bs badge-bs-secondary" style={{ whiteSpace: 'nowrap' }}>
-                                          {getCashAccountDisplay(item)}
-                                        </span>
-                                      </td>
-                                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                        {(() => {
-                                          if (item.projection_status === 'realized' || item.was_realized || item.payment_status === 'paid') {
-                                            return <span className="badge-bs badge-bs-success">✓ Sudah Direalisasikan</span>;
-                                          }
-                                          if (related && (related.payment_status === 'paid' || Number(related.amount) > 0)) {
-                                            if (isBalanced) {
-                                              return <span className="badge-bs badge-bs-success">✓ Paid</span>;
-                                            }
-                                            return (
-                                              <span className="badge-bs badge-bs-primary">
-                                                ⚡ Partial ({money(related.amount)})
-                                              </span>
-                                            );
-                                          }
-                                          const todayIso = new Date().toISOString().split('T')[0];
-                                          const isOverdue = todayIso > (item.jatuh_tempo || item.transaction_date);
-                                          if (isOverdue) {
-                                            return <span className="badge-bs badge-bs-danger">⚠ Overdue</span>;
-                                          }
-                                          return <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>;
-                                        })()}
-                                      </td>
-                                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                                        {isPaidStatus ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleAuditClick(item)}
-                                            className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
-                                            title="Lihat Detail & Bukti Audit"
-                                          >
-                                            <FileTextIcon style={{ width: 11, height: 11 }} /> Audit
-                                          </button>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleAuditClick(item)}
-                                            className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200 transition inline-flex items-center gap-1 cursor-pointer"
-                                            title="Lihat Detail Tagihan Siswa"
-                                          >
-                                            <FileTextIcon style={{ width: 11, height: 11 }} /> Detail
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* LAYAR KANAN: REALISASI */}
-                      <div className="fd-bs-card" style={{ borderTop: '3px solid #10b981' }}>
-                        <div className="fd-bs-header">
-                          <div className="d-flex align-items-center gap-2">
-                            <div className="rounded p-1.5 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: '#ecfdf5', color: '#059669' }}>
-                              <FileCheck style={{ width: 17, height: 17 }} />
-                            </div>
-                            <div>
-                              <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Realisasi Arus Kas</h4>
-                              <span style={{ fontSize: 10, color: '#64748b' }}>Realisasi aktual penerimaan tagihan & beban operasional</span>
-                            </div>
-                          </div>
-                          <div className="text-end">
-                            <span style={{ fontSize: 9.5, textTransform: 'uppercase', fontWeight: 700, color: '#64748b', display: 'block' }}>
-                              {flowFilter === 'income' ? 'Total Diterima (Inflow)' : flowFilter === 'expense' ? 'Total Terbayar' : 'Net Realisasi Kas'}
-                            </span>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: '#047857' }}>{money(monthStats.realTotal)}</span>
-                          </div>
-                        </div>
-
-                        <div className="fd-bs-table-wrap">
-                          <table className="fd-bs-table">
-                            <thead>
-                              <tr>
-                                <th style={{ width: '18%' }}>No. Dokumen</th>
-                                <th style={{ width: '12%' }}>Tanggal</th>
-                                <th style={{ width: '16%' }}>Pihak / Rekanan</th>
-                                <th style={{ width: '13%' }}>Klasifikasi</th>
-                                <th style={{ width: '14%' }}>Nominal</th>
-                                <th style={{ width: '12%' }}>Rekening</th>
-                                <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
-                                <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filteredRealizationItems.length === 0 ? (
-                                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: '#94a3b8' }}>
-                                  Tidak ada data realisasi untuk periode {activePeriodLabel}.
-                                </td></tr>
-                              ) : (
-                                filteredRealizationItems.map((item, i) => {
-                                  const related = findRelated(item, 'realization');
-                                  const isBalanced = related && Math.abs(Number(item.amount) - Number(related.amount)) < 1;
-                                  const mKey = getMatchKey(item, related);
-                                  const isHovered = hoveredMatchKey && hoveredMatchKey === mKey;
-                                  const isHigh = highlightedId === (item.id || item.number);
-                                  const isPending = item.is_pending_realization || Number(item.amount) === 0;
-                                  return (
-                                    <tr
-                                      key={item.id || item.number || i}
-                                      id={`audit-row-${item.id || item.number}`}
-                                      className={`fd-row-clickable ${isHovered ? 'fd-row-linked-active' : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
-                                      onMouseEnter={() => setHoveredMatchKey(mKey)}
-                                      onMouseLeave={() => setHoveredMatchKey(null)}
-                                      onClick={() => handleAuditClick(item)}
-                                      title="Arahkan kursor untuk menyorot pasangan di layar Proyeksi. Klik untuk detail audit."
-                                    >
-                                      <td>
-                                        {isPending ? (
-                                          <div>
-                                            <div style={{ fontWeight: 700, color: '#334155' }}>
-                                              {item.related_proj_number || item.number}
-                                            </div>
-                                            <span className="badge-bs badge-bs-secondary" style={{ fontSize: 9, padding: '1px 5px', marginTop: 2 }}>
-                                              {item.payment_status === 'overdue' ? 'Lewat Jatuh Tempo' : 'Menunggu Bayar'}
-                                            </span>
-                                          </div>
-                                        ) : (
-                                          <div style={{ fontWeight: 700, color: '#047857' }}>{item.number || `#${item.id}`}</div>
-                                        )}
-                                      </td>
-                                      <td style={{ whiteSpace: 'nowrap' }}>
-                                        <div style={{ color: '#334155' }}>{item.transaction_date}</div>
-                                        {item.paid_at && <div style={{ fontSize: 9, color: '#059669', fontWeight: 600 }}>Bayar: {item.paid_at}</div>}
-                                      </td>
-                                      <td style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: '#1e293b' }}>
-                                        {item.party_name || '-'}
-                                      </td>
-                                      <td>
-                                        <span className={`badge-bs ${item.type === 'income' ? 'badge-bs-success' : 'badge-bs-danger'}`}>
-                                          {item.classification === 'Penggajian Karyawan' || item.source_type === 'salary' ? 'Penggajian' : (item.type === 'income' ? 'Pemasukan' : 'Pengeluaran')}
-                                        </span>
-                                      </td>
-                                      <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                        {isPending ? (
-                                          <div>
-                                            <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>Rp 0</span>
-                                            <div style={{ fontSize: 9, color: item.payment_status === 'overdue' ? '#dc2626' : '#d97706', fontWeight: 500 }}>
-                                              {item.type === 'expense' ? 'Rencana: ' : 'Tagihan: '}{money(item.expected_amount || item.amount)}
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <span style={{ color: item.type === 'income' ? '#047857' : '#be123c' }}>
-                                            {money(item.amount)}
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td>
-                                        <span className="badge-bs badge-bs-secondary" style={{ whiteSpace: 'nowrap' }}>
-                                          {getCashAccountDisplay(item)}
-                                        </span>
-                                      </td>
-                                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                        {isPending ? (
-                                          item.payment_status === 'overdue' ? (
-                                            <span className="badge-bs badge-bs-danger">⚠ Overdue</span>
-                                          ) : (
-                                            <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>
-                                          )
-                                        ) : related ? (
-                                          <span className="badge-bs badge-bs-success">
-                                            {isBalanced ? '✓ Paid' : `⚡ Partial (${money(item.amount)})`}
-                                          </span>
-                                        ) : (
-                                          <span className="badge-bs badge-bs-success">✓ Paid</span>
-                                        )}
-                                      </td>
-                                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                                          {isPending ? (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleAuditClick(item)}
-                                              className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold border border-slate-200 transition inline-flex items-center gap-1 cursor-pointer"
-                                              title="Lihat Detail Rencana"
-                                            >
-                                              <FileTextIcon style={{ width: 11, height: 11 }} /> Detail
-                                            </button>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleAuditClick(item)}
-                                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
-                                              title="Lihat Detail & Bukti Audit"
-                                            >
-                                              <FileTextIcon style={{ width: 11, height: 11 }} /> Audit
-                                            </button>
-                                          )}
-                                        </td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── Mode Tab Standar ── */
-                    <div className="fd-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
-                      <table className="fd-bs-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: '20%' }}>No. Dokumen</th>
-                            <th style={{ width: '13%' }}>Tanggal</th>
-                            <th style={{ width: '18%' }}>Pihak / Rekanan</th>
-                            <th style={{ width: '13%' }}>Klasifikasi</th>
-                            <th style={{ width: '14%' }}>Nominal</th>
-                            <th style={{ width: '12%' }}>Rekening</th>
-                            <th style={{ width: '10%', textAlign: 'center' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(auditTab === 'projection' ? filteredProjectionItems : filteredRealizationItems).length === 0 ? (
-                            <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>
-                              {searchTerm ? 'Tidak ada data yang cocok dengan pencarian.' : `Tidak ada data ${auditTab === 'projection' ? 'proyeksi' : 'realisasi'} untuk periode ini.`}
-                            </td></tr>
-                          ) : (
-                            (auditTab === 'projection' ? filteredProjectionItems : filteredRealizationItems).map((item, i) => {
-                              const idKey = item.id || item.number || i;
-                               const related = findRelated(item, auditTab);
-                               const matchKey = getMatchKey(item, related);
-                              const isHovered = hoveredMatchKey && hoveredMatchKey === matchKey;
-                              const isHigh = highlightedId === (item.id || item.number);
-                              const isPending = item.is_pending_realization || Number(item.amount) === 0;
-                              return (
-                                <tr
-                                  key={idKey}
-                                  id={`audit-row-${item.id || item.number}`}
-                                  className={`fd-row-clickable ${isHovered ? (auditTab === 'projection' ? 'fd-row-linked-active-blue' : 'fd-row-linked-active') : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
-                                  onMouseEnter={() => setHoveredMatchKey(matchKey)}
-                                  onMouseLeave={() => setHoveredMatchKey(null)}
-                                  onClick={() => handleAuditClick(item)}
-                                  title={`Hover untuk menyorot pasangan ${auditTab === 'projection' ? 'realisasi' : 'proyeksi'}; klik untuk detail audit.`}
-                                >
-                                  <td style={{ fontWeight: 600 }}>
-                                    {isPending ? (
-                                      <div>
-                                        <div style={{ color: '#334155', fontWeight: 700 }}>
-                                          {item.related_proj_number || item.number}
-                                        </div>
-                                        <span className="badge-bs badge-bs-secondary" style={{ fontSize: 9, padding: '1px 5px', marginTop: 2 }}>
-                                          {item.payment_status === 'overdue' ? 'Lewat Jatuh Tempo' : 'Menunggu Bayar'}
-                                        </span>
+                ) : (
+                  /* ── Mode Tab Standar ── */
+                  <div className="fd-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    <table className="fd-bs-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '20%' }}>No. Dokumen</th>
+                          <th style={{ width: '13%' }}>Tanggal</th>
+                          <th style={{ width: '18%' }}>Pihak / Rekanan</th>
+                          <th style={{ width: '13%' }}>Klasifikasi</th>
+                          <th style={{ width: '14%' }}>Nominal</th>
+                          <th style={{ width: '12%' }}>Rekening</th>
+                          <th style={{ width: '10%', textAlign: 'center' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(auditTab === 'projection' ? filteredProjectionItems : filteredRealizationItems).length === 0 ? (
+                          <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>
+                            {searchTerm ? 'Tidak ada data yang cocok dengan pencarian.' : `Tidak ada data ${auditTab === 'projection' ? 'proyeksi' : 'realisasi'} untuk periode ini.`}
+                          </td></tr>
+                        ) : (
+                          (auditTab === 'projection' ? filteredProjectionItems : filteredRealizationItems).map((item, i) => {
+                            const idKey = item.id || item.number || i;
+                            const related = findRelated(item, auditTab);
+                            const matchKey = getMatchKey(item, related);
+                            const isHovered = hoveredMatchKey && hoveredMatchKey === matchKey;
+                            const isHigh = highlightedId === (item.id || item.number);
+                            const isPending = item.is_pending_realization || Number(item.amount) === 0;
+                            return (
+                              <tr
+                                key={idKey}
+                                id={`audit-row-${item.id || item.number}`}
+                                className={`fd-row-clickable ${isHovered ? (auditTab === 'projection' ? 'fd-row-linked-active-blue' : 'fd-row-linked-active') : ''} ${isHigh ? 'fd-row-highlighted' : ''}`}
+                                onMouseEnter={() => setHoveredMatchKey(matchKey)}
+                                onMouseLeave={() => setHoveredMatchKey(null)}
+                                onClick={() => handleAuditClick(item)}
+                                title={`Hover untuk menyorot pasangan ${auditTab === 'projection' ? 'realisasi' : 'proyeksi'}; klik untuk detail audit.`}
+                              >
+                                <td style={{ fontWeight: 600 }}>
+                                  {isPending ? (
+                                    <div>
+                                      <div style={{ color: '#334155', fontWeight: 700 }}>
+                                        {item.related_proj_number || item.number}
                                       </div>
+                                      <span className="badge-bs badge-bs-secondary" style={{ fontSize: 9, padding: '1px 5px', marginTop: 2 }}>
+                                        {item.payment_status === 'overdue' ? 'Lewat Jatuh Tempo' : 'Menunggu Bayar'}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    item.number || `#${item.id}`
+                                  )}
+                                </td>
+                                <td>{item.transaction_date}</td>
+                                <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>{item.party_name || '-'}</td>
+                                <td>
+                                  <span className={`badge-bs ${item.type === 'income' ? 'badge-bs-success' : 'badge-bs-danger'}`}>
+                                    {item.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                                  </span>
+                                </td>
+                                <td style={{ fontWeight: 700, color: item.type === 'income' ? '#0f766e' : '#be123c' }}>
+                                  {isPending ? (
+                                    <div>
+                                      <span style={{ color: '#94a3b8', fontSize: 11 }}>Rp 0</span>
+                                      <div style={{ fontSize: 8.5, color: '#d97706' }}>Tagihan: {money(item.expected_amount || item.amount)}</div>
+                                    </div>
+                                  ) : (
+                                    money(item.amount)
+                                  )}
+                                </td>
+                                <td>
+                                  <span className="badge-bs badge-bs-secondary">{getCashAccountDisplay(item)}</span>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  {isPending ? (
+                                    item.payment_status === 'overdue' ? (
+                                      <span className="badge-bs badge-bs-danger">⚠ Overdue</span>
                                     ) : (
-                                      item.number || `#${item.id}`
-                                    )}
-                                  </td>
-                                  <td>{item.transaction_date}</td>
-                                  <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>{item.party_name || '-'}</td>
-                                  <td>
-                                    <span className={`badge-bs ${item.type === 'income' ? 'badge-bs-success' : 'badge-bs-danger'}`}>
-                                      {item.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
-                                    </span>
-                                  </td>
-                                  <td style={{ fontWeight: 700, color: item.type === 'income' ? '#0f766e' : '#be123c' }}>
-                                    {isPending ? (
-                                      <div>
-                                        <span style={{ color: '#94a3b8', fontSize: 11 }}>Rp 0</span>
-                                        <div style={{ fontSize: 8.5, color: '#d97706' }}>Tagihan: {money(item.expected_amount || item.amount)}</div>
-                                      </div>
-                                    ) : (
-                                      money(item.amount)
-                                    )}
-                                  </td>
-                                  <td>
-                                    <span className="badge-bs badge-bs-secondary">{getCashAccountDisplay(item)}</span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    {isPending ? (
-                                      item.payment_status === 'overdue' ? (
-                                        <span className="badge-bs badge-bs-danger">⚠ Overdue</span>
-                                      ) : (
-                                        <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>
-                                      )
-                                    ) : (
-                                      <span className="badge-bs badge-bs-success">✓ Paid</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                                      <span className="badge-bs badge-bs-warning">⏳ Unpaid</span>
+                                    )
+                                  ) : (
+                                    <span className="badge-bs badge-bs-success">✓ Paid</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </>
           ) : null}
         </div>

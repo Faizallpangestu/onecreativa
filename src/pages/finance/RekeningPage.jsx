@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { 
-  FinancePageHeader, 
-  FinanceKpiCard, 
-  FinanceFilterBar, 
-  FinanceTable, 
-  FinanceBadge, 
-  FinanceModal, 
-  formatRupiah, 
-  exportToExcel 
+import {
+  FinancePageHeader,
+  FinanceKpiCard,
+  FinanceFilterBar,
+  FinanceTable,
+  FinanceBadge,
+  FinanceModal,
+  formatRupiah,
+  exportToExcel
 } from "./FinancePageComponents";
 import { Landmark, CheckCircle2, XCircle, Plus, Eye, Pencil, Trash2 } from "lucide-react";
 import axios from "axios";
@@ -28,7 +28,7 @@ export default function RekeningPage() {
           if (!hasDummyBalances) return parsed;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,9 @@ export default function RekeningPage() {
   const fetchBanks = async (active = true) => {
     setLoading(true);
     try {
-      const res = await axios.get("/api/accounting.php?view=lookups");
+      const res = await axios.get("/api/accounting.php", {
+        params: { view: "lookups", _t: Date.now() }
+      });
       if (!active) return;
       if (res.data?.csrf_token) setCsrfToken(res.data.csrf_token);
       const rawBanks = res.data?.data?.banks || res.data?.banks || [];
@@ -132,7 +134,7 @@ export default function RekeningPage() {
       setData(updated);
       try {
         localStorage.setItem("finance_rekening_data", JSON.stringify(updated));
-      } catch (e) {}
+      } catch (e) { }
       setBusy(false);
       setDeletingItem(null);
     }

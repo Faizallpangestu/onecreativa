@@ -1,0 +1,270 @@
+{
+  "name": "OneCreativa - Invoice Automation Phase 1 (n8n + Playwright)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "creativa-phase1-invoice",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "1. Webhook Pendaftaran Masuk",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.body || $input.first().json;\nconst s = raw.student || raw.participant || raw;\nconst digits = String(s.phone || s.no_wa || s.noWhatsapp || '').replace(/[^0-9]/g, '');\nconst waPhone = digits.startsWith('0') ? '62' + digits.slice(1) : digits;\n\nreturn [{\n  json: {\n    secret: $env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026',\n    defer_delivery_log: false,\n    student: {\n      id: Number(s.id || s.web_id || 0),\n      nama: String(s.nama || s.name || s.namaLengkap || '').trim(),\n      phone: waPhone || String(s.phone || ''),\n      email: String(s.email || '').trim(),\n      noKtp: String(s.noKtp || s.no_ktp || '').trim(),\n      program: String(s.program || s.programMinat || 'Intensif Offline').trim(),\n      metodePembayaran: String(s.metodePembayaran || s.metode_pembayaran || s.tipe_pembayaran || 'Full Payment').trim(),\n      kotaDomisili: String(s.kotaDomisili || s.kota || 'Cianjur').trim(),\n      lokasiTinggal: String(s.lokasiTinggal || '').trim(),\n      batch: String(s.batch || 'Batch 2').trim(),\n      status: 'Pending',\n      screening: raw.screening || s.screening || null\n    }\n  }\n}];"
+      },
+      "id": "node-normalize",
+      "name": "2. Normalisasi Data & Skema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ONECREATIVA_BASE_URL || 'https://one.creativabridging.com'}}/api/webhook_registration.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-onecreativa-invoice",
+      "name": "3. API OneCreativa - Buat Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-created",
+              "leftValue": "={{Boolean($json.data[0].needs_delivery || $json.data[0].invoice_created_now)}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-check-new",
+      "name": "4. Perlu Kirim Invoice?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.PLAYWRIGHT_WORKER_URL || 'http://localhost:3100'}}/render-invoice-pdf?format=binary",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Worker-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ invoice_id: $json.data[0].invoice_id, invoice_url: $json.data[0].invoice_url }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "invoicePdf"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "node-playwright-pdf",
+      "name": "5. Playwright - Render PDF Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1190, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.WA_API_URL || 'https://api.fonnte.com/send'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$env.WA_API_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "target",
+              "value": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].whatsapp_phone}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].whatsapp_message}}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "invoicePdf"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "node-send-wa",
+      "name": "6a. Kirim WhatsApp + PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1460, 120],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "finance@creativabridging.com",
+        "toEmail": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].email}}",
+        "subject": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].email_subject}}",
+        "emailFormat": "html",
+        "html": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].email_html}}",
+        "options": {
+          "attachments": "invoicePdf"
+        }
+      },
+      "id": "node-send-email",
+      "name": "6b. Kirim Email + PDF",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1460, 320],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "node-merge-channels",
+      "name": "6c. Tunggu WA & Email",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1680, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inv = $('3. API OneCreativa - Buat Invoice').first().json.data[0];\nconst items = $input.all().map((i) => i.json || {});\nconst hasAnySuccess = items.some((x) => !x.error);\nconst kanal = items.length >= 2 ? 'Keduanya' : (inv.whatsapp_phone ? 'WhatsApp' : 'Email');\n\nreturn [{\n  json: {\n    action: 'mark_delivery',\n    invoice_id: inv.invoice_id,\n    customer: inv.nama,\n    kanal,\n    penerima: inv.whatsapp_phone || inv.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    stage: 'phase1_delivery',\n    details: { channelResponses: items }\n  }\n}];"
+      },
+      "id": "node-build-status",
+      "name": "6d. Ringkas Status Pengiriman",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ONECREATIVA_BASE_URL || 'https://one.creativabridging.com'}}/api/automation_status.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "node-callback-status",
+      "name": "7. Update Status Terkirim (OneCreativa)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2130, 220]
+    }
+  ],
+  "connections": {
+    "1. Webhook Pendaftaran Masuk": {
+      "main": [[{ "node": "2. Normalisasi Data & Skema", "type": "main", "index": 0 }]]
+    },
+    "2. Normalisasi Data & Skema": {
+      "main": [[{ "node": "3. API OneCreativa - Buat Invoice", "type": "main", "index": 0 }]]
+    },
+    "3. API OneCreativa - Buat Invoice": {
+      "main": [[{ "node": "4. Perlu Kirim Invoice?", "type": "main", "index": 0 }]]
+    },
+    "4. Perlu Kirim Invoice?": {
+      "main": [
+        [{ "node": "5. Playwright - Render PDF Invoice", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "5. Playwright - Render PDF Invoice": {
+      "main": [
+        [
+          { "node": "6a. Kirim WhatsApp + PDF", "type": "main", "index": 0 },
+          { "node": "6b. Kirim Email + PDF", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "6a. Kirim WhatsApp + PDF": {
+      "main": [[{ "node": "6c. Tunggu WA & Email", "type": "main", "index": 0 }]]
+    },
+    "6b. Kirim Email + PDF": {
+      "main": [[{ "node": "6c. Tunggu WA & Email", "type": "main", "index": 1 }]]
+    },
+    "6c. Tunggu WA & Email": {
+      "main": [[{ "node": "6d. Ringkas Status Pengiriman", "type": "main", "index": 0 }]]
+    },
+    "6d. Ringkas Status Pengiriman": {
+      "main": [[{ "node": "7. Update Status Terkirim (OneCreativa)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

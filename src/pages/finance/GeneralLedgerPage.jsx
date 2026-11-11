@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Layout from "../../components/Layout";
-import { 
-  FinancePageHeader, 
+import {
+  FinancePageHeader,
   FinanceKpiCard,
-  FinanceFilterBar, 
-  FinanceTable, 
-  formatRupiah, 
-  exportToExcel 
+  FinanceFilterBar,
+  FinanceTable,
+  formatRupiah,
+  exportToExcel
 } from "./FinancePageComponents";
 import { Landmark, ArrowDownRight, ArrowUpRight, Wallet, RefreshCw } from "lucide-react";
 import axios from "axios";
@@ -34,7 +34,7 @@ function formatDateIndo(dateStr) {
     if (parts.length === 3) {
       return `${parts[0]}-${parts[1]}-${parts[2]}`;
     }
-  } catch (e) {}
+  } catch (e) { }
   return dateStr;
 }
 
@@ -60,7 +60,7 @@ export default function GeneralLedgerPage() {
           setServerSalaries(res.data.data.requests);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     axios.get("/api/accounting.php?view=ledger")
       .then(res => {
@@ -68,7 +68,7 @@ export default function GeneralLedgerPage() {
           setServerLedger(res.data.data.rows);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => { active = false; };
   }, [refreshTrigger]);
@@ -106,7 +106,7 @@ export default function GeneralLedgerPage() {
                 ...c,
                 nama: "Petty Cash (Kas Kecil Tunai & Vendor Kecil)",
                 rekeningDetail: "Kasir & Kas Kecil Tunai Kantor",
-                saldo: c.saldo && Number(c.saldo) > 0 ? c.saldo : 5000000
+                saldo: c.saldo && Number(c.saldo) > 0 ? c.saldo : 0
               };
             }
             return c;
@@ -123,7 +123,7 @@ export default function GeneralLedgerPage() {
               rekeningDetail: "BCA a/n PT LPK Creativa Bridging Intern 1832-918-428",
               tipe: "Assets",
               kategori: "Cash and Bank",
-              saldo: 120000000,
+              saldo: 0,
               status: "Aktif"
             });
             needFix = true;
@@ -140,7 +140,7 @@ export default function GeneralLedgerPage() {
               rekeningDetail: "Kasir & Kas Kecil Tunai Kantor",
               tipe: "Assets",
               kategori: "Cash and Bank",
-              saldo: 5000000,
+              saldo: 0,
               status: "Aktif"
             });
             needFix = true;
@@ -149,7 +149,7 @@ export default function GeneralLedgerPage() {
           if (needFix) {
             try {
               localStorage.setItem("finance_coa_data", JSON.stringify(parsed));
-            } catch (e) {}
+            } catch (e) { }
           }
 
           return parsed.map(c => ({
@@ -161,7 +161,7 @@ export default function GeneralLedgerPage() {
           }));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return DEFAULT_COA_ACCOUNTS;
   }, []);
 
@@ -201,7 +201,7 @@ export default function GeneralLedgerPage() {
           });
         });
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. Saved custom invoices (Nova Dwi Khalifah, dll.) -> Masuk ke Rekening BCA (Pemasukan Besar)
     try {
@@ -249,7 +249,7 @@ export default function GeneralLedgerPage() {
           }
         });
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 3. Blueprint Invoices (Hany Agesti & Siti Aminah) -> Masuk ke Rekening BCA
     DEFAULT_BLUEPRINT_INVOICES.forEach(defInv => {
@@ -296,7 +296,7 @@ export default function GeneralLedgerPage() {
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     droppingPettyCashEvents.forEach(d => {
       if (!addedRefs.has(d.ref)) {
@@ -359,7 +359,7 @@ export default function GeneralLedgerPage() {
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Urutkan seluruh event berdasarkan tanggal secara kronologis (terlama ke terbaru untuk running ledger)
     events.sort((a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime());
@@ -512,15 +512,15 @@ export default function GeneralLedgerPage() {
   };
 
   const columns = [
-    { 
-      header: "Tanggal", 
-      accessor: "tanggal", 
+    {
+      header: "Tanggal",
+      accessor: "tanggal",
       className: "whitespace-nowrap font-medium w-28 text-slate-700",
       render: (r) => <span className="font-mono text-xs">{r.tanggal}</span>
     },
-    { 
-      header: "Deskripsi Transaksi Riil", 
-      accessor: "deskripsi", 
+    {
+      header: "Deskripsi Transaksi Riil",
+      accessor: "deskripsi",
       className: "font-semibold text-slate-800",
       render: (r) => (
         <div>
@@ -533,26 +533,26 @@ export default function GeneralLedgerPage() {
         </div>
       )
     },
-    { 
-      header: "Debit (Masuk)", 
-      accessor: "debit", 
+    {
+      header: "Debit (Masuk)",
+      accessor: "debit",
       align: "right",
       className: "font-mono font-medium text-emerald-600",
-      render: (r) => r.debit > 0 ? `+${formatRupiah(r.debit)}` : "—" 
+      render: (r) => r.debit > 0 ? `+${formatRupiah(r.debit)}` : "—"
     },
-    { 
-      header: "Kredit (Keluar)", 
-      accessor: "kredit", 
+    {
+      header: "Kredit (Keluar)",
+      accessor: "kredit",
       align: "right",
       className: "font-mono font-medium text-rose-600",
-      render: (r) => r.kredit > 0 ? `-${formatRupiah(r.kredit)}` : "—" 
+      render: (r) => r.kredit > 0 ? `-${formatRupiah(r.kredit)}` : "—"
     },
-    { 
-      header: "Saldo Berjalan", 
-      accessor: "saldo", 
-      align: "right", 
+    {
+      header: "Saldo Berjalan",
+      accessor: "saldo",
+      align: "right",
       className: "font-mono font-bold text-slate-900",
-      render: (r) => formatRupiah(r.saldo) 
+      render: (r) => formatRupiah(r.saldo)
     },
   ];
 

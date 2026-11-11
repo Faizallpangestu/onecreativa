@@ -9,6 +9,30 @@ require_once __DIR__.'/../services/accounting_vendor.php';
 require_once __DIR__.'/../services/accounting_journal.php';
 mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
 $requestId=bin2hex(random_bytes(8));header('X-Request-ID: '.$requestId);
+
+function ac_ensure_bank_transfers_table(mysqli $conn): void {
+    @mysqli_query($conn, "CREATE TABLE IF NOT EXISTS bank_transfers (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        transfer_number VARCHAR(60) NOT NULL UNIQUE,
+        transfer_date DATE NOT NULL,
+        from_bank_id INT UNSIGNED NOT NULL,
+        to_bank_id INT UNSIGNED NOT NULL,
+        from_account_id INT UNSIGNED NOT NULL,
+        to_account_id INT UNSIGNED NOT NULL,
+        from_name VARCHAR(255) NOT NULL,
+        to_name VARCHAR(255) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        admin_fee DECIMAL(15,2) NOT NULL DEFAULT 0,
+        notes TEXT NULL,
+        journal_entry_id BIGINT UNSIGNED NULL,
+        created_by INT UNSIGNED NOT NULL,
+        created_by_name VARCHAR(255) NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'Selesai',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(transfer_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
 try{
     $actor=session_actor($conn);if(!$actor)ac_fail('Silakan login kembali.',401);ac_require($conn,$actor,'read');ac_ready($conn);
     $csrf=$_SESSION['csrf_token']??'';$permissions=[];foreach(['read','prepare','approve','post','configure']as $p)$permissions[$p]=ac_can($conn,$actor,$p);
@@ -30,6 +54,8 @@ try{
                     'affiliator' => "VARCHAR(100) DEFAULT NULL",
                     'nis'        => "VARCHAR(50) NULL",
                     'program'    => "VARCHAR(150) DEFAULT 'Program Pelatihan Jepang'",
+                    'metode_pembayaran' => "VARCHAR(100) DEFAULT NULL",
+                    'total_biaya' => "DECIMAL(15,2) DEFAULT NULL",
                     'batch'      => "VARCHAR(100) DEFAULT 'Batch 2'",
                     'level'      => "VARCHAR(50) DEFAULT 'N5'",
                     'alamat'     => "TEXT DEFAULT NULL",
@@ -57,12 +83,14 @@ try{
                 $selPos = in_array('kode_pos', $pCols, true) ? "kode_pos" : "'43211' AS kode_pos";
                 $selNegara = in_array('negara', $pCols, true) ? "negara" : "'Indonesia' AS negara";
                 $selProgram = in_array('program', $pCols, true) ? "program" : "'Program Pelatihan Jepang' AS program";
+                $selMetode = in_array('metode_pembayaran', $pCols, true) ? "metode_pembayaran" : "'' AS metode_pembayaran";
+                $selTotalBiaya = in_array('total_biaya', $pCols, true) ? "total_biaya" : "0 AS total_biaya";
                 $selStatus = in_array('status', $pCols, true) ? "status" : "'Aktif' AS status";
                 $selName = in_array('nama_lengkap', $pCols, true) ? "nama_lengkap AS name" : (in_array('nama', $pCols, true) ? "nama AS name" : "'Siswa' AS name");
                 $selPhone = in_array('no_wa', $pCols, true) ? "no_wa" : (in_array('phone', $pCols, true) ? "phone AS no_wa" : "'' AS no_wa");
                 $selEmail = in_array('email', $pCols, true) ? "email" : "'' AS email";
 
-                $students = ac_rows($conn, "SELECT id, $selName, $selBatch, $selPhone, $selEmail, $selLevel, $selNis, $selAffiliator, $selAlamat, $selKota, $selProv, $selPos, $selNegara, $selProgram, $selStatus FROM peserta_intensif ORDER BY id DESC");
+                $students = ac_rows($conn, "SELECT id, $selName, $selBatch, $selPhone, $selEmail, $selLevel, $selNis, $selAffiliator, $selAlamat, $selKota, $selProv, $selPos, $selNegara, $selProgram, $selMetode, $selTotalBiaya, $selStatus FROM peserta_intensif ORDER BY id DESC");
             }
             $accounts = [];
             if (ac_table($conn, 'accounts')) {
@@ -134,6 +162,16 @@ try{
             $accFilter = !empty($_GET['account_id']) ? "WHERE r.account_id=" . (int)$_GET['account_id'] : "";
             $data = ac_rows($conn, "SELECT r.*, a.name AS account_name, a.code AS account_code FROM bank_reconciliations r LEFT JOIN accounts a ON a.id=r.account_id $accFilter ORDER BY r.id DESC");
         }
+        elseif($view==='transfers'){
+            ac_ensure_bank_transfers_table($conn);
+            $hasJl = ac_table($conn, 'journal_lines') && ac_table($conn, 'journal_entries');
+            $balSub = $hasJl ? "COALESCE((SELECT SUM(jl.debit - jl.credit) FROM journal_lines jl JOIN journal_entries je ON je.id=jl.journal_entry_id WHERE jl.account_id=b.account_id AND je.status='posted'), 0)" : "0";
+            $banks = (ac_table($conn,'cash_bank_accounts') && ac_table($conn,'accounts'))
+                ? ac_rows($conn, "SELECT b.*, a.code, $balSub AS balance FROM cash_bank_accounts b LEFT JOIN accounts a ON a.id=b.account_id WHERE b.is_active=1 ORDER BY b.name")
+                : [];
+            $transfers = ac_rows($conn, "SELECT * FROM bank_transfers ORDER BY transfer_date DESC, id DESC");
+            $data = ['banks' => $banks, 'transfers' => $transfers];
+        }
         elseif($view==='ledger')$data=ac_ledger($conn,$_GET);
         else ac_fail('View tidak dikenal.',400);
     }elseif($_SERVER['REQUEST_METHOD']==='POST'){
@@ -141,6 +179,154 @@ try{
         $multipart=str_contains($_SERVER['CONTENT_TYPE']??'','multipart/form-data');$body=json_decode($multipart?($_POST['payload']??''):file_get_contents('php://input'),true,512,JSON_THROW_ON_ERROR);if(!is_array($body)||array_is_list($body))ac_fail('Payload harus object.',400);
         $action=$body['action']??'';
         if(in_array($action,['create','update'],true))$data=ac_transaction_create($conn,$actor,$body,$_FILES['proof']??null);
+        elseif($action==='bank_transfer'){
+            if(!ac_can($conn,$actor,'prepare') && !ac_can($conn,$actor,'post') && !ac_can($conn,$actor,'configure')) {
+                ac_fail('Anda tidak berhak melakukan pemindahan dana antar rekening.', 403);
+            }
+            ac_ensure_bank_transfers_table($conn);
+            $fromBankId = ac_id($body['from_bank_id'] ?? null, 'Rekening asal');
+            $toBankId   = ac_id($body['to_bank_id'] ?? null, 'Rekening tujuan');
+            if ($fromBankId === $toBankId) ac_fail('Rekening asal dan rekening tujuan tidak boleh sama.');
+
+            $amountNum = round((float)($body['amount'] ?? $body['nominal'] ?? 0), 2);
+            $feeNum    = max(0.0, round((float)($body['admin_fee'] ?? $body['biayaAdmin'] ?? 0), 2));
+            if ($amountNum <= 0) ac_fail('Nominal transfer harus lebih dari 0.');
+
+            $amountStr = number_format($amountNum, 2, '.', '');
+            $feeStr    = number_format($feeNum, 2, '.', '');
+            $totalNum  = round($amountNum + $feeNum, 2);
+            $totalStr  = number_format($totalNum, 2, '.', '');
+
+            $date  = ac_date($body['transfer_date'] ?? $body['tanggal'] ?? date('Y-m-d'));
+            $notes = trim((string)($body['notes'] ?? $body['catatan'] ?? ''));
+            if (mb_strlen($notes) > 1000) ac_fail('Catatan transfer maksimal 1000 karakter.');
+            if ($notes === '') $notes = 'Transfer pemindahan dana internal';
+
+            $data = ac_atomic($conn, function() use ($conn, $actor, $fromBankId, $toBankId, $amountNum, $feeNum, $totalNum, $amountStr, $feeStr, $totalStr, $date, $notes) {
+                $fromBank = ac_one($conn, "SELECT b.*, a.is_active AS acc_active, a.is_detail AS acc_detail FROM cash_bank_accounts b JOIN accounts a ON a.id=b.account_id WHERE b.id=? FOR UPDATE", [$fromBankId]);
+                $toBank   = ac_one($conn, "SELECT b.*, a.is_active AS acc_active, a.is_detail AS acc_detail FROM cash_bank_accounts b JOIN accounts a ON a.id=b.account_id WHERE b.id=? FOR UPDATE", [$toBankId]);
+                if (!$fromBank || !(int)$fromBank['is_active']) ac_fail('Rekening asal tidak ditemukan atau nonaktif.', 404);
+                if (!$toBank || !(int)$toBank['is_active']) ac_fail('Rekening tujuan tidak ditemukan atau nonaktif.', 404);
+
+                $periodMonth = substr($date, 0, 7);
+                ac_query($conn, "INSERT IGNORE INTO accounting_periods (month, status) VALUES (?, 'open')", [$periodMonth]);
+                $periodRow = ac_one($conn, "SELECT status FROM accounting_periods WHERE month=?", [$periodMonth]);
+                if (($periodRow['status'] ?? 'open') !== 'open') ac_fail('Periode akuntansi untuk tanggal transfer ini sudah ditutup.', 409);
+
+                $balRow = ac_one($conn, "SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS balance FROM journal_lines jl JOIN journal_entries je ON je.id=jl.journal_entry_id WHERE jl.account_id=? AND je.status='posted'", [(int)$fromBank['account_id']]);
+                $currentBal = (float)($balRow['balance'] ?? 0);
+                if ($currentBal + 0.001 < $totalNum) {
+                    ac_fail("Saldo pada rekening {$fromBank['name']} tidak mencukupi! Saldo tersedia: Rp " . number_format($currentBal, 0, ',', '.') . ", dibutuhkan: Rp " . number_format($totalNum, 0, ',', '.'), 409);
+                }
+
+                if (!(int)$fromBank['acc_active'] || !(int)$fromBank['acc_detail']) {
+                    ac_query($conn, "UPDATE accounts SET is_active=1, is_detail=1 WHERE id=?", [(int)$fromBank['account_id']]);
+                }
+                if (!(int)$toBank['acc_active'] || !(int)$toBank['acc_detail']) {
+                    ac_query($conn, "UPDATE accounts SET is_active=1, is_detail=1 WHERE id=?", [(int)$toBank['account_id']]);
+                }
+
+                $lines = [
+                    [
+                        'account_id' => (int)$toBank['account_id'],
+                        'debit' => $amountStr,
+                        'credit' => '0.00',
+                        'cash_flow_class' => 'transfer',
+                        'party_name' => $toBank['name'],
+                    ],
+                ];
+
+                if ($feeNum > 0) {
+                    $feeAcc = ac_one($conn, "SELECT id, is_detail, is_active FROM accounts WHERE (code='5210' OR LOWER(name) LIKE '%administrasi bank%' OR LOWER(name) LIKE '%admin bank%') AND account_group=5 ORDER BY code LIMIT 1");
+                    if (!$feeAcc) {
+                        $feeAcc = ac_one($conn, "SELECT id, is_detail, is_active FROM accounts WHERE code='5200' LIMIT 1");
+                    }
+                    if (!$feeAcc) {
+                        $maxExpRow = ac_one($conn, "SELECT MAX(code) AS max_code FROM accounts WHERE code LIKE '5%' AND LENGTH(code)=4");
+                        $nextExpCode = (!empty($maxExpRow['max_code']) && (int)$maxExpRow['max_code'] >= 5200) ? (string)((int)$maxExpRow['max_code'] + 1) : '5210';
+                        ac_query($conn, "INSERT INTO accounts (code, name, account_group, normal_balance, is_detail, is_active, report_class) VALUES (?, 'Biaya Administrasi Bank', 5, 'debit', 1, 1, 'operating_expense')", [$nextExpCode]);
+                        $feeAccId = (int)$conn->insert_id;
+                    } else {
+                        $feeAccId = (int)$feeAcc['id'];
+                        if (!(int)$feeAcc['is_detail'] || !(int)$feeAcc['is_active']) {
+                            ac_query($conn, "UPDATE accounts SET is_detail=1, is_active=1 WHERE id=?", [$feeAccId]);
+                        }
+                    }
+                    $lines[] = [
+                        'account_id' => $feeAccId,
+                        'debit' => $feeStr,
+                        'credit' => '0.00',
+                        'cash_flow_class' => 'operating',
+                        'party_name' => $fromBank['name'],
+                    ];
+                }
+
+                $lines[] = [
+                    'account_id' => (int)$fromBank['account_id'],
+                    'debit' => '0.00',
+                    'credit' => $totalStr,
+                    'cash_flow_class' => 'transfer',
+                    'party_name' => $fromBank['name'],
+                ];
+
+                $tempRef = 'TRF-' . date('Y', strtotime($date)) . '-TMP-' . bin2hex(random_bytes(4));
+                $actorId = (int)($actor['id'] ?? 1);
+                $actorName = (string)($actor['name'] ?? $actor['full_name'] ?? $actor['email'] ?? 'Finance');
+
+                ac_query($conn, "INSERT INTO bank_transfers (transfer_number, transfer_date, from_bank_id, to_bank_id, from_account_id, to_account_id, from_name, to_name, amount, admin_fee, notes, created_by, created_by_name, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Selesai')",
+                    [$tempRef, $date, $fromBankId, $toBankId, (int)$fromBank['account_id'], (int)$toBank['account_id'], $fromBank['name'], $toBank['name'], $amountStr, $feeStr, $notes, $actorId, $actorName]);
+                $transferId = (int)$conn->insert_id;
+                $trfNumber = 'TRF-' . date('Y', strtotime($date)) . '-' . str_pad((string)$transferId, 5, '0', STR_PAD_LEFT);
+
+                $desc = "Transfer Dana Internal: {$fromBank['name']} -> {$toBank['name']} ($notes)";
+                $journal = ac_post($conn, $actor, $date, 'bank_transfer', (string)$transferId, 'posted', $desc, $lines);
+                $journalId = (int)$journal['id'];
+
+                ac_query($conn, "UPDATE bank_transfers SET transfer_number=?, journal_entry_id=? WHERE id=?", [$trfNumber, $journalId, $transferId]);
+                ac_audit($conn, $actor, 'bank_transfer', (string)$transferId, 'transferred', [
+                    'transfer_number' => $trfNumber,
+                    'from_bank' => $fromBank['name'],
+                    'to_bank' => $toBank['name'],
+                    'amount' => $amountStr,
+                    'admin_fee' => $feeStr,
+                    'journal_entry_id' => $journalId,
+                ]);
+
+                $savedTransfer = ac_one($conn, "SELECT * FROM bank_transfers WHERE id=?", [$transferId]);
+                return [
+                    'transfer' => $savedTransfer,
+                    'journal_entry_id' => $journalId,
+                    'from_new_balance' => round($currentBal - $totalNum, 2),
+                ];
+            });
+        }
+        elseif($action==='delete_bank_transfer'){
+            if(!ac_can($conn,$actor,'post') && !ac_can($conn,$actor,'configure') && !ac_can($conn,$actor,'prepare')) {
+                ac_fail('Anda tidak berhak membatalkan transfer dana.', 403);
+            }
+            ac_ensure_bank_transfers_table($conn);
+            $trfId = ac_id($body['id'] ?? null, 'ID transfer');
+            $data = ac_atomic($conn, function() use ($conn, $actor, $trfId) {
+                $trf = ac_one($conn, "SELECT * FROM bank_transfers WHERE id=? FOR UPDATE", [$trfId]);
+                if (!$trf) ac_fail('Catatan transfer tidak ditemukan.', 404);
+                if (!empty($trf['journal_entry_id'])) {
+                    $jId = (int)$trf['journal_entry_id'];
+                    $existingRev = ac_one($conn, "SELECT id FROM journal_entries WHERE reversal_of=?", [$jId]);
+                    if (!$existingRev) {
+                        $revDate = date('Y-m-d');
+                        $periodMonth = substr($revDate, 0, 7);
+                        ac_query($conn, "INSERT IGNORE INTO accounting_periods (month, status) VALUES (?, 'open')", [$periodMonth]);
+                        ac_reverse($conn, $actor, $jId, $revDate, 'Pembatalan transfer dana ' . $trf['transfer_number']);
+                    }
+                }
+                ac_query($conn, "DELETE FROM bank_transfers WHERE id=?", [$trfId]);
+                ac_audit($conn, $actor, 'bank_transfer', (string)$trfId, 'deleted_and_reversed', [
+                    'transfer_number' => $trf['transfer_number'],
+                    'amount' => $trf['amount'],
+                ]);
+                return ['id' => $trfId, 'deleted' => true];
+            });
+        }
         elseif($action==='realize')$data=ac_budget_realize($conn,$actor,$body,$_FILES['proof']??null);
         elseif(in_array($action,['vendor_bill','approve_bill'],true))$data=ac_vendor_bill($conn,$actor,$body);
         elseif($action==='recognize')$data=ac_recognize($conn,$actor,$body);

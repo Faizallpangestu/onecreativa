@@ -1,0 +1,204 @@
+{
+  "name": "OneCreativa - Auto Receipt PDF Phase 2 (n8n + Playwright)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "creativa-phase2-receipt",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-p2-webhook",
+      "name": "1. Webhook Pembayaran Terverifikasi",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.body || $input.first().json;\nconst digits = String(raw.whatsapp_phone || raw.phone || '').replace(/[^0-9]/g, '');\nconst waPhone = digits.startsWith('0') ? '62' + digits.slice(1) : digits;\nreturn [{\n  json: {\n    ...raw,\n    whatsapp_phone: waPhone,\n    receipt_number: raw.receipt_number || ('RCT-' + String(raw.payment_id || '0000')),\n  }\n}];"
+      },
+      "id": "node-p2-normalize",
+      "name": "2. Normalisasi Payload Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.PLAYWRIGHT_WORKER_URL || 'http://localhost:3100'}}/render-receipt-pdf?format=binary",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Worker-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ document_type: 'receipt', receipt_number: $json.receipt_number, invoice_id: $json.invoice_id, receipt_url: $json.receipt_url }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "receiptPdf"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "node-p2-playwright",
+      "name": "3. Playwright - Render PDF Receipt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [710, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.WA_API_URL || 'https://api.fonnte.com/send'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$env.WA_API_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "target",
+              "value": "={{$('2. Normalisasi Payload Receipt').first().json.whatsapp_phone}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$('2. Normalisasi Payload Receipt').first().json.whatsapp_message}}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "receiptPdf"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "node-p2-wa",
+      "name": "4a. Kirim WhatsApp Receipt + PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [990, 180],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "finance@creativabridging.com",
+        "toEmail": "={{$('2. Normalisasi Payload Receipt').first().json.email}}",
+        "subject": "={{$('2. Normalisasi Payload Receipt').first().json.email_subject}}",
+        "emailFormat": "html",
+        "html": "={{$('2. Normalisasi Payload Receipt').first().json.email_html}}",
+        "options": {
+          "attachments": "receiptPdf"
+        }
+      },
+      "id": "node-p2-email",
+      "name": "4b. Kirim Email Receipt + PDF",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [990, 410],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "node-p2-merge",
+      "name": "5a. Tunggu WA & Email",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1230, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $('2. Normalisasi Payload Receipt').first().json;\nconst items = $input.all().map((i) => i.json || {});\nconst hasAnySuccess = items.some((x) => !x.error);\n\nreturn [{\n  json: {\n    action: 'mark_receipt_delivery',\n    invoice_id: payload.invoice_id,\n    stage: 'phase2_receipt',\n    kanal: 'Keduanya',\n    penerima: payload.whatsapp_phone || payload.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    details: {\n      receipt_number: payload.receipt_number,\n      payment_id: payload.payment_id,\n      channelResponses: items\n    }\n  }\n}];"
+      },
+      "id": "node-p2-build-log",
+      "name": "5b. Ringkas Status Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ONECREATIVA_BASE_URL || 'https://one.creativabridging.com'}}/api/automation_status.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "node-p2-callback",
+      "name": "6. Catat Status Receipt (OneCreativa)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1700, 300]
+    }
+  ],
+  "connections": {
+    "1. Webhook Pembayaran Terverifikasi": {
+      "main": [[{ "node": "2. Normalisasi Payload Receipt", "type": "main", "index": 0 }]]
+    },
+    "2. Normalisasi Payload Receipt": {
+      "main": [[{ "node": "3. Playwright - Render PDF Receipt", "type": "main", "index": 0 }]]
+    },
+    "3. Playwright - Render PDF Receipt": {
+      "main": [
+        [
+          { "node": "4a. Kirim WhatsApp Receipt + PDF", "type": "main", "index": 0 },
+          { "node": "4b. Kirim Email Receipt + PDF", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "4a. Kirim WhatsApp Receipt + PDF": {
+      "main": [[{ "node": "5a. Tunggu WA & Email", "type": "main", "index": 0 }]]
+    },
+    "4b. Kirim Email Receipt + PDF": {
+      "main": [[{ "node": "5a. Tunggu WA & Email", "type": "main", "index": 1 }]]
+    },
+    "5a. Tunggu WA & Email": {
+      "main": [[{ "node": "5b. Ringkas Status Receipt", "type": "main", "index": 0 }]]
+    },
+    "5b. Ringkas Status Receipt": {
+      "main": [[{ "node": "6. Catat Status Receipt (OneCreativa)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+

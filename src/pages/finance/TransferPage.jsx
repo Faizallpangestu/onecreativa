@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import axios from 'axios';
 import Layout from '../../components/Layout';
 import {
   FinancePageHeader,
@@ -17,102 +18,64 @@ import {
   AlertCircle,
   Trash2,
   Landmark,
-  ArrowRight
+  ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 
-const INITIAL_TRANSFER_HISTORY = [];
+function mapServerBanks(rawBanks = []) {
+  return (rawBanks || []).map((b) => ({
+    id: String(b.id),
+    bankId: Number(b.id),
+    accountId: Number(b.account_id),
+    name: `${b.name}${b.account_number && b.account_number !== '—' && b.account_number !== '-' ? ` (${b.account_number})` : ''}`,
+    rawName: b.name,
+    bank: b.bank_name || b.name,
+    noRek: b.account_number || '',
+    balance: Number(b.balance || 0),
+    source: 'rekening',
+    originalId: b.id,
+  }));
+}
 
-function loadTransferAccounts() {
-  let list = [];
+function mapServerTransfers(rawTransfers = []) {
+  return (rawTransfers || []).map((t) => ({
+    id: t.transfer_number,
+    dbId: Number(t.id),
+    tanggal: t.transfer_date,
+    dari: t.from_name,
+    ke: t.to_name,
+    nominal: Number(t.amount || 0),
+    biayaAdmin: Number(t.admin_fee || 0),
+    status: t.status || 'Selesai',
+    catatan: t.notes || '',
+  }));
+}
 
-  // 1. Ambil akun primer dari finance_rekening_data
+function loadCachedAccounts() {
   try {
     const rekRaw = localStorage.getItem('finance_rekening_data');
     if (rekRaw) {
       const rekList = JSON.parse(rekRaw);
       if (Array.isArray(rekList) && rekList.length > 0) {
-        rekList.forEach((item) => {
-          list.push({
-            id: `rek_${item.id}`,
-            name: `${item.nama}${item.noRek && item.noRek !== '—' ? ` (${item.noRek})` : ''}`,
-            rawName: item.nama,
-            bank: item.bank || item.nama,
-            balance: Number(item.saldo || 0),
-            source: 'rekening',
-            originalId: item.id,
-          });
-        });
+        return rekList.map((item) => ({
+          id: String(item.id),
+          bankId: Number(item.id),
+          name: `${item.nama}${item.noRek && item.noRek !== '—' && item.noRek !== '-' ? ` (${item.noRek})` : ''}`,
+          rawName: item.nama,
+          bank: item.bank || item.nama,
+          noRek: item.noRek || '',
+          balance: Number(item.saldo || 0),
+          source: 'rekening',
+          originalId: item.id,
+        }));
       }
     }
-  } catch (e) {}
-
-  // 2. Jika belum ada di rekening, ambil akun Kas & Bank dari COA
-  if (list.length === 0) {
-    try {
-      const coaRaw = localStorage.getItem('finance_coa_data');
-      if (coaRaw) {
-        const coaList = JSON.parse(coaRaw);
-        if (Array.isArray(coaList)) {
-          const cb = coaList.filter(
-            (c) => c.tipe === 'Assets' && (c.kategori === 'Cash and Bank' || c.subtype === 'AST-CB')
-          );
-          cb.forEach((item) => {
-            list.push({
-              id: `coa_${item.id}`,
-              name: `${item.nama}${item.rekeningDetail ? ` (${item.rekeningDetail})` : item.kode ? ` (${item.kode})` : ''}`,
-              rawName: item.nama,
-              bank: item.nama,
-              balance: Number(item.saldo || 0),
-              source: 'coa',
-              originalId: item.id,
-            });
-          });
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 3. Fallback akun resmi Creativa Bridging Intern
-  if (list.length === 0) {
-    list = [
-      { id: 'rek_1', name: 'Rekening BCA Creativa Bridging Intern (1832-918-428)', rawName: 'Rekening BCA Creativa Bridging Intern', bank: 'Bank BCA', balance: 144200000, source: 'rekening', originalId: 1 },
-      { id: 'rek_2', name: 'Petty Cash (Kas Kecil Tunai & Vendor Kecil) (CASH-01)', rawName: 'Petty Cash (Kas Kecil Tunai & Vendor Kecil)', bank: 'Kas Tunai Kasir', balance: 5000000, source: 'rekening', originalId: 2 },
-      { id: 'rek_3', name: 'Rekening Cadangan Mandiri (130-0019283)', rawName: 'Rekening Cadangan Mandiri', bank: 'Bank Mandiri', balance: 25000000, source: 'rekening', originalId: 3 },
-      { id: 'rek_4', name: 'E-Wallet Bisnis (DANA / Flip) (0812-9988-7766)', rawName: 'E-Wallet Bisnis (DANA / Flip)', bank: 'DANA Bisnis', balance: 12500000, source: 'rekening', originalId: 4 },
-    ];
-  }
-
-  // Auto-heal balances dari COA jika tersedia
-  try {
-    const coaRaw = localStorage.getItem('finance_coa_data');
-    if (coaRaw) {
-      const coaList = JSON.parse(coaRaw);
-      if (Array.isArray(coaList)) {
-        list = list.map(acc => {
-          const accLower = acc.name.toLowerCase();
-          if (accLower.includes('bca')) {
-            const bcaCoa = coaList.find(c => String(c.kode) === '1002' || (c.nama && c.nama.toLowerCase().includes('bca') && !c.nama.toLowerCase().includes('petty')));
-            if (bcaCoa && Number(bcaCoa.saldo) > 0) {
-              return { ...acc, balance: Number(bcaCoa.saldo) };
-            }
-          }
-          if (accLower.includes('petty') || accLower.includes('kas kecil')) {
-            const pettyCoa = coaList.find(c => String(c.kode) === '1001' || (c.nama && (c.nama.toLowerCase().includes('petty') || c.nama.toLowerCase().includes('kas kecil'))));
-            if (pettyCoa && Number(pettyCoa.saldo) > 0) {
-              return { ...acc, balance: Number(pettyCoa.saldo) };
-            }
-          }
-          return acc;
-        });
-      }
-    }
-  } catch (e) {}
-
-  return list;
+  } catch (e) { }
+  return [];
 }
 
 export default function TransferPage() {
-  const [accounts, setAccounts] = useState(() => loadTransferAccounts());
+  const [accounts, setAccounts] = useState(() => loadCachedAccounts());
   const [fromAccount, setFromAccount] = useState(() => (accounts[0] ? accounts[0].id : ''));
   const [toAccount, setToAccount] = useState(() => (accounts[1] ? accounts[1].id : accounts[0] ? accounts[0].id : ''));
   const [nominal, setNominal] = useState('');
@@ -122,183 +85,197 @@ export default function TransferPage() {
   );
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busyDelete, setBusyDelete] = useState(false);
+  const [csrfToken, setCsrfToken] = useState('');
   const [successNotice, setSuccessNotice] = useState(null);
+  const [errorNotice, setErrorNotice] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
   const [search, setSearch] = useState('');
+  const [history, setHistory] = useState([]);
 
-  // Transfer history matching system
-  const [history, setHistory] = useState(() => {
+  const syncAccountsToLocalCache = (rawBanks = []) => {
     try {
-      const saved = localStorage.getItem('finance_transfer_history');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(item => !String(item.id).startsWith('TRF-2026-00'));
-        }
+      const cacheFormat = rawBanks.map((b, i) => {
+        const isCash = (b.name || '').toLowerCase().includes('kas') || (b.name || '').toLowerCase().includes('petty');
+        const isWallet = (b.name || '').toLowerCase().includes('wallet') || (b.name || '').toLowerCase().includes('dana');
+        return {
+          id: b.id || i + 1,
+          nama: b.name,
+          jenis: isCash ? 'Tunai' : isWallet ? 'E-Wallet' : 'Bank',
+          bank: b.bank_name || (isCash ? 'Kas Tunai Kasir' : 'Bank BCA'),
+          noRek: b.account_number || (isCash ? 'CASH-01' : '—'),
+          saldo: Number(b.balance || 0),
+          status: Number(b.is_active) === 0 ? 'Nonaktif' : 'Aktif',
+        };
+      });
+      localStorage.setItem('finance_rekening_data', JSON.stringify(cacheFormat));
+      localStorage.removeItem('finance_coa_data');
+      localStorage.removeItem('finance_transfer_history');
+    } catch (e) { }
+  };
+
+  const fetchTransferData = useCallback(async (isMountedCheck = () => true) => {
+    setLoading(true);
+    try {
+      const res = await axios.get('/api/accounting.php', {
+        params: { view: 'transfers', _t: Date.now() },
+      });
+      if (!isMountedCheck()) return null;
+      const token = res.data?.csrf_token || '';
+      if (token) setCsrfToken(token);
+
+      const rawBanks = res.data?.data?.banks || [];
+      const rawTransfers = res.data?.data?.transfers || [];
+
+      const mappedBanks = mapServerBanks(rawBanks);
+      const mappedTransfers = mapServerTransfers(rawTransfers);
+
+      setAccounts(mappedBanks);
+      setHistory(mappedTransfers);
+      syncAccountsToLocalCache(rawBanks);
+      return token;
+    } catch (err) {
+      if (isMountedCheck()) {
+        console.warn('Gagal memuat data transfer & saldo rekening:', err);
+        setErrorNotice(err?.response?.data?.message || 'Gagal memuat saldo rekening dari database server.');
       }
-    } catch (e) {}
-    return [];
-  });
+      return null;
+    } finally {
+      if (isMountedCheck()) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('finance_transfer_history', JSON.stringify(history));
-    } catch (e) {}
-  }, [history]);
+    let active = true;
+    fetchTransferData(() => active);
+    return () => { active = false; };
+  }, [fetchTransferData]);
 
   // Pastikan akun sumber dan tujuan valid saat daftar akun berubah
   useEffect(() => {
     if (accounts.length > 0) {
-      if (!accounts.some((a) => a.id === fromAccount)) {
+      if (!accounts.some((a) => String(a.id) === String(fromAccount))) {
         setFromAccount(accounts[0].id);
       }
-      if (!accounts.some((a) => a.id === toAccount)) {
+      if (!accounts.some((a) => String(a.id) === String(toAccount))) {
         setToAccount(accounts[1] ? accounts[1].id : accounts[0].id);
       }
     }
-  }, [accounts]);
+  }, [accounts, fromAccount, toAccount]);
 
-  const handleSubmit = (e) => {
+  const ensureCsrfToken = async () => {
+    if (csrfToken) return csrfToken;
+    const res = await axios.get('/api/accounting.php', {
+      params: { view: 'transfers', _t: Date.now() },
+    });
+    const freshToken = res.data?.csrf_token || '';
+    if (freshToken) setCsrfToken(freshToken);
+    return freshToken;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorNotice(null);
+    setSuccessNotice(null);
+
     const numTransfer = parseFloat(nominal);
     const numFee = parseFloat(adminFee || 0);
     const totalDeduction = numTransfer + numFee;
 
-    if (!nominal || numTransfer <= 0) {
-      alert('Mohon masukkan nominal transfer yang valid');
+    if (!nominal || isNaN(numTransfer) || numTransfer <= 0) {
+      setErrorNotice('Mohon masukkan nominal transfer yang valid (lebih dari 0).');
       return;
     }
-    if (fromAccount === toAccount) {
-      alert('Rekening asal dan tujuan tidak boleh sama');
+    if (isNaN(numFee) || numFee < 0) {
+      setErrorNotice('Biaya admin tidak valid.');
+      return;
+    }
+    if (String(fromAccount) === String(toAccount)) {
+      setErrorNotice('Rekening asal dan rekening tujuan tidak boleh sama.');
       return;
     }
 
-    const fromAccObj = accounts.find((a) => a.id === fromAccount);
-    const toAccObj = accounts.find((a) => a.id === toAccount);
+    const fromAccObj = accounts.find((a) => String(a.id) === String(fromAccount));
+    const toAccObj = accounts.find((a) => String(a.id) === String(toAccount));
 
     if (!fromAccObj || !toAccObj) {
-      alert('Rekening tidak valid');
+      setErrorNotice('Rekening tidak valid atau belum dimuat dari server.');
       return;
     }
 
-    if (fromAccObj.balance < totalDeduction) {
-      alert(
-        `Saldo pada rekening ${fromAccObj.name} tidak mencukupi!\nSaldo tersedia: ${formatRupiah(fromAccObj.balance)}\nTotal dibutuhkan: ${formatRupiah(totalDeduction)} (termasuk admin ${formatRupiah(numFee)})`
+    if (fromAccObj.balance + 0.001 < totalDeduction) {
+      setErrorNotice(
+        `Saldo pada rekening ${fromAccObj.name} tidak mencukupi! Saldo tersedia: ${formatRupiah(fromAccObj.balance)}, Total dibutuhkan: ${formatRupiah(totalDeduction)}`
       );
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      // 1. Potong saldo asal & tambah saldo tujuan di local state
-      const updatedAccounts = accounts.map((acc) => {
-        if (acc.id === fromAccount) {
-          return { ...acc, balance: Math.max(0, acc.balance - totalDeduction) };
-        }
-        if (acc.id === toAccount) {
-          return { ...acc, balance: acc.balance + numTransfer };
-        }
-        return acc;
+    try {
+      const token = await ensureCsrfToken();
+      const payload = {
+        action: 'bank_transfer',
+        from_bank_id: Number(fromAccObj.bankId || fromAccObj.originalId),
+        to_bank_id: Number(toAccObj.bankId || toAccObj.originalId),
+        amount: numTransfer,
+        admin_fee: numFee,
+        transfer_date: transferDate,
+        notes: notes?.trim() || 'Transfer pemindahan dana internal',
+      };
+
+      const res = await axios.post('/api/accounting.php', payload, {
+        headers: { 'X-CSRF-Token': token },
       });
-      setAccounts(updatedAccounts);
 
-      // 2. Sinkronkan saldo baru ke Rekening (finance_rekening_data)
-      try {
-        const rekRaw = localStorage.getItem('finance_rekening_data');
-        if (rekRaw) {
-          let rekList = JSON.parse(rekRaw);
-          rekList = rekList.map((item) => {
-            const itemStr = `${item.nama} ${item.bank}`.toLowerCase();
-            const fromStr = `${fromAccObj.name} ${fromAccObj.bank || ''}`.toLowerCase();
-            const toStr = `${toAccObj.name} ${toAccObj.bank || ''}`.toLowerCase();
+      const savedTrf = res.data?.data?.transfer;
+      const trfNo = savedTrf?.transfer_number || '';
 
-            if (item.id === fromAccObj.originalId || fromStr.includes(item.nama.toLowerCase())) {
-              return { ...item, saldo: Math.max(0, Number(item.saldo || 0) - totalDeduction) };
-            }
-            if (item.id === toAccObj.originalId || toStr.includes(item.nama.toLowerCase())) {
-              return { ...item, saldo: Number(item.saldo || 0) + numTransfer };
-            }
-            return item;
-          });
-          localStorage.setItem('finance_rekening_data', JSON.stringify(rekList));
-        }
-      } catch (e) {}
+      // Refresh langsung dari database MySQL agar saldo & riwayat 100% sinkron
+      await fetchTransferData();
 
-      // 3. Sinkronkan saldo baru ke COA (finance_coa_data)
-      try {
-        const coaRaw = localStorage.getItem('finance_coa_data');
-        if (coaRaw) {
-          let coaList = JSON.parse(coaRaw);
-          coaList = coaList.map((item) => {
-            const coaStr = `${item.kode} ${item.nama}`.toLowerCase();
-            const fromStr = fromAccObj.name.toLowerCase();
-            const toStr = toAccObj.name.toLowerCase();
-
-            // Potong akun asal
-            if ((fromStr.includes('bca') && String(item.kode) === '1002') ||
-                (fromStr.includes('petty') && String(item.kode) === '1001') ||
-                (fromAccObj.source === 'coa' && item.id === fromAccObj.originalId)) {
-              return { ...item, saldo: Math.max(0, Number(item.saldo || 0) - totalDeduction) };
-            }
-
-            // Tambah akun tujuan
-            if ((toStr.includes('petty') && String(item.kode) === '1001') ||
-                (toStr.includes('bca') && String(item.kode) === '1002') ||
-                (toAccObj.source === 'coa' && item.id === toAccObj.originalId)) {
-              return { ...item, saldo: Number(item.saldo || 0) + numTransfer };
-            }
-
-            return item;
-          });
-          localStorage.setItem('finance_coa_data', JSON.stringify(coaList));
-        }
-      } catch (e) {}
-
-      // 4. Catat riwayat transfer
-      const newRef = `TRF-2026-00${history.length + 44}`;
       const cleanDari = fromAccObj?.rawName || fromAccObj?.name.split(' (')[0] || 'Rekening Asal';
       const cleanKe = toAccObj?.rawName || toAccObj?.name.split(' (')[0] || 'Rekening Tujuan';
 
-      const newRecord = {
-        id: newRef,
-        tanggal: transferDate,
-        dari: cleanDari,
-        ke: cleanKe,
-        nominal: numTransfer,
-        biayaAdmin: numFee,
-        status: 'Selesai',
-        catatan: notes || 'Transfer pemindahan dana internal',
-      };
-
-      setHistory([newRecord, ...history]);
-
-      // 5. Bukukan otomatis ke Jurnal Keuangan (finance_custom_journals)
-      try {
-        const jrnRaw = localStorage.getItem('finance_custom_journals');
-        const jrnList = jrnRaw ? JSON.parse(jrnRaw) : [];
-        jrnList.unshift({
-          id: `jrn-${newRef}`,
-          tanggal: transferDate,
-          rawDate: transferDate,
-          deskripsi: `Pemindahan Dana Internal: ${cleanDari} ke ${cleanKe} - ${notes || 'Dropping Saldo'}`,
-          referensi: newRef,
-          debitAccount: cleanKe.toLowerCase().includes('petty') ? '1001 - Petty Cash' : cleanKe,
-          creditAccount: cleanDari.toLowerCase().includes('bca') ? '1002 - Bank BCA Operasional' : cleanDari,
-          totalDebit: numTransfer,
-          totalKredit: numTransfer,
-          status: 'Posted',
-          tipe: 'Transfer Bank'
-        });
-        localStorage.setItem('finance_custom_journals', JSON.stringify(jrnList));
-      } catch (e) {}
-
-      setIsSubmitting(false);
-      setSuccessNotice(`Transfer sebesar ${formatRupiah(numTransfer)} dari ${cleanDari} ke ${cleanKe} berhasil dibukukan dan seluruh saldo kas & bank diperbarui!`);
+      setSuccessNotice(
+        `Transfer ${trfNo ? `[${trfNo}] ` : ''}sebesar ${formatRupiah(numTransfer)} dari ${cleanDari} ke ${cleanKe} berhasil tersimpan permanen di database & jurnal!`
+      );
       setNominal('');
+      setAdminFee('0');
       setNotes('');
 
+      setTimeout(() => setSuccessNotice(null), 6000);
+    } catch (err) {
+      console.error('Transfer error:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Gagal menyimpan pemindahan dana ke database.';
+      setErrorNotice(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const confirmDeleteTransfer = async () => {
+    if (!deletingItem) return;
+    setBusyDelete(true);
+    setErrorNotice(null);
+    try {
+      const token = await ensureCsrfToken();
+      await axios.post(
+        '/api/accounting.php',
+        { action: 'delete_bank_transfer', id: Number(deletingItem.dbId) },
+        { headers: { 'X-CSRF-Token': token } }
+      );
+      const deletedNo = deletingItem.id;
+      setDeletingItem(null);
+      await fetchTransferData();
+      setSuccessNotice(`Transfer ${deletedNo} berhasil dibatalkan & saldo kedua rekening dikembalikan seperti semula.`);
       setTimeout(() => setSuccessNotice(null), 5000);
-    }, 500);
+    } catch (err) {
+      setErrorNotice(err?.response?.data?.message || err?.message || 'Gagal menghapus riwayat transfer.');
+      setDeletingItem(null);
+    } finally {
+      setBusyDelete(false);
+    }
   };
 
   const handleExport = () => {
@@ -425,6 +402,13 @@ export default function TransferPage() {
           </div>
         )}
 
+        {errorNotice && (
+          <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-sm animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span className="font-medium">{errorNotice}</span>
+          </div>
+        )}
+
         {/* Grid: Transfer Form + Quick Balance Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Form Card (2 Cols) */}
@@ -541,7 +525,7 @@ export default function TransferPage() {
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || loading || accounts.length < 2}
                   className="inline-flex items-center gap-2 bg-[#1a73e8] hover:bg-blue-600 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
                 >
                   {isSubmitting ? (
@@ -563,12 +547,27 @@ export default function TransferPage() {
           {/* Info & Saldo Rekening Terdaftar (1 Col) */}
           <div className="space-y-5">
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Landmark className="w-3.5 h-3.5 text-blue-500" />
-                Saldo Rekening Kas & Bank Terdaftar
-              </h4>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Landmark className="w-3.5 h-3.5 text-blue-500" />
+                  Saldo Rekening Kas & Bank Terdaftar
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => fetchTransferData()}
+                  disabled={loading}
+                  title="Muat ulang saldo terbaru dari database"
+                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition disabled:opacity-40"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
               <div className="space-y-2.5">
-                {accounts.map((acc) => (
+                {accounts.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-500 text-center">
+                    {loading ? 'Memuat saldo rekening dari database...' : 'Belum ada rekening kas/bank terdaftar.'}
+                  </div>
+                ) : accounts.map((acc) => (
                   <div
                     key={acc.id}
                     className="p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 border border-slate-100 transition-colors"
@@ -590,7 +589,7 @@ export default function TransferPage() {
                 Sinkronisasi Finansial Otomatis
               </div>
               <p className="leading-relaxed text-amber-700">
-                Setiap transaksi pemindahan saldo langsung memotong saldo rekening asal, menambahkan ke rekening tujuan, serta mendebit/mengkredit Chart of Accounts (COA) dan Jurnal Keuangan secara instan.
+                Setiap transaksi pemindahan saldo langsung tersimpan di database server, memotong saldo rekening asal, menambahkan ke rekening tujuan, serta memposting Jurnal Keuangan secara permanen.
               </p>
             </div>
           </div>
@@ -612,12 +611,13 @@ export default function TransferPage() {
               Riwayat Pemindahan Saldo ({filteredHistory.length})
             </h3>
             <span className="text-xs text-slate-500">
-              Tercatat permanen dalam sistem treasury LPK
+              Tercatat permanen dalam database treasury LPK
             </span>
           </div>
           <FinanceTable
             columns={tableColumns}
             data={filteredHistory}
+            loading={loading}
             totalItems={filteredHistory.length}
             emptyMessage="Belum ada riwayat transfer internal yang cocok"
           />
@@ -630,27 +630,26 @@ export default function TransferPage() {
               <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3.5">
                 <Trash2 className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 text-center mb-1">Hapus Riwayat Transfer?</h3>
+              <h3 className="text-base font-bold text-slate-900 text-center mb-1">Batalkan & Hapus Transfer?</h3>
               <p className="text-xs text-slate-500 text-center mb-5 leading-relaxed">
-                Apakah Anda yakin ingin menghapus catatan transfer <strong className="text-slate-800">{deletingItem.id}</strong> ({formatRupiah(deletingItem.nominal)})?
+                Menghapus transfer <strong className="text-slate-800">{deletingItem.id}</strong> ({formatRupiah(deletingItem.nominal)}) akan otomatis melakukan jurnal balik dan mengembalikan saldo kedua rekening di database.
               </p>
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
+                  disabled={busyDelete}
                   onClick={() => setDeletingItem(null)}
-                  className="flex-1 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition"
+                  className="flex-1 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setHistory(history.filter((h) => h.id !== deletingItem.id));
-                    setDeletingItem(null);
-                  }}
-                  className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition shadow-sm"
+                  disabled={busyDelete}
+                  onClick={confirmDeleteTransfer}
+                  className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition shadow-sm disabled:opacity-50"
                 >
-                  Ya, Hapus
+                  {busyDelete ? 'Memproses...' : 'Ya, Batalkan & Hapus'}
                 </button>
               </div>
             </div>

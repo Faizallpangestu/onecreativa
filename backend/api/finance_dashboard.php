@@ -42,9 +42,12 @@ try {
     $hasLegacyMetode = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='metode'") !== null;
     $legacySalaryColumn = $hasLegacySalary ? 'f.salary_request_id' : 'NULL';
     $legacyBudgetColumn = $hasLegacyBudget ? 'f.budget_request_id' : 'NULL';
-    $legacyPartyColumn = $hasLegacyAccountName && $hasLegacySource
-        ? "COALESCE(NULLIF(f.account_name, ''), NULLIF(f.source, ''), 'Internal')"
-        : ($hasLegacyAccountName ? "COALESCE(NULLIF(f.account_name, ''), 'Internal')" : ($hasLegacySource ? "COALESCE(NULLIF(f.source, ''), 'Internal')" : "'Internal'"));
+    $hasLegacyPartyName = ac_one($conn, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='finance_records' AND COLUMN_NAME='party_name'") !== null;
+    $legacyPartyColumn = $hasLegacyPartyName
+        ? "COALESCE(NULLIF(f.party_name, ''), NULLIF(f.account_name, ''), NULLIF(f.source, ''), 'Internal')"
+        : ($hasLegacyAccountName && $hasLegacySource
+            ? "COALESCE(NULLIF(f.account_name, ''), NULLIF(f.source, ''), 'Internal')"
+            : ($hasLegacyAccountName ? "COALESCE(NULLIF(f.account_name, ''), 'Internal')" : ($hasLegacySource ? "COALESCE(NULLIF(f.source, ''), 'Internal')" : "'Internal'")));
     $legacyBankColumn = $hasLegacyBankName ? "COALESCE(NULLIF(f.bank_name, ''), 'Kas/Bank')" : "'Kas/Bank'";
     $legacyAccountColumn = $hasLegacyAccountNumber ? "f.account_number" : "''";
     $legacyMetodeColumn = $hasLegacyMetode ? "COALESCE(NULLIF(f.metode, ''), 'Transfer')" : "'Transfer'";

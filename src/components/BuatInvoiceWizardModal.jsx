@@ -16,8 +16,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Info,
-  Calendar,
   Check,
+  CheckCircle2,
   MapPin,
   Phone,
   Mail,
@@ -33,7 +33,14 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { generateInvoicePDF } from "../pages/InvoicePenagihan";
+import {
+  generateInvoicePDF,
+  formatRpNoDecimals,
+  formatRpComma,
+  formatInvoiceDateShort,
+  formatInvoiceDateUpper,
+  createDirectorStampDataURL,
+} from "../pages/InvoicePenagihan";
 
 // ─── SYNCHRONOUS INITIAL LOADER DARI STUDENTS MODULE ──────────────────────────
 function getStoredLocalStudents() {
@@ -68,14 +75,93 @@ function getStoredLocalStudents() {
           phone: s.kontak || s.phone || s.no_wa || "0812-xxxx-xxxx",
           email: s.email && s.email !== "-" ? s.email : `${name.toLowerCase().replace(/\s+/g, ".")}@gmail.com`,
           alamat: s.alamat ? `${s.alamat}, ${s.kota || "Kab. Cianjur"}` : (s.kota || "Kab. Cianjur, Jawa Barat"),
-          status: s.status === "Nonaktif" ? "Siswa Nonaktif" : "Siswa Aktif",
-          program: s.program || "Kelas Intensif Offline",
-          batch: s.batch ? (String(s.batch).toLowerCase().startsWith("batch") ? s.batch : `Batch ${s.batch}`) : "2"
+          status: s.status === "Nonaktif" ? "Siswa Nonaktif" : (s.status || "Siswa Aktif"),
+          program: s.program || "Intensif Offline",
+          metodePembayaran: s.metodePembayaran || s.metode_pembayaran || s.tipe_pembayaran || "",
+          totalBiaya: Number(s.totalBiaya || s.total_biaya || 0),
+          batch: s.batch ? (String(s.batch).toLowerCase().startsWith("batch") ? s.batch : `Batch ${s.batch}`) : "2",
+          fromWeb: Boolean(s.fromWeb),
         };
       });
   } catch (e) {
     return [];
   }
+}
+
+// ─── HELPERS: MAPPING PROGRAM & METODE PEMBAYARAN DARI PENDAFTARAN WEB ───────
+function normalizeProgramOption(rawProgram = "") {
+  const p = String(rawProgram || "").trim().toLowerCase();
+  if (!p) return "Intensif Offline";
+  if (p.includes("kaigo") || p.includes("talang")) return "Kaigo Dana Talang";
+  if (p.includes("intensif") || p.includes("lanjutan")) return "Intensif Offline";
+  if (p.includes("matching")) return "Matching Job";
+  if (p.includes("sotsu")) return "Sotsugyousei";
+  if (p.includes("reguler")) return "Kursus Reguler";
+  if (p.includes("pelatihan jepang")) return "Program Pelatihan Jepang";
+  return rawProgram;
+}
+
+function normalizePaymentScheme(rawScheme = "", rawProgram = "") {
+  const combined = `${rawScheme || ""} ${rawProgram || ""}`.toLowerCase();
+  if (combined.includes("cicil") || combined.includes("installment") || combined.includes("angsur")) {
+    return "cicilan";
+  }
+  return "full";
+}
+
+function buildInvoiceProgramPreset(programName, skema = "full", overrideTotal = 0) {
+  const normProg = normalizeProgramOption(programName);
+  const pLower = String(normProg || "").toLowerCase();
+  const isCicilan = skema === "cicilan";
+  const skemaLabel = isCicilan ? "Cicilan" : "Full Payment";
+  const customAmt = Number(overrideTotal || 0);
+
+  if (pLower.includes("kaigo") || pLower.includes("talang")) {
+    return {
+      program: "Kaigo Dana Talang",
+      durasi: "6 Bulan",
+      deskripsi: `Program Kaigo Dana Talang (${skemaLabel})`,
+      subdeskripsi: "Biaya Pendidikan, Pelatihan Kaigo & Fasilitas Dana Talang",
+      harga: customAmt > 0 ? customAmt : 17760000,
+    };
+  }
+  if (pLower.includes("matching")) {
+    return {
+      program: "Matching Job",
+      durasi: "4 Bulan",
+      deskripsi: `Program Matching Job (${skemaLabel})`,
+      subdeskripsi: "Biaya Program Penempatan Kerja Jepang & Pengurusan Dokumen",
+      harga: customAmt > 0 ? customAmt : 25000000,
+    };
+  }
+  if (pLower.includes("sotsu")) {
+    return {
+      program: "Sotsugyousei",
+      durasi: "4 Bulan",
+      deskripsi: `Program Sotsugyousei (${skemaLabel})`,
+      subdeskripsi: "Biaya Program Eks-Pemagang / Lanjutan Jepang",
+      harga: customAmt > 0 ? customAmt : 7500000,
+    };
+  }
+  if (pLower.includes("reguler")) {
+    return {
+      program: "Kursus Reguler",
+      durasi: "4 Bulan",
+      deskripsi: `Kursus Bahasa Jepang Reguler (${skemaLabel})`,
+      subdeskripsi: "Biaya Pendidikan Kelas Reguler Bahasa Jepang",
+      harga: customAmt > 0 ? customAmt : 5000000,
+    };
+  }
+
+  return {
+    program: normProg,
+    durasi: "7 Bulan",
+    deskripsi: `${normProg} (${skemaLabel})`,
+    subdeskripsi: isCicilan
+      ? "Biaya Pendidikan Bahasa Jepang & Pelatihan Skill - Cianjur (Skema Cicilan)"
+      : "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - Cianjur",
+    harga: customAmt > 0 ? customAmt : (isCicilan ? 18000000 : 15000000),
+  };
 }
 
 // ─── SYNCHRONOUS BANK & COA ACCOUNT LOADER ──────────────────────────────────
@@ -188,7 +274,6 @@ const DEFAULT_EXCLUSIONS_LIST = [
 ];
 
 const DEFAULT_TERMS_LIST = [
-  "Kelas Mulai : September 2026",
   "Biaya ujian SSW selain program SSW kaigo, pengolahan makanan, pertanian, perikanan, dan restoran dikenakan biaya tambahan Rp 500.000.",
   "Invoice bersifat confidential (rahasia)"
 ];
@@ -225,7 +310,8 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
     phone: "",
     email: "",
     alamat: "Cianjur, Jawa Barat",
-    program: "Kelas Intensif Offline",
+    program: "Intensif Offline",
+    metodePembayaran: "Full Payment",
     batch: "2"
   });
 
@@ -251,7 +337,9 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
 
         let apiList = [];
         try {
-          const res = await axios.get("/api/accounting.php?view=lookups");
+          const res = await axios.get("/api/accounting.php", {
+            params: { view: "lookups", _t: Date.now() }
+          });
           if (res.data?.data?.students) {
             apiList = res.data.data.students
               .filter(s => !isDeleted(s.id, s.nis, s.name || s.nama_lengkap))
@@ -269,9 +357,12 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
                   phone: s.no_wa && s.no_wa !== "-" ? s.no_wa : (s.kontak || s.phone || "-"),
                   email: s.email && s.email !== "-" ? s.email : `${name.toLowerCase().replace(/\s+/g, ".")}@gmail.com`,
                   alamat: s.alamat ? `${s.alamat}, ${s.kota || "Cianjur"}` : (s.kota || "Cianjur, Jawa Barat"),
-                  status: s.status === "Nonaktif" ? "Siswa Nonaktif" : "Siswa Aktif",
-                  program: s.program || "Kelas Intensif Offline",
-                  batch: s.batch ? String(s.batch).replace(/^batch\s*/i, "") : "2"
+                  status: s.status === "Nonaktif" ? "Siswa Nonaktif" : (s.status || "Siswa Aktif"),
+                  program: s.program || "Intensif Offline",
+                  metodePembayaran: s.metode_pembayaran || s.tipe_pembayaran || s.metodePembayaran || "",
+                  totalBiaya: Number(s.total_biaya || 0),
+                  batch: s.batch ? String(s.batch).replace(/^batch\s*/i, "") : "2",
+                  fromWeb: true,
                 };
               });
           }
@@ -293,16 +384,20 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
               phone: s.kontak || s.phone || s.no_wa || "-",
               email: s.email && s.email !== "-" ? s.email : `${name.toLowerCase().replace(/\s+/g, ".")}@gmail.com`,
               alamat: s.alamat ? `${s.alamat}, ${s.kota || "Kab. Cianjur"}` : (s.kota || "Kab. Cianjur, Jawa Barat"),
-              status: s.status === "Nonaktif" ? "Siswa Nonaktif" : "Siswa Aktif",
-              program: s.program || "Kelas Intensif Offline",
-              batch: s.batch ? String(s.batch).replace(/^batch\s*/i, "") : "2"
+              status: s.status === "Nonaktif" ? "Siswa Nonaktif" : (s.status || "Siswa Aktif"),
+              program: s.program || "Intensif Offline",
+              metodePembayaran: s.metodePembayaran || s.metode_pembayaran || s.tipe_pembayaran || "",
+              totalBiaya: Number(s.totalBiaya || s.total_biaya || 0),
+              batch: s.batch ? String(s.batch).replace(/^batch\s*/i, "") : "2",
+              fromWeb: Boolean(s.fromWeb),
             };
           });
 
-        const merged = [...activeLocal];
-        apiList.forEach(apiS => {
-          if (!merged.some(m => (m.nis && m.nis === apiS.nis) || m.nama.toLowerCase() === apiS.nama.toLowerCase())) {
-            merged.push(apiS);
+        // Prioritaskan data terbaru dari database server agar sinkron antar perangkat
+        const merged = [...apiList];
+        activeLocal.forEach(locS => {
+          if (!merged.some(m => (m.nis && locS.nis && m.nis === locS.nis) || m.nama.toLowerCase() === locS.nama.toLowerCase())) {
+            merged.push(locS);
           }
         });
 
@@ -358,6 +453,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
           const cleanEmail = p.email || "";
           const address = p.alamat || [p.kotaDomisili || p.kota, p.lokasiTinggal].filter(Boolean).join(", ") || "Cianjur, Jawa Barat";
           const status = p.status || "Aktif";
+          const metode = p.metode_pembayaran || p.metodePembayaran || p.tipe_pembayaran || "";
 
           return {
             id: nisCode,
@@ -368,7 +464,9 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
             email: cleanEmail,
             alamat: address,
             status: status === "Pembayaran" || status === "Menunggu Pembayaran" ? "Menunggu Pembayaran" : `Siswa (${status})`,
-            program: p.program || "Kelas Intensif",
+            program: p.program || "Intensif Offline",
+            metodePembayaran: metode,
+            totalBiaya: Number(p.total_biaya || 0),
             batch: String(p.batch || "2").replace(/^batch\s*/i, ""),
             noKtp: p.noKtp || p.no_ktp || "",
             fromWeb: true
@@ -376,21 +474,27 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
         });
 
       const nonWebStudents = liveStudents.filter(s => !s.fromWeb);
-
-      const mergedList = [...nonWebStudents, ...formattedParticipants];
+      const mergedList = [...formattedParticipants, ...nonWebStudents];
 
       localStorage.setItem("local_only_students_finance", JSON.stringify(formattedParticipants));
       setLiveStudents(mergedList);
 
-      // Auto-select first participant if no student selected
+      // Pilih peserta yang sama (jika masih ada) atau peserta terbaru agar program & pembayarannya langsung menyesuaikan
       if (mergedList.length > 0) {
-        setSelectedStudent(mergedList[0]);
+        const curMatch = selectedStudent
+          ? mergedList.find(m => (m.nis && selectedStudent.nis && m.nis === selectedStudent.nis) || m.nama.toLowerCase() === (selectedStudent.nama || "").toLowerCase())
+          : null;
+        const targetStudent = curMatch || mergedList[0];
+        setSelectedStudent(targetStudent);
+        if (!isManualStudent) {
+          applyStudentToInvoice(targetStudent);
+        }
       }
 
       Swal.fire({
         icon: "success",
         title: "Sinkronisasi Berhasil!",
-        html: `Berhasil menarik <b>${formattedParticipants.length} siswa</b> dari <code>creativabridging.com</code>. Hanya data siswa yang disinkronkan; invoice tidak dibuat atau dikirim otomatis.`,
+        html: `Berhasil menarik <b>${formattedParticipants.length} siswa</b> beserta pilihan program & metode pembayarannya dari <code>creativabridging.com</code>. Form invoice otomatis disesuaikan.`,
         customClass: { popup: "rounded-2xl" },
         confirmButtonColor: "#2563eb"
       });
@@ -415,8 +519,11 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
     email: manualStudent.email || "-",
     alamat: manualStudent.alamat || "Cianjur, Jawa Barat",
     status: "Siswa Aktif",
-    program: manualStudent.program || "Kelas Intensif Offline",
-    batch: manualStudent.batch || "2"
+    program: manualStudent.program || "Intensif Offline",
+    metodePembayaran: manualStudent.metodePembayaran || "Full Payment",
+    totalBiaya: 0,
+    batch: manualStudent.batch || "2",
+    fromWeb: false,
   } : (selectedStudent || {
     id: "S-001",
     nama: "Belum Ada Siswa Terpilih",
@@ -425,38 +532,114 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
     email: "-",
     alamat: "-",
     status: "Nonaktif",
-    program: "Kelas Intensif Offline",
-    batch: "2"
+    program: "Intensif Offline",
+    metodePembayaran: "",
+    totalBiaya: 0,
+    batch: "2",
+    fromWeb: false,
   });
 
   // ─── 3. PROGRAM & ITEM TAGIHAN ──────────────────────────────────────────────
   const [programInfo, setProgramInfo] = useState({
-    program: "Kelas Intensif Offline (Full Payment)",
+    program: "Intensif Offline",
     lokasi: "Cianjur",
-    kelasMulai: "September 2026",
     durasi: "7 Bulan",
   });
 
   const [items, setItems] = useState([
     {
       id: 1,
-      deskripsi: "Kelas Intensif Offline (Full Payment)",
+      deskripsi: "Intensif Offline (Full Payment)",
       subdeskripsi: "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - Cianjur",
-      qty: 1,
       harga: 15000000,
       diskon: 0,
       jumlah: 15000000,
     },
   ]);
 
+  // ─── 4. SKEMA PEMBAYARAN ────────────────────────────────────────────────────
+  const [metodePembayaran, setMetodePembayaran] = useState("Transfer Bank");
+  const [skemaPembayaran, setSkemaPembayaran] = useState("full"); // "full" | "cicilan"
+
+  // Sinkronkan program, nominal, dan skema pembayaran otomatis dari data pendaftar
+  const applyStudentToInvoice = (student) => {
+    if (!student) return;
+    const rawProg = student.program || "Intensif Offline";
+    const rawMetode = student.metodePembayaran || student.metode_pembayaran || student.tipe_pembayaran || "";
+    const detectedScheme = normalizePaymentScheme(rawMetode, rawProg);
+    const preset = buildInvoiceProgramPreset(rawProg, detectedScheme, student.totalBiaya || student.total_biaya || 0);
+
+    setProgramInfo(prev => ({
+      ...prev,
+      program: preset.program,
+      durasi: preset.durasi,
+    }));
+    setSkemaPembayaran(detectedScheme);
+    setItems([
+      {
+        id: 1,
+        deskripsi: preset.deskripsi,
+        subdeskripsi: preset.subdeskripsi,
+        harga: preset.harga,
+        diskon: 0,
+        jumlah: preset.harga,
+      }
+    ]);
+  };
+
+  useEffect(() => {
+    if (!isManualStudent && selectedStudent) {
+      applyStudentToInvoice(selectedStudent);
+    }
+  }, [
+    isManualStudent,
+    selectedStudent?.id,
+    selectedStudent?.program,
+    selectedStudent?.metodePembayaran,
+    selectedStudent?.totalBiaya,
+  ]);
+
+  const handleProgramSelectChange = (newProgram) => {
+    const preset = buildInvoiceProgramPreset(newProgram, skemaPembayaran, 0);
+    setProgramInfo(prev => ({ ...prev, program: newProgram, durasi: preset.durasi }));
+    setItems(prev => {
+      if (prev.length === 0) {
+        return [{ id: 1, deskripsi: preset.deskripsi, subdeskripsi: preset.subdeskripsi, harga: preset.harga, diskon: 0, jumlah: preset.harga }];
+      }
+      return prev.map((it, idx) => idx === 0 ? {
+        ...it,
+        deskripsi: preset.deskripsi,
+        subdeskripsi: preset.subdeskripsi,
+        harga: preset.harga,
+        jumlah: preset.harga,
+      } : it);
+    });
+  };
+
+  const handleSchemeChange = (nextScheme) => {
+    setSkemaPembayaran(nextScheme);
+    const preset = buildInvoiceProgramPreset(programInfo.program, nextScheme, 0);
+    setItems(prev => prev.map((it, idx) => {
+      if (idx !== 0) return it;
+      const curHarga = Number(it.harga || 0);
+      const isPresetPrice = [0, 5000000, 7500000, 15000000, 17760000, 18000000, 25000000].includes(curHarga);
+      const nextHarga = isPresetPrice ? preset.harga : curHarga;
+      return {
+        ...it,
+        deskripsi: preset.deskripsi,
+        subdeskripsi: preset.subdeskripsi,
+        harga: nextHarga,
+        jumlah: nextHarga,
+      };
+    }));
+  };
+
   const handleItemChange = (id, field, value) => {
     setItems(items.map(it => {
       if (it.id !== id) return it;
       const updated = { ...it, [field]: value };
-      const q = field === "qty" ? (Number(value) || 0) : (Number(it.qty) || 0);
       const p = field === "harga" ? (Number(value) || 0) : (Number(it.harga) || 0);
-      const d = field === "diskon" ? (Number(value) || 0) : (Number(it.diskon) || 0);
-      updated.jumlah = q * p;
+      updated.jumlah = p;
       return updated;
     }));
   };
@@ -469,7 +652,6 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
         id: nextId,
         deskripsi: "Biaya Pelatihan & Modul Tambahan",
         subdeskripsi: "Materi pendukung sertifikasi dan ujian",
-        qty: 1,
         harga: 2000000,
         diskon: 0,
         jumlah: 2000000,
@@ -483,36 +665,31 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
   };
 
   const handleApplyTemplate = () => {
+    const preset = buildInvoiceProgramPreset(programInfo.program, skemaPembayaran, 0);
     setItems([
       {
         id: 1,
-        deskripsi: "Kelas Intensif Offline (Full Payment)",
-        subdeskripsi: "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - Cianjur",
-        qty: 1,
-        harga: 15000000,
+        deskripsi: preset.deskripsi,
+        subdeskripsi: preset.subdeskripsi,
+        harga: preset.harga,
         diskon: 0,
-        jumlah: 15000000,
+        jumlah: preset.harga,
       }
     ]);
-    setProgramInfo({
-      program: "Kelas Intensif Offline (Full Payment)",
-      lokasi: "Cianjur",
-      kelasMulai: "September 2026",
-      durasi: "7 Bulan",
-    });
+    setProgramInfo(prev => ({
+      ...prev,
+      program: preset.program,
+      durasi: preset.durasi,
+    }));
     Swal.fire({
       icon: "success",
       title: "Template Diterapkan",
-      text: "Program Kelas Intensif Offline (Full Payment) telah diatur.",
+      text: `Program ${preset.deskripsi} telah diatur.`,
       timer: 1500,
       showConfirmButton: false,
       customClass: { popup: "rounded-2xl" }
     });
   };
-
-  // ─── 4. SKEMA PEMBAYARAN ────────────────────────────────────────────────────
-  const [metodePembayaran, setMetodePembayaran] = useState("Transfer Bank");
-  const [skemaPembayaran, setSkemaPembayaran] = useState("full"); // "full" | "cicilan"
 
   const subtotal = items.reduce((acc, it) => acc + (Number(it.jumlah) || 0), 0);
   const totalDiskon = items.reduce((acc, it) => acc + (Number(it.diskon) || 0), 0);
@@ -528,13 +705,28 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
       setPembayaranList([
         { id: 1, deskripsi: "Full Payment", jatuhTempo: jatuhTempo, nominal: totalTagihan }
       ]);
+    } else if (totalTagihan === 18000000) {
+      const amounts = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
+      const baseDate = new Date(jatuhTempo || Date.now());
+      setPembayaranList(
+        amounts.map((amt, i) => {
+          const d = new Date(baseDate);
+          d.setMonth(d.getMonth() + i);
+          return {
+            id: i + 1,
+            deskripsi: i === 0 ? "Cicilan 1 (DP)" : i === amounts.length - 1 ? `Cicilan ${i + 1} (Pelunasan)` : `Cicilan ${i + 1}`,
+            jatuhTempo: d.toISOString().split("T")[0],
+            nominal: amt,
+          };
+        })
+      );
     } else {
       const dp = Math.round(totalTagihan * 0.4);
       const sisa = totalTagihan - dp;
       const c1 = Math.round(sisa / 2);
       const c2 = sisa - c1;
 
-      const d1 = new Date(jatuhTempo);
+      const d1 = new Date(jatuhTempo || Date.now());
       const d2 = new Date(d1); d2.setMonth(d2.getMonth() + 1);
       const d3 = new Date(d1); d3.setMonth(d3.getMonth() + 2);
 
@@ -596,7 +788,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
   }, [bankAccounts, selectedAccountId]);
 
   const rekeningTujuan = `${selectedAccount.bank} - ${selectedAccount.nama} (${selectedAccount.noRek})`;
-  const [catatanOpsional, setCatatanOpsional] = useState("Kelas mulai September 2026.");
+  const [catatanOpsional, setCatatanOpsional] = useState("");
 
   // ─── SUBMIT HANDLERS ────────────────────────────────────────────────────────
   const handleTerbitkanInvoice = async () => {
@@ -770,35 +962,55 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
   };
 
   const handleDownloadPDF = () => {
+    const accountHolderName =
+      String(selectedAccount.noRek || "").includes("1832-918-428") &&
+      String(selectedAccount.pemilik || "").trim().toUpperCase() === "PT LPK CREATIVA"
+        ? "CREATIVA BRIDGING INTERN"
+        : (selectedAccount.pemilik || "CREATIVA BRIDGING INTERN");
+
     generateInvoicePDF({
       id: invoiceNumber,
       tanggal: tanggalInvoice,
+      jatuhTempo: jatuhTempo,
       customer: activeStudent.nama,
       program: programInfo.program,
+      lokasi: programInfo.lokasi,
+      durasi: programInfo.durasi,
+      skema: skemaPembayaran,
+      subtotal: subtotal,
+      discount: totalDiskon > 0 ? { desc: "Diskon", amount: totalDiskon } : undefined,
       total: totalTagihan,
       terbayar: 0,
       sisa: totalTagihan,
       status: "Unpaid",
-      jatuhTempo: jatuhTempo,
-      items: items,
+      items: items.map(it => ({
+        deskripsi: it.deskripsi,
+        subdeskripsi: it.subdeskripsi,
+        qty: 1,
+        harga: Number(it.harga) || 0,
+        price: Number(it.harga) || 0,
+        diskon: Number(it.diskon) || 0,
+        jumlah: Number(it.jumlah ?? it.harga) || 0,
+        amount: Math.max(0, (Number(it.jumlah ?? it.harga) || 0) - (Number(it.diskon) || 0)),
+      })),
+      installments: pembayaranList,
+      includes: DEFAULT_INCLUSIONS_LIST,
+      excludes: DEFAULT_EXCLUSIONS_LIST,
       email: activeStudent.email,
       phone: activeStudent.phone,
       alamat: activeStudent.alamat,
       rekening: rekeningTujuan,
-      notes: `1. Invoice ini bersifat confidential (rahasia) dan merupakan bukti tagihan resmi.
-2. Cara Pembayaran:
-   - Transfer via ${selectedAccount.bank} No. Rekening ${selectedAccount.noRek} a/n ${selectedAccount.pemilik} (COA ${selectedAccount.kode})
-   - Harap cantumkan Nomor Invoice pada berita transfer.
-   - Kirimkan bukti transfer ke WhatsApp Finance atau email finance@creativabridging.com
-3. Pelunasan tagihan wajib diselesaikan sesuai tanggal jatuh tempo yang tertera.
-Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
+      bank_name: selectedAccount.bank || "BCA",
+      account_number: selectedAccount.noRek || "1832-918-428",
+      account_holder: accountHolderName,
+      notes: catatanOpsional,
     });
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex justify-center p-2 sm:p-4 lg:p-6 transition">
       <div className="bg-[#f8fafc] w-full max-w-[1440px] rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[96vh]">
-        
+
         {/* ── TOP HEADER (EXACT MOCKUP MATCH) ─────────────────────────────────── */}
         <div className="bg-white border-b border-slate-200 px-6 sm:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-20">
           <div>
@@ -857,12 +1069,12 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
         {/* ── MAIN 2-COLUMN CONTENT SCROLLABLE BODY ───────────────────────────── */}
         <div className="overflow-y-auto p-5 sm:p-7 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
+
             {/* ══════════════════════════════════════════════════════════════════
                 LEFT COLUMN (8 COLS ~ 67%): MAIN FORM CARDS
             ══════════════════════════════════════════════════════════════════ */}
             <div className="lg:col-span-8 space-y-5">
-              
+
               {/* CARD 1: INFORMASI INVOICE */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-4">
                 <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm">
@@ -1017,7 +1229,7 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                               <th className="bg-slate-50 text-slate-600 font-semibold px-3 py-2 border-r border-slate-200">Batch</th>
                               <td className="px-3 py-2 text-slate-800">{activeStudent.batch}</td>
                             </tr>
-                            <tr>
+                            <tr className="border-b border-slate-200">
                               <th className="bg-slate-50 text-slate-600 font-semibold px-3 py-2 border-r border-slate-200">Alamat</th>
                               <td className="px-3 py-2 text-slate-800 border-r border-slate-200 truncate max-w-xs">{activeStudent.alamat}</td>
                               <th className="bg-slate-50 text-slate-600 font-semibold px-3 py-2 border-r border-slate-200">Status</th>
@@ -1025,6 +1237,24 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                                 <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                   {activeStudent.status || "Siswa Aktif"}
                                 </span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <th className="bg-slate-50 text-slate-600 font-semibold px-3 py-2 border-r border-slate-200">Pembayaran</th>
+                              <td colSpan={3} className="px-3 py-2">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${(activeStudent.metodePembayaran || "").toLowerCase().includes("cicil")
+                                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                                      : "bg-blue-50 text-blue-800 border-blue-200"
+                                    }`}
+                                >
+                                  {activeStudent.metodePembayaran || (skemaPembayaran === "cicilan" ? "Cicilan" : "Full Payment")}
+                                </span>
+                                {activeStudent.fromWeb && (
+                                  <span className="ml-2 text-[10px] font-semibold text-emerald-700">
+                                    • Otomatis disinkronkan dari Web Pendaftaran
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           </tbody>
@@ -1074,6 +1304,39 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                         className="w-full p-2 bg-white rounded-lg border border-slate-200"
                       />
                     </div>
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">Program Pilihan</label>
+                      <select
+                        value={manualStudent.program}
+                        onChange={e => {
+                          const nextProgram = e.target.value;
+                          setManualStudent(prev => ({ ...prev, program: nextProgram }));
+                          handleProgramSelectChange(nextProgram);
+                        }}
+                        className="w-full p-2 bg-white rounded-lg border border-slate-200 font-semibold"
+                      >
+                        <option value="Intensif Offline">Intensif Offline</option>
+                        <option value="Kaigo Dana Talang">Kaigo Dana Talang</option>
+                        <option value="Matching Job">Matching Job</option>
+                        <option value="Sotsugyousei">Sotsugyousei</option>
+                        <option value="Kursus Reguler">Kursus Reguler</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">Metode Pembayaran</label>
+                      <select
+                        value={manualStudent.metodePembayaran || "Full Payment"}
+                        onChange={e => {
+                          const nextPay = e.target.value;
+                          setManualStudent(prev => ({ ...prev, metodePembayaran: nextPay }));
+                          handleSchemeChange(nextPay.toLowerCase().includes("cicil") ? "cicilan" : "full");
+                        }}
+                        className="w-full p-2 bg-white rounded-lg border border-slate-200 font-semibold"
+                      >
+                        <option value="Full Payment">Full Payment</option>
+                        <option value="Cicilan">Cicilan</option>
+                      </select>
+                    </div>
                     <div className="sm:col-span-2">
                       <label className="block text-slate-600 font-semibold mb-1">Alamat</label>
                       <input
@@ -1090,27 +1353,52 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
 
               {/* CARD 3: PROGRAM & ITEM TAGIHAN */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-4">
-                <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <BookOpen className="w-4 h-4" />
+                <div className="flex flex-wrap items-center justify-between gap-2 text-slate-900 font-bold text-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <span>Program & Item Tagihan</span>
                   </div>
-                  <span>Program & Item Tagihan</span>
+                  {(activeStudent?.fromWeb || activeStudent?.metodePembayaran) && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Tersinkron dari Pendaftaran Web
+                    </span>
+                  )}
                 </div>
 
-                {/* 4 Program Selectors Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {/* 3 Program Selectors Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">Pilih Program *</label>
                     <select
                       value={programInfo.program}
-                      onChange={e => setProgramInfo({ ...programInfo, program: e.target.value })}
+                      onChange={e => handleProgramSelectChange(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     >
-                      <option>Kelas Intensif Offline (Full Payment)</option>
-                      <option>Kelas Intensif Offline</option>
-                      <option>Program Pelatihan Jepang</option>
-                      <option>Program SSW Kaigo</option>
-                      <option>Kursus Reguler</option>
+                      <option value="Intensif Offline">Intensif Offline</option>
+                      <option value="Kaigo Dana Talang">Kaigo Dana Talang</option>
+                      <option value="Kelas Intensif Offline (Full Payment)">Kelas Intensif Offline (Full Payment)</option>
+                      <option value="Kelas Intensif Offline">Kelas Intensif Offline</option>
+                      <option value="Program Pelatihan Jepang">Program Pelatihan Jepang</option>
+                      <option value="Program SSW Kaigo">Program SSW Kaigo</option>
+                      <option value="Matching Job">Matching Job</option>
+                      <option value="Sotsugyousei">Sotsugyousei</option>
+                      <option value="Kursus Reguler">Kursus Reguler</option>
+                      {![
+                        "Intensif Offline",
+                        "Kaigo Dana Talang",
+                        "Kelas Intensif Offline (Full Payment)",
+                        "Kelas Intensif Offline",
+                        "Program Pelatihan Jepang",
+                        "Program SSW Kaigo",
+                        "Matching Job",
+                        "Sotsugyousei",
+                        "Kursus Reguler",
+                      ].includes(programInfo.program) && programInfo.program && (
+                          <option value={programInfo.program}>{programInfo.program}</option>
+                        )}
                     </select>
                   </div>
                   <div>
@@ -1124,18 +1412,6 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                       <option>Bandung</option>
                       <option>Jakarta</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Kelas Mulai</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={programInfo.kelasMulai}
-                        onChange={e => setProgramInfo({ ...programInfo, kelasMulai: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      />
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">Durasi</label>
@@ -1159,7 +1435,6 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                       <tr>
                         <th className="py-2.5 px-3 w-10 text-center">No</th>
                         <th className="py-2.5 px-3">Item / Deskripsi</th>
-                        <th className="py-2.5 px-3 w-16 text-center">Qty</th>
                         <th className="py-2.5 px-3 w-32 text-right">Harga (Rp)</th>
                         <th className="py-2.5 px-3 w-28 text-right">Diskon (Rp)</th>
                         <th className="py-2.5 px-3 w-32 text-right">Jumlah (Rp)</th>
@@ -1182,15 +1457,6 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                               value={it.subdeskripsi}
                               onChange={e => handleItemChange(it.id, "subdeskripsi", e.target.value)}
                               className="w-full text-[11px] text-slate-400 bg-transparent border-b border-transparent focus:border-blue-400 outline-none mt-0.5"
-                            />
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <input
-                              type="number"
-                              min="1"
-                              value={it.qty}
-                              onChange={e => handleItemChange(it.id, "qty", e.target.value)}
-                              className="w-12 px-1.5 py-1 text-center font-bold text-slate-800 border border-slate-200 rounded-lg text-xs"
                             />
                           </td>
                           <td className="py-3 px-3 text-right">
@@ -1241,7 +1507,7 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
 
               {/* ROW DENGAN 2 CARD KEMBAR: SKEMA PEMBAYARAN & REKENING TUJUAN */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                
+
                 {/* CARD 4: SKEMA PEMBAYARAN */}
                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-4">
                   <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm">
@@ -1268,24 +1534,24 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">Skema Pembayaran *</label>
                       <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                        <label className={`flex items-center gap-2 cursor-pointer ${skemaPembayaran === "full" ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>
                           <input
                             type="radio"
                             name="skema"
                             value="full"
                             checked={skemaPembayaran === "full"}
-                            onChange={() => setSkemaPembayaran("full")}
+                            onChange={() => handleSchemeChange("full")}
                             className="text-blue-600 focus:ring-blue-500"
                           />
                           <span>Full Payment</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
+                        <label className={`flex items-center gap-2 cursor-pointer ${skemaPembayaran === "cicilan" ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>
                           <input
                             type="radio"
                             name="skema"
                             value="cicilan"
                             checked={skemaPembayaran === "cicilan"}
-                            onChange={() => setSkemaPembayaran("cicilan")}
+                            onChange={() => handleSchemeChange("cicilan")}
                             className="text-blue-600 focus:ring-blue-500"
                           />
                           <span>Cicilan (Installment)</span>
@@ -1398,12 +1664,11 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                     <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {/* Dynamic Bank Badge Logo */}
-                        <div className={`w-12 h-7 rounded-md flex items-center justify-center shadow-2xs font-black text-xs italic tracking-wider text-white ${
-                          selectedAccount.bank.toLowerCase().includes("mandiri") ? "bg-amber-600" :
-                          selectedAccount.bank.toLowerCase().includes("bni") ? "bg-teal-600" :
-                          selectedAccount.bank.toLowerCase().includes("bri") ? "bg-blue-800" :
-                          "bg-blue-700"
-                        }`}>
+                        <div className={`w-12 h-7 rounded-md flex items-center justify-center shadow-2xs font-black text-xs italic tracking-wider text-white ${selectedAccount.bank.toLowerCase().includes("mandiri") ? "bg-amber-600" :
+                            selectedAccount.bank.toLowerCase().includes("bni") ? "bg-teal-600" :
+                              selectedAccount.bank.toLowerCase().includes("bri") ? "bg-blue-800" :
+                                "bg-blue-700"
+                          }`}>
                           {selectedAccount.bank.toUpperCase().slice(0, 4)}
                         </div>
                         <div>
@@ -1423,8 +1688,8 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                         <p className="font-mono font-black text-emerald-600 text-xs">{formatRp(selectedAccount.saldo)}</p>
                         <button
                           type="button"
-                          onClick={() => Swal.fire({ 
-                            title: selectedAccount.nama, 
+                          onClick={() => Swal.fire({
+                            title: selectedAccount.nama,
                             html: `<div class='text-left text-xs space-y-2 p-2'>
                               <p><b>Akun COA:</b> ${selectedAccount.kode} - ${selectedAccount.nama}</p>
                               <p><b>Bank:</b> ${selectedAccount.bank}</p>
@@ -1432,10 +1697,10 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                               <p><b>Atas Nama:</b> ${selectedAccount.pemilik}</p>
                               <p><b>Saldo Buku Besar:</b> ${formatRp(selectedAccount.saldo)}</p>
                               <p class="text-[11px] text-slate-400 mt-2">Data ini terhubung langsung dengan Chart of Accounts (COA) dan master rekening bank perusahaan.</p>
-                            </div>`, 
+                            </div>`,
                             confirmButtonColor: '#2563eb',
                             confirmButtonText: 'Tutup',
-                            customClass: { popup: 'rounded-2xl' } 
+                            customClass: { popup: 'rounded-2xl' }
                           })}
                           className="text-[10px] font-bold text-blue-600 hover:underline mt-0.5"
                         >
@@ -1472,7 +1737,7 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
                 RIGHT COLUMN (4 COLS ~ 33%): SIDEBAR CARDS
             ══════════════════════════════════════════════════════════════════ */}
             <div className="lg:col-span-4 space-y-4">
-              
+
               {/* CARD 1: RINGKASAN INVOICE */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
@@ -1584,7 +1849,7 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
         {showPreviewModal && (
           <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6" onClick={() => setShowPreviewModal(false)}>
             <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
-              
+
               {/* Header Preview */}
               <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -1618,94 +1883,223 @@ Terimakasih telah bergabung dengan LPK Creativa Bridging International.`
               {/* Printable Document Sheet Preview */}
               <div className="p-6 overflow-y-auto bg-slate-100 flex justify-center">
                 <div
-                  className="bg-white text-slate-800 rounded-2xl p-8 shadow-md max-w-2xl w-full border border-slate-200 font-sans"
+                  className="bg-white text-slate-900 rounded-2xl p-9 shadow-md max-w-[780px] w-full border border-slate-200 font-sans text-[12px] leading-relaxed"
                   style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
                 >
-                  {/* Kop Surat */}
-                  <div className="flex items-start justify-between pb-3 border-b-2 border-blue-900">
-                    <div>
-                      <h4 className="font-black text-blue-900 text-base leading-tight">LPK CREATIVA</h4>
-                      <p className="text-[10px] font-bold text-blue-800 tracking-wider">BRIDGING INTERNATIONAL</p>
-                      <p className="text-[9px] text-slate-500 max-w-[280px] mt-1 leading-snug">
-                        Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1, Mekarsari, Kec. Cianjur, Kab. Cianjur 43211
+                  {/* Kop Surat Resmi (Sesuai Gambar 1) */}
+                  <div className="flex items-start justify-between pb-3 border-b-2 border-blue-900 relative after:content-[''] after:block after:w-full after:border-b after:border-blue-900 after:absolute after:-bottom-1 after:left-0">
+                    <div className="flex items-center">
+                      <img
+                        src="/images/creativa-kop-logo.png"
+                        alt="Creativa Bridging Internasional"
+                        className="h-14 w-auto object-contain"
+                      />
+                    </div>
+
+                    <div className="text-right font-serif">
+                      <h2 className="text-[28px] font-bold text-black leading-none tracking-tight">INVOICE</h2>
+                      <p className="text-[11px] font-bold text-black mt-1">PT. Creativa Bridging International</p>
+                      <p className="text-[10px] text-slate-700 leading-tight mt-0.5">
+                        Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1
+                      </p>
+                      <p className="text-[10px] text-slate-700 leading-tight">
+                        Mekarsari, Kec. Cianjur, Kab. Cianjur, Jawa Barat 43211
+                      </p>
+                      <p className="text-[10px] text-slate-700 leading-tight">
+                        +62 815-2222-672 | creativabridging.com
                       </p>
                     </div>
-
-                    <div className="text-right">
-                      <h2 className="text-xl font-black text-slate-900 tracking-tight">INVOICE</h2>
-                      <p className="text-[11px] font-mono font-bold text-blue-700 mt-0.5">{invoiceNumber}</p>
-                      <p className="text-[10px] text-slate-500">Tanggal: {tanggalInvoice}</p>
-                      <p className="text-[10px] text-slate-500">Jatuh Tempo: {jatuhTempo}</p>
-                    </div>
                   </div>
 
-                  {/* Customer Info */}
-                  <div className="py-4 border-b border-slate-100 flex justify-between text-xs">
+                  {/* To & Meta Block (Sesuai Gambar 2) */}
+                  <div className="py-5 flex justify-between items-start gap-4">
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Ditujukan Kepada:</p>
-                      <p className="text-sm font-black text-slate-900 mt-0.5">{activeStudent.nama}</p>
-                      <p className="text-slate-500 text-[11px] font-mono">NIS: {activeStudent.nis}</p>
-                      <p className="text-slate-500 text-[11px]">{activeStudent.phone} • {activeStudent.email}</p>
-                      <p className="text-slate-400 text-[10px]">{activeStudent.alamat}</p>
+                      <p className="text-slate-500 text-xs">To,</p>
+                      <p className="text-sm font-bold text-black uppercase mt-1">{activeStudent.nama || "-"}</p>
+                      <div className="mt-3 text-slate-500 text-xs space-y-0.5">
+                        {activeStudent.phone && activeStudent.phone !== "-" && <p>{activeStudent.phone}</p>}
+                        {activeStudent.email && activeStudent.email !== "-" && <p>{activeStudent.email}</p>}
+                      </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Program Pelatihan:</p>
-                      <p className="text-xs font-bold text-blue-900 mt-0.5">{programInfo.program}</p>
-                      <p className="text-[11px] text-slate-500">{programInfo.durasi} • {programInfo.lokasi}</p>
-                      <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                        Status: Belum Lunas
-                      </span>
+                    <div className="text-xs">
+                      <table className="border-collapse ml-auto">
+                        <tbody>
+                          <tr>
+                            <td className="font-bold text-black pr-2 py-0.5 text-right">Invoice Number</td>
+                            <td className="text-slate-800 py-0.5">: {invoiceNumber}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-bold text-black pr-2 py-0.5 text-right">Invoice Date</td>
+                            <td className="text-slate-800 py-0.5">: {formatInvoiceDateShort(tanggalInvoice)}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-bold text-black pr-2 py-0.5 text-right">Payment Due</td>
+                            <td className="text-slate-800 py-0.5">: {formatInvoiceDateShort(jatuhTempo)}</td>
+                          </tr>
+                          <tr>
+                            <td className="font-bold text-black pr-2 py-0.5 text-right">Amount Due</td>
+                            <td className="text-slate-800 py-0.5">: {formatRpComma(totalTagihan)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
-                  {/* Table */}
-                  <table className="w-full text-xs my-4 border border-slate-200 rounded-lg overflow-hidden">
-                    <thead className="bg-slate-50 font-bold text-slate-700 border-b border-slate-200">
-                      <tr>
-                        <th className="py-2 px-3 text-left">Item Tagihan</th>
-                        <th className="py-2 px-3 text-center w-16">Qty</th>
-                        <th className="py-2 px-3 text-right w-28">Harga</th>
-                        <th className="py-2 px-3 text-right w-28">Jumlah</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {items.map(it => (
-                        <tr key={it.id}>
-                          <td className="p-2.5">
-                            <p className="font-bold text-slate-900">{it.deskripsi}</p>
-                            <p className="text-[10px] text-slate-500">{it.subdeskripsi}</p>
-                          </td>
-                          <td className="p-2.5 text-center font-bold">{it.qty}</td>
-                          <td className="p-2.5 text-right font-mono">{formatRp(it.harga)}</td>
-                          <td className="p-2.5 text-right font-mono font-bold">{formatRp(it.jumlah - (it.diskon || 0))}</td>
+                  {/* Items Navy Bar & Content (Sesuai Gambar 2-4) */}
+                  <div className="w-full bg-[#163660] text-white font-bold text-xs grid grid-cols-12 px-3 py-2">
+                    <div className="col-span-7">Items</div>
+                    <div className="col-span-2 text-right">Price</div>
+                    <div className="col-span-3 text-right">Amount</div>
+                  </div>
+
+                  <div className="py-3 space-y-3">
+                    {items.map(it => (
+                      <div key={it.id} className="grid grid-cols-12 px-2 items-start">
+                        <div className="col-span-7 pr-4">
+                          <p className="font-bold text-black text-[13px]">{it.deskripsi}</p>
+                          {it.subdeskripsi && <p className="text-slate-700 text-xs mt-0.5">{it.subdeskripsi}</p>}
+                        </div>
+                        <div className="col-span-2 text-right font-bold text-black text-[13px]">
+                          {formatRpNoDecimals(it.harga)}
+                        </div>
+                        <div className="col-span-3 text-right font-bold text-black text-[13px]">
+                          {formatRpNoDecimals(Math.max(0, (Number(it.jumlah ?? it.harga) || 0) - (Number(it.diskon) || 0)))}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="px-2 pt-2 space-y-3 text-xs text-slate-800">
+                      <div>
+                        <p className="font-bold text-black mb-1">Biaya Sudah Termasuk:</p>
+                        <ol className="list-decimal pl-7 space-y-0.5">
+                          {DEFAULT_INCLUSIONS_LIST.map((inc, idx) => (
+                            <li key={idx}>{inc}</li>
+                          ))}
+                        </ol>
+                      </div>
+
+                      <div>
+                        <p className="font-bold text-black mb-1">Biaya Tidak Termasuk:</p>
+                        <ol className="list-decimal pl-7 space-y-0.5">
+                          {DEFAULT_EXCLUSIONS_LIST.map((exc, idx) => (
+                            <li key={idx}>{exc}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Totals Block (Sesuai Gambar 5) */}
+                  <div className="border-t border-slate-700 mt-3 pt-2 flex justify-end">
+                    <div className="w-72 text-xs">
+                      <div className="flex justify-between py-1.5 border-b border-slate-500">
+                        <span className="font-bold text-black">Subtotal:</span>
+                        <span className="text-black">{formatRpComma(subtotal)}</span>
+                      </div>
+                      {totalDiskon > 0 && (
+                        <div className="flex justify-between py-1.5 border-b border-slate-400">
+                          <span className="font-bold text-black">Discount:</span>
+                          <span className="text-black">- {formatRpComma(totalDiskon)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-1.5 border-b border-slate-500">
+                        <span className="font-bold text-black">Total:</span>
+                        <span className="text-black">{formatRpComma(totalTagihan)}</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 font-bold text-black">
+                        <span>Amount Due (IDR):</span>
+                        <span>{formatRpComma(totalTagihan, true)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Installment Table (Sesuai Gambar 6) */}
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-black mb-2">Installment</h3>
+                    <table className="w-full text-xs border-collapse border border-slate-300">
+                      <thead>
+                        <tr className="bg-white text-black font-bold">
+                          <th className="border border-slate-300 px-3 py-2 text-left">Description</th>
+                          <th className="border border-slate-300 px-3 py-2 text-left">Date</th>
+                          <th className="border border-slate-300 px-3 py-2 text-right">Amount</th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
-                      <tr>
-                        <td colSpan={3} className="p-2.5 text-right text-slate-600">Total Tagihan:</td>
-                        <td className="p-2.5 text-right font-mono text-sm text-blue-700">{formatRp(totalTagihan)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(pembayaranList && pembayaranList.length > 0
+                          ? pembayaranList
+                          : [{ id: 1, deskripsi: "FULL PAYMENT", jatuhTempo: jatuhTempo, nominal: totalTagihan }]
+                        ).map((inst, idx) => (
+                          <tr key={inst.id || idx}>
+                            <td className="border border-slate-300 px-3 py-2 uppercase">
+                              {inst.deskripsi || (pembayaranList.length === 1 ? "FULL PAYMENT" : `CICILAN KE-${idx + 1}`)}
+                            </td>
+                            <td className="border border-slate-300 px-3 py-2">
+                              {formatInvoiceDateUpper(inst.jatuhTempo)}
+                            </td>
+                            <td className="border border-slate-300 px-3 py-2 text-right">
+                              {formatRpComma(inst.nominal)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                  {/* Pembayaran & Rekening */}
-                  <div className="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 gap-4 text-[10px] text-slate-600">
+                  {/* Notes/Terms (Sesuai Gambar 6) */}
+                  <div className="mt-6 space-y-1.5 text-xs text-slate-900">
+                    <p className="font-bold text-sm text-black">Notes/Terms</p>
+                    <p>
+                      Biaya ujian SSW selain program SSW kaigo, pengolahan makanan, pertanian, perikanan, dan restoran dikenakan biaya tambahan Rp 500.000.
+                    </p>
+                    {catatanOpsional && <p>{catatanOpsional}</p>}
+                    <p className="text-slate-500 text-[11px]">https://creativabridging.com/</p>
+                  </div>
+
+                  {/* Confidential, Cara Pembayaran & TTD Direktur (Sesuai Gambar 7 & 8) */}
+                  <div className="mt-6 pt-4 border-t border-slate-300 space-y-4 text-xs text-slate-900">
+                    <p>Invoice bersifat confidential (rahasia)</p>
+
                     <div>
-                      <p className="font-bold text-slate-800">Pembayaran Ditransfer ke:</p>
-                      <p className="font-bold text-blue-900 text-xs mt-0.5">
-                        {selectedAccount.bank} — {selectedAccount.noRek}
-                      </p>
-                      <p>a/n {selectedAccount.pemilik}</p>
-                      <p className="text-slate-400 mt-1 italic">
-                        *Kode Akun: COA {selectedAccount.kode} | Cantumkan No. Invoice pada berita transfer
-                      </p>
+                      <p className="mb-1.5">Cara Pembayaran :</p>
+                      <ol className="list-decimal pl-6 space-y-1">
+                        <li>
+                          <p>Transfer via ATM/Bank</p>
+                          <p>
+                            Bank {selectedAccount.bank || "BCA"} No. Rekening {selectedAccount.noRek || "1832-918-428"} atas nama{" "}
+                            {String(selectedAccount.noRek || "").includes("1832-918-428") &&
+                            String(selectedAccount.pemilik || "").trim().toUpperCase() === "PT LPK CREATIVA"
+                              ? "CREATIVA BRIDGING INTERN"
+                              : (selectedAccount.pemilik || "CREATIVA BRIDGING INTERN")}
+                          </p>
+                        </li>
+                        <li>Cantumkan keterangan / berita Transfer dengan memasukkan Nomor Invoice diatas</li>
+                        <li>
+                          Kirim Bukti Transfer ke email{" "}
+                          <span className="text-blue-700 underline">finance@creativabridging.com</span>
+                        </li>
+                      </ol>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-slate-800">Konfirmasi Pembayaran:</p>
-                      <p className="text-blue-600 font-semibold">finance@creativabridging.com</p>
-                      <p>WhatsApp: +62 815-2222-672</p>
+
+                    <p className="pt-2">Terimakasih telah bergabung dengan LPK CREATIVA</p>
+
+                    <div className="pt-2 space-y-0.5">
+                      <p>LPK CREATIVA Team</p>
+                      <p>https://creativabridging.com/</p>
+                      <p>Telp/SMS/WA +81 80-7948-7205</p>
+                    </div>
+
+                    <div className="pt-3">
+                      <p>Diketahui Oleh,</p>
+                      {createDirectorStampDataURL() && (
+                        <img
+                          src={createDirectorStampDataURL()}
+                          alt="Tanda Tangan dan Stempel Direktur"
+                          className="h-20 w-auto my-1 object-contain"
+                        />
+                      )}
+                      <p>Siti Nurhatifah</p>
+                      <p>Direktur</p>
                     </div>
                   </div>
                 </div>

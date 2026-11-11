@@ -18,7 +18,232 @@ import {
   Image as ImageIcon, ExternalLink, ZoomIn, FileCheck, UploadCloud
 } from "lucide-react";
 
-const formatRp = (n) => "Rp " + n.toLocaleString("id-ID");
+const formatRp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
+
+const MONTHS_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agust", "Sep", "Okt", "Nov", "Des"];
+const MONTHS_UPPER_ID = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
+
+export function formatRpNoDecimals(n) {
+  const rounded = Math.round(Number(n) || 0);
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+export function formatRpComma(n, withSpace = false) {
+  const num = Number(n || 0);
+  const abs = Math.abs(num);
+  const fixed = abs.toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const sign = num < 0 ? "-" : "";
+  return `${sign}${withSpace ? "Rp " : "Rp"}${grouped},${decPart}`;
+}
+
+function parseInvoiceDateParts(dateStr) {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim();
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const monthIdx = Number(iso[2]) - 1;
+    const day = Number(iso[3]);
+    if (monthIdx >= 0 && monthIdx < 12 && day >= 1 && day <= 31) {
+      return { year, monthIdx, day };
+    }
+  }
+  const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    const a = Number(slash[1]);
+    const b = Number(slash[2]);
+    const year = Number(slash[3]);
+    // Treat MM/DD/YYYY when first part <= 12 and second > 12, otherwise DD/MM/YYYY
+    const monthIdx = (a <= 12 && b > 12 ? a : b <= 12 ? b : a) - 1;
+    const day = (a <= 12 && b > 12 ? b : b <= 12 ? a : b);
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return { year, monthIdx, day };
+    }
+  }
+  const parsed = new Date(s);
+  if (!Number.isNaN(parsed.getTime())) {
+    return { year: parsed.getFullYear(), monthIdx: parsed.getMonth(), day: parsed.getDate() };
+  }
+  return null;
+}
+
+export function formatInvoiceDateShort(dateStr) {
+  const parts = parseInvoiceDateParts(dateStr);
+  if (!parts) return dateStr ? String(dateStr) : "-";
+  return `${MONTHS_SHORT_ID[parts.monthIdx]} ${parts.day}, ${parts.year}`;
+}
+
+export function formatInvoiceDateUpper(dateStr) {
+  const parts = parseInvoiceDateParts(dateStr);
+  if (!parts) return dateStr ? String(dateStr).toUpperCase() : "-";
+  return `${MONTHS_UPPER_ID[parts.monthIdx]} ${String(parts.day).padStart(2, "0")}, ${parts.year}`;
+}
+
+let cachedKopLogoDataUrl = null;
+let cachedDirectorStampDataUrl = null;
+
+if (typeof window !== "undefined") {
+  fetch("/images/creativa-kop-logo.png")
+    .then((res) => (res.ok ? res.blob() : null))
+    .then((blob) => {
+      if (!blob) return;
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          cachedKopLogoDataUrl = reader.result;
+        }
+      };
+      reader.readAsDataURL(blob);
+    })
+    .catch(() => { });
+}
+
+function drawArcTextOnCanvas(ctx, text, cx, cy, radius, startAngle, stepAngle, inward = false) {
+  ctx.save();
+  for (let i = 0; i < text.length; i++) {
+    const angle = startAngle + i * stepAngle;
+    ctx.save();
+    ctx.translate(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+    ctx.rotate(angle + (inward ? -Math.PI / 2 : Math.PI / 2));
+    ctx.fillText(text[i], 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawCanvasStar(ctx, cx, cy, outerR, innerR) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+export function createDirectorStampDataURL() {
+  if (cachedDirectorStampDataUrl) return cachedDirectorStampDataUrl;
+  if (typeof document === "undefined") return "";
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 560;
+  canvas.height = 220;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  // 1. BLUE CIRCULAR COMPANY STAMP (Right side, overlapping signature)
+  const cx = 368;
+  const cy = 110;
+  const stampBlue = "#1a52b8";
+
+  ctx.save();
+  ctx.globalAlpha = 0.88;
+  ctx.strokeStyle = stampBlue;
+  ctx.fillStyle = stampBlue;
+
+  // Outer & inner rings
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 92, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 58, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Inner 4-petal Creativa emblem + center dot
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    ctx.save();
+    ctx.rotate((i * Math.PI) / 2);
+    ctx.beginPath();
+    ctx.moveTo(0, -17);
+    ctx.bezierCurveTo(13, -17, 22, -28, 22, -43);
+    ctx.bezierCurveTo(7, -43, 2, -42, -9, -39);
+    ctx.bezierCurveTo(-13, -29, -8, -19, 0, -17);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Curved stamp text: top "CREATIVA BRIDGING", stars left/right, bottom "INTERNATIONAL"
+  ctx.font = "bold 20px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const trackR = 75;
+  const topText = "CREATIVA BRIDGING";
+  const topSpan = 3.05;
+  const topStep = topSpan / (topText.length - 1);
+  drawArcTextOnCanvas(ctx, topText, cx, cy, trackR, -Math.PI / 2 - topSpan / 2, topStep, false);
+
+  const botText = "INTERNATIONAL";
+  const botSpan = 2.15;
+  const botStep = botSpan / (botText.length - 1);
+  drawArcTextOnCanvas(ctx, botText, cx, cy, trackR, Math.PI / 2 + botSpan / 2, -botStep, true);
+
+  drawCanvasStar(ctx, cx - 73, cy + 16, 5.5, 2.3);
+  drawCanvasStar(ctx, cx + 73, cy + 16, 5.5, 2.3);
+  ctx.restore();
+
+  // 2. BLACK CALLIGRAPHIC SIGNATURE (Siti Nurhatifah, overlapping stamp on left)
+  ctx.save();
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // Sweeping left 'S' loop & flourish
+  ctx.lineWidth = 4.6;
+  ctx.beginPath();
+  ctx.moveTo(148, 56);
+  ctx.bezierCurveTo(108, 24, 52, 58, 72, 92);
+  ctx.bezierCurveTo(88, 118, 174, 122, 162, 148);
+  ctx.bezierCurveTo(150, 174, 48, 152, 42, 124);
+  ctx.bezierCurveTo(38, 106, 92, 98, 154, 112);
+  ctx.stroke();
+
+  // Main tall vertical stem & lower descender loop
+  ctx.lineWidth = 4.4;
+  ctx.beginPath();
+  ctx.moveTo(142, 34);
+  ctx.bezierCurveTo(126, 70, 118, 154, 126, 188);
+  ctx.bezierCurveTo(132, 198, 150, 184, 152, 148);
+  ctx.bezierCurveTo(154, 108, 162, 58, 168, 44);
+  ctx.bezierCurveTo(170, 82, 170, 126, 174, 146);
+  ctx.stroke();
+
+  // Horizontal stroke + flowing lowercase tail into stamp
+  ctx.lineWidth = 4.0;
+  ctx.beginPath();
+  ctx.moveTo(76, 118);
+  ctx.bezierCurveTo(126, 118, 184, 112, 232, 114);
+  ctx.bezierCurveTo(212, 114, 194, 122, 198, 134);
+  ctx.bezierCurveTo(202, 144, 218, 134, 224, 114);
+  ctx.bezierCurveTo(222, 132, 228, 144, 238, 134);
+  ctx.bezierCurveTo(246, 126, 250, 110, 258, 116);
+  ctx.bezierCurveTo(260, 136, 252, 162, 244, 172);
+  ctx.bezierCurveTo(242, 152, 256, 128, 272, 118);
+  ctx.bezierCurveTo(278, 136, 290, 122, 294, 102);
+  ctx.bezierCurveTo(298, 86, 286, 86, 284, 108);
+  ctx.bezierCurveTo(284, 126, 304, 130, 326, 118);
+  ctx.bezierCurveTo(342, 112, 356, 116, 368, 122);
+  ctx.stroke();
+  ctx.restore();
+
+  cachedDirectorStampDataUrl = canvas.toDataURL("image/png");
+  return cachedDirectorStampDataUrl;
+}
 
 export function normalizeFinanceStatus(status) {
   if (!status) return "Unpaid";
@@ -125,302 +350,635 @@ const METODE_CICILAN = [
   { label: "Full Payment", amount: 15000000 },
 ];
 
-// ─── HELPER: Generate & Download / Preview Official Invoice PDF ───────────────────────────
-export function generateInvoicePDF(inv, mode = 'download') {
-  const doc = new jsPDF({ format: 'a4' });
-  doc.setFont("times");
-  doc.setProperties({
-    title: `INVOICE - ${inv.id || 'INVOICE'} - ${(inv.customer || '').toUpperCase()}`
+export const OFFICIAL_INCLUSIONS_DEFAULT = [
+  "Kelas Bahasa Jepang Level N5 & N4",
+  "Kelas Persiapan Ujian JFT & SSW",
+  "Biaya Ujian JFT A2.2 & SSW (masing-masing tercover 1x)",
+  "Buku & Materi Pelajaran",
+  "Panel & Moodle (Learning Online System for Student)",
+  "Seragam, ID Card & Suripa",
+  "Sertifikat Kompetensi LPK",
+  "Fasilitas Kelas & Asrama selama 7 bulan",
+  "Praktek & Kegiatan LPK (FMD, Kunjungan Matsuri, Bukber, Acara Kelulusan, dll) *kondisional",
+  "Konsultasi Pendidikan/Pelatihan & Peluang Karir di Jepang (kapan pun selama Pelatihan)",
+];
+
+export const OFFICIAL_EXCLUSIONS_DEFAULT = [
+  "Biaya Utilitas (Air, Listrik, Internet, & IPL Asrama per Bulan)",
+  "Biaya Makan",
+  "Keperluan Pribadi Lainnya",
+];
+
+function computeOfficialCicilanDates(anchorDateStr, count = 6) {
+  const baseParts = parseInvoiceDateParts(anchorDateStr);
+  const baseDate = baseParts
+    ? new Date(baseParts.year, baseParts.monthIdx, baseParts.day)
+    : new Date();
+  const amounts = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
+  return Array.from({ length: count }, (_, idx) => {
+    const d = new Date(baseDate.getTime());
+    d.setMonth(d.getMonth() + idx);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return {
+      description: idx === 0 ? "DP PENDAFTARAN" : `CICILAN KE-${idx + 1}`,
+      date: `${yyyy}-${mm}-${dd}`,
+      amount: amounts[idx] ?? 0,
+    };
   });
+}
 
-  let currentY = 18;
+export function enrichInvoiceData(rawInv = {}) {
+  let storedMatch = null;
+  if (typeof window !== "undefined" && rawInv?.id) {
+    try {
+      const saved = JSON.parse(localStorage.getItem("saved_custom_invoices") || "[]");
+      if (Array.isArray(saved)) {
+        storedMatch = saved.find((s) => String(s?.id) === String(rawInv.id)) || null;
+      }
+    } catch {
+      storedMatch = null;
+    }
+  }
 
-  // 1. KOP SURAT RESMI
-  if (inv.showKop !== false) {
-    // Left: Logo
-    if (inv.showLogo !== false) {
-      try {
+  const merged = { ...(storedMatch || {}), ...rawInv };
+  if ((!merged.items || merged.items.length === 0) && storedMatch?.items?.length) merged.items = storedMatch.items;
+  if ((!merged.installments || merged.installments.length === 0) && storedMatch?.installments?.length) merged.installments = storedMatch.installments;
+  if ((!merged.includes || merged.includes.length === 0) && storedMatch?.includes?.length) merged.includes = storedMatch.includes;
+  if ((!merged.excludes || merged.excludes.length === 0) && storedMatch?.excludes?.length) merged.excludes = storedMatch.excludes;
+  if (!merged.bank_name && storedMatch?.bank_name) merged.bank_name = storedMatch.bank_name;
+  if (!merged.account_number && storedMatch?.account_number) merged.account_number = storedMatch.account_number;
+  if (!merged.account_holder && storedMatch?.account_holder) merged.account_holder = storedMatch.account_holder;
+  if (!merged.lokasi && storedMatch?.lokasi) merged.lokasi = storedMatch.lokasi;
+  if (!merged.notes && storedMatch?.notes) merged.notes = storedMatch.notes;
+
+  const grandTotal = Number(merged.total) || 0;
+  const discountAmount = Number(merged.discount?.amount) || 0;
+
+  let items;
+  if (Array.isArray(merged.items) && merged.items.length > 0) {
+    items = merged.items.map((it) => {
+      const titleRaw = it.deskripsi || it.name || "Program Pelatihan";
+      const [splitTitle, ...restTitle] = String(titleRaw).split("\n");
+      const subtitleRaw = it.subdeskripsi || it.subtitle || restTitle.join(" ").trim();
+      const price = Number(it.price ?? it.harga ?? 0);
+      const diskon = Number(it.diskon ?? 0);
+      const amount = Number(it.amount ?? Math.max(0, Number(it.jumlah ?? price) - diskon));
+      return {
+        title: splitTitle,
+        subtitle: subtitleRaw,
+        price,
+        diskon,
+        amount,
+      };
+    });
+  } else {
+    const ket = String(merged.keterangan || "").trim();
+    const prog = String(merged.program || "").trim();
+    const isCicilLabel = ket.toLowerCase().includes("cicil");
+    const defaultTitle =
+      prog ||
+      (ket ? ket : `Kelas Intensif Offline (${isCicilLabel ? "Cicilan" : "Full Payment"})`);
+    const locSuffix = merged.lokasi ? `- ${merged.lokasi}` : "- Cianjur";
+    items = [
+      {
+        title: defaultTitle,
+        subtitle: `Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill ${locSuffix}`,
+        price: grandTotal,
+        diskon: 0,
+        amount: grandTotal,
+      },
+    ];
+  }
+
+  const computedSubtotal = items.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
+  const subtotal = Number(merged.subtotal) || (discountAmount > 0 ? computedSubtotal : grandTotal) || computedSubtotal;
+  const effectiveDiscount = discountAmount || Math.max(0, subtotal - grandTotal);
+
+  const stNorm = normalizeFinanceStatus(merged.status);
+  const paidAmount = stNorm === "Paid" ? grandTotal : (Number(merged.terbayar) || 0);
+  const amountDue = merged.sisa != null && stNorm !== "Unpaid"
+    ? Math.max(0, Number(merged.sisa))
+    : Math.max(0, grandTotal - paidAmount);
+
+  const includes = Array.isArray(merged.includes) && merged.includes.length > 0
+    ? merged.includes
+    : OFFICIAL_INCLUSIONS_DEFAULT;
+
+  const excludes = Array.isArray(merged.excludes) && merged.excludes.length > 0
+    ? merged.excludes
+    : OFFICIAL_EXCLUSIONS_DEFAULT;
+
+  let installments;
+  if (Array.isArray(merged.installments) && merged.installments.length > 0) {
+    installments = merged.installments.map((inst, idx) => ({
+      description: String(
+        inst.keterangan ||
+        inst.deskripsi ||
+        inst.label ||
+        (merged.installments.length === 1 ? "FULL PAYMENT" : `CICILAN KE-${idx + 1}`)
+      ).toUpperCase(),
+      date: inst.jatuhTempo || inst.tanggal || merged.jatuhTempo || merged.tanggal,
+      amount: Number(inst.nominal ?? inst.amount ?? 0),
+    }));
+  } else if (
+    (String(merged.skema || merged.keterangan || "").toLowerCase().includes("cicil")) &&
+    grandTotal === 18000000
+  ) {
+    installments = computeOfficialCicilanDates(merged.jatuhTempo || merged.tanggal, 6);
+  } else {
+    installments = [
+      {
+        description: "FULL PAYMENT",
+        date: merged.jatuhTempo || merged.tanggal,
+        amount: grandTotal,
+      },
+    ];
+  }
+
+  // Extract bank account details
+  let bankName = merged.bank_name || "";
+  let accountNumber = merged.account_number || "";
+  let accountHolder = merged.account_holder || "";
+  if ((!bankName || !accountNumber) && merged.rekening) {
+    const rekStr = String(merged.rekening);
+    const numMatch = rekStr.match(/(\d{3,4}-\d{3,4}-\d{3,4}|\d{6,})/);
+    if (numMatch && !accountNumber) accountNumber = numMatch[1];
+    if (/mandiri/i.test(rekStr)) bankName = bankName || "Mandiri";
+    else if (/bni/i.test(rekStr)) bankName = bankName || "BNI";
+    else bankName = bankName || "BCA";
+  }
+  bankName = bankName || "BCA";
+  accountNumber = accountNumber || "1832-918-428";
+  if (!accountHolder || (String(accountNumber).includes("1832-918-428") && accountHolder.trim().toUpperCase() === "PT LPK CREATIVA")) {
+    accountHolder = "CREATIVA BRIDGING INTERN";
+  }
+
+  const rawNotes = String(merged.notes || merged.catatan || "").trim();
+  const isLegacyBoilerplate =
+    rawNotes.includes("Cara Pembayaran") ||
+    rawNotes.includes("Invoice ini bersifat confidential");
+  const customNotes = rawNotes && !isLegacyBoilerplate ? rawNotes : "";
+
+  return {
+    ...merged,
+    items,
+    subtotal,
+    discountAmount: effectiveDiscount,
+    grandTotal,
+    amountDue,
+    includes,
+    excludes,
+    installments,
+    bank: { bankName, accountNumber, accountHolder },
+    customNotes,
+  };
+}
+
+function drawInvoiceKopSurat(doc, inv) {
+  if (inv.showKop === false) {
+    return 18;
+  }
+
+  if (inv.showLogo !== false) {
+    let drewImage = false;
+    try {
+      if (cachedKopLogoDataUrl) {
+        doc.addImage(cachedKopLogoDataUrl, "PNG", 14, 12, 50, 20);
+        drewImage = true;
+      } else if (typeof Image !== "undefined") {
         const logoImg = new Image();
         logoImg.src = "/images/creativa-kop-logo.png";
-        doc.addImage(logoImg, 'PNG', 14, 12, 50, 20);
-      } catch (e) {
-        doc.setTextColor(30, 58, 138);
-        doc.setFont("times", "bold");
-        doc.setFontSize(14);
-        doc.text("CREATIVA BRIDGING", 14, 20);
-        doc.text("INTERNATIONAL", 14, 26);
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+          doc.addImage(logoImg, "PNG", 14, 12, 50, 20);
+          drewImage = true;
+        }
       }
-    } else {
+    } catch {
+      drewImage = false;
+    }
+
+    if (!drewImage) {
       doc.setTextColor(30, 58, 138);
       doc.setFont("times", "bold");
       doc.setFontSize(14);
       doc.text("CREATIVA BRIDGING", 14, 20);
       doc.text("INTERNATIONAL", 14, 26);
     }
-
-    // Right: Kop Surat Teks
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(24);
+  } else {
+    doc.setTextColor(30, 58, 138);
     doc.setFont("times", "bold");
-    doc.text("INVOICE", 196, 18, { align: 'right' });
-
-    doc.setFontSize(9.5);
-    doc.setFont("times", "bold");
-    doc.text("PT. Creativa Bridging International", 196, 24, { align: 'right' });
-
-    doc.setFontSize(8.5);
-    doc.setFont("times", "normal");
-    doc.text("Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1", 196, 29, { align: 'right' });
-    doc.text("Mekarsari, Kec. Cianjur, Kab. Cianjur, Jawa Barat 43211", 196, 34, { align: 'right' });
-    doc.text("+62 815-2222-672 | creativabridging.com", 196, 39, { align: 'right' });
-
-    // Double Line Separator
-    currentY = 43;
-    doc.setDrawColor(30, 58, 138);
-    doc.setLineWidth(0.6);
-    doc.line(14, currentY, 196, currentY);
-    doc.setLineWidth(0.2);
-    doc.line(14, currentY + 1.2, 196, currentY + 1.2);
-    currentY += 8;
+    doc.setFontSize(14);
+    doc.text("CREATIVA BRIDGING", 14, 20);
+    doc.text("INTERNATIONAL", 14, 26);
   }
 
-  // 2. META DATA (To Customer & Invoice Info)
-  const metaStartY = currentY;
-  doc.setTextColor(0);
-  doc.setFontSize(9.5);
-  doc.setFont("times", "normal");
-  doc.text("To,", 14, metaStartY);
-
-  doc.setFontSize(12);
+  // Right: Kop Surat Teks (persis gambar 1)
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(24);
   doc.setFont("times", "bold");
-  doc.text(inv.customer ? inv.customer.toUpperCase() : "-", 14, metaStartY + 6);
+  doc.text("INVOICE", 196, 18, { align: "right" });
+
+  doc.setFontSize(9.5);
+  doc.setFont("times", "bold");
+  doc.text("PT. Creativa Bridging International", 196, 24, { align: "right" });
 
   doc.setFontSize(8.5);
   doc.setFont("times", "normal");
-  doc.setTextColor(80);
-  if (inv.phone) doc.text(`Telp/WA: ${inv.phone}`, 14, metaStartY + 11);
-  if (inv.email) doc.text(`Email: ${inv.email}`, 14, metaStartY + 15.5);
+  doc.text("Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1", 196, 29, { align: "right" });
+  doc.text("Mekarsari, Kec. Cianjur, Kab. Cianjur, Jawa Barat 43211", 196, 34, { align: "right" });
+  doc.text("+62 815-2222-672 | creativabridging.com", 196, 39, { align: "right" });
 
-  // Right Meta
-  doc.setTextColor(0);
-  doc.setFont("times", "bold");
-  doc.setFontSize(9);
-  doc.text("Invoice Number", 125, metaStartY);
-  doc.text("Sales Code", 125, metaStartY + 5.5);
-  doc.text("Invoice Date", 125, metaStartY + 11);
-  doc.text("Payment Due", 125, metaStartY + 16.5);
+  // Double Line Separator
+  const sepY = 43;
+  doc.setDrawColor(30, 58, 138);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+  doc.setLineWidth(0.2);
+  doc.line(14, sepY + 1.2, 196, sepY + 1.2);
 
-  doc.setFont("times", "normal");
-  doc.text(`: ${inv.id}`, 155, metaStartY);
-  doc.text(`: ${inv.salesCode || 'SLS-CBI-01'}`, 155, metaStartY + 5.5);
-  doc.text(`: ${inv.tanggal}`, 155, metaStartY + 11);
-  doc.text(`: ${inv.jatuhTempo}`, 155, metaStartY + 16.5);
+  return 52;
+}
 
-  currentY = metaStartY + 23;
+function ensureInvoicePageSpace(doc, currentY, neededHeight, inv) {
+  if (currentY + neededHeight > 276) {
+    doc.addPage();
+    return drawInvoiceKopSurat(doc, inv);
+  }
+  return currentY;
+}
 
-  // 3. TABLE ITEMS
-  const tableRows = (inv.items && inv.items.length > 0)
-    ? inv.items.map(it => [it.name, String(it.qty || 1), formatRp(Number(it.price || 0)), formatRp(Number(it.amount || it.price || 0))])
-    : [[`Kelas Intensif Offline (${inv.keterangan || 'Program Pelatihan'})\nBiaya Pendidikan Bahasa Jepang dan Pelatihan Skill`, "1", formatRp(inv.total), formatRp(inv.total)]];
+// ─── HELPER: Generate & Download / Preview Official Invoice PDF ───────────────────────────
+export function generateInvoicePDF(rawInv, mode = "download") {
+  const inv = enrichInvoiceData(rawInv);
+  const doc = new jsPDF({ format: "a4" });
+  doc.setProperties({
+    title: `INVOICE - ${inv.id || "INVOICE"} - ${(inv.customer || "").toUpperCase()}`,
+  });
+
+  // 1. KOP SURAT RESMI (Page 1 & repeating on page breaks)
+  let currentY = drawInvoiceKopSurat(doc, inv);
+
+  // 2. META DATA (To Customer & Invoice Info — gambar 2)
+  const metaStartY = currentY;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.text("To,", 14, metaStartY);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(inv.customer ? String(inv.customer).toUpperCase() : "-", 14, metaStartY + 6.5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(107, 114, 128);
+  let contactY = metaStartY + 14.5;
+  if (inv.phone && inv.phone !== "-") {
+    doc.text(String(inv.phone), 14, contactY);
+    contactY += 4.8;
+  }
+  if (inv.email && inv.email !== "-") {
+    doc.text(String(inv.email), 14, contactY);
+  }
+
+  // Right Meta (Invoice Number, Invoice Date, Payment Due, Amount Due)
+  const metaRows = [
+    ["Invoice Number", String(inv.id || "-")],
+    ["Invoice Date", formatInvoiceDateShort(inv.tanggal)],
+    ["Payment Due", formatInvoiceDateShort(inv.jatuhTempo)],
+    ["Amount Due", formatRpComma(inv.amountDue)],
+  ];
+  doc.setFontSize(9.5);
+  metaRows.forEach(([label, value], idx) => {
+    const y = metaStartY + idx * 5.2;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text(label, 155, y, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(17, 24, 39);
+    doc.text(`: ${value}`, 157, y);
+  });
+
+  currentY = Math.max(metaStartY + 25, contactY + 4);
+
+  // 3. ITEMS SECTION HEADER BAR (Items | Price | Amount)
+  doc.setFillColor(22, 54, 96);
+  doc.rect(14, currentY, 182, 7.5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Items", 17, currentY + 5.1);
+  doc.text("Price", 156, currentY + 5.1, { align: "right" });
+  doc.text("Amount", 193, currentY + 5.1, { align: "right" });
+
+  currentY += 12.5;
+
+  // Item Rows (clean white flow matching gambar 2)
+  inv.items.forEach((it) => {
+    const titleLines = doc.splitTextToSize(String(it.title || "Program Pelatihan"), 106);
+    const subLines = it.subtitle ? doc.splitTextToSize(String(it.subtitle), 106) : [];
+    const blockH = titleLines.length * 4.6 + subLines.length * 4.3 + (it.diskon > 0 ? 4.5 : 0) + 4;
+    currentY = ensureInvoicePageSpace(doc, currentY, blockH, inv);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(titleLines, 16, currentY);
+    doc.text(formatRpNoDecimals(it.price), 156, currentY, { align: "right" });
+    doc.text(formatRpNoDecimals(it.amount), 193, currentY, { align: "right" });
+
+    let itemCursorY = currentY + titleLines.length * 4.6;
+    if (subLines.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(55, 65, 81);
+      doc.text(subLines, 16, itemCursorY + 0.5);
+      itemCursorY += subLines.length * 4.3 + 0.5;
+    }
+    if (it.diskon > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`(Diskon: -${formatRpNoDecimals(it.diskon)})`, 16, itemCursorY + 0.8);
+      itemCursorY += 4.2;
+    }
+    currentY = itemCursorY + 4;
+  });
+
+  // 4. BIAYA SUDAH TERMASUK (Numbered 1..10 — gambar 2 & 3)
+  currentY = ensureInvoicePageSpace(doc, currentY + 1, 20, inv);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Biaya Sudah Termasuk:", 16, currentY);
+  currentY += 5.5;
+
+  inv.includes.forEach((itemText, idx) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(31, 41, 55);
+    const wrapped = doc.splitTextToSize(String(itemText), 158);
+    const needed = wrapped.length * 4.4 + 1.1;
+    currentY = ensureInvoicePageSpace(doc, currentY, needed, inv);
+    doc.text(`${idx + 1}.`, 24, currentY, { align: "right" });
+    doc.text(wrapped, 27, currentY);
+    currentY += needed;
+  });
+
+  // 5. BIAYA TIDAK TERMASUK (Numbered 1..3 — gambar 3..5)
+  currentY += 3;
+  const estExclHeight = 8 + Math.min(inv.excludes.length, 3) * 6;
+  currentY = ensureInvoicePageSpace(doc, currentY, estExclHeight, inv);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Biaya Tidak Termasuk:", 16, currentY);
+  currentY += 5.5;
+
+  inv.excludes.forEach((itemText, idx) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(31, 41, 55);
+    const wrapped = doc.splitTextToSize(String(itemText), 158);
+    const needed = wrapped.length * 4.4 + 1.1;
+    currentY = ensureInvoicePageSpace(doc, currentY, needed, inv);
+    doc.text(`${idx + 1}.`, 24, currentY, { align: "right" });
+    doc.text(wrapped, 27, currentY);
+    currentY += needed;
+  });
+
+  // 6. TOTALS WITH HORIZONTAL LINES (Subtotal / Total / Amount Due (IDR) — gambar 5)
+  currentY = ensureInvoicePageSpace(doc, currentY + 4, 34, inv);
+  doc.setDrawColor(30, 41, 59);
+  doc.setLineWidth(0.35);
+  doc.line(14, currentY, 196, currentY);
+  currentY += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Subtotal:", 161, currentY, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.text(formatRpComma(inv.subtotal), 194, currentY, { align: "right" });
+
+  if (inv.discountAmount > 0) {
+    currentY += 3;
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.25);
+    doc.line(118, currentY, 196, currentY);
+    currentY += 5.5;
+    doc.setFont("helvetica", "bold");
+    doc.text(`Discount${inv.discount?.desc ? ` (${inv.discount.desc})` : ""}:`, 161, currentY, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.text(`- ${formatRpComma(inv.discountAmount)}`, 194, currentY, { align: "right" });
+  }
+
+  currentY += 3;
+  doc.setDrawColor(100, 116, 139);
+  doc.setLineWidth(0.25);
+  doc.line(118, currentY, 196, currentY);
+  currentY += 5.5;
+
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text("Total:", 161, currentY, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.text(formatRpComma(inv.grandTotal), 194, currentY, { align: "right" });
+
+  currentY += 3;
+  doc.setDrawColor(100, 116, 139);
+  doc.setLineWidth(0.25);
+  doc.line(118, currentY, 196, currentY);
+  currentY += 5.5;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Amount Due (IDR):", 161, currentY, { align: "right" });
+  doc.text(formatRpComma(inv.amountDue, true), 194, currentY, { align: "right" });
+
+  currentY += 10;
+
+  // 7. INSTALLMENT TABLE (Description | Date | Amount — gambar 6)
+  currentY = ensureInvoicePageSpace(doc, currentY, 32, inv);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Installment", 14, currentY);
+  currentY += 4.5;
+
+  const instStartPage = doc.getNumberOfPages();
+  const installmentRows = inv.installments.map((inst) => [
+    String(inst.description || "FULL PAYMENT").toUpperCase(),
+    formatInvoiceDateUpper(inst.date),
+    formatRpComma(inst.amount),
+  ]);
 
   autoTable(doc, {
     startY: currentY,
-    head: [["Item", "Quantity", "Price (Rp)", "Amount (Rp)"]],
-    body: tableRows,
-    styles: { font: 'times' },
-    headStyles: { font: 'times', fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9 },
-    bodyStyles: { font: 'times', textColor: 0, fontSize: 8.5 },
-    columnStyles: {
-      0: { cellWidth: 95 },
-      1: { halign: 'center', cellWidth: 22 },
-      2: { halign: 'right', cellWidth: 32 },
-      3: { halign: 'right', fontStyle: 'bold', cellWidth: 33 }
+    margin: { left: 14, right: 14, top: inv.showKop !== false ? 52 : 18 },
+    head: [["Description", "Date", "Amount"]],
+    body: installmentRows,
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 9.5,
+      textColor: [0, 0, 0],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.25,
+      cellPadding: 2.8,
     },
-    theme: 'grid'
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: "bold",
+      halign: "left",
+    },
+    columnStyles: {
+      0: { cellWidth: 66, halign: "left" },
+      1: { cellWidth: 64, halign: "left" },
+      2: { cellWidth: 52, halign: "right" },
+    },
+    didParseCell: (data) => {
+      if (data.section === "head" && data.column.index === 2) {
+        data.cell.styles.halign = "right";
+      }
+    },
+    didDrawPage: (data) => {
+      if (data.pageNumber > instStartPage) {
+        drawInvoiceKopSurat(doc, inv);
+      }
+    },
   });
 
-  currentY = doc.lastAutoTable.finalY + 5;
+  currentY = doc.lastAutoTable.finalY + 9;
 
-  // 4. TOTALS
-  const subtotal = inv.subtotal || inv.total;
-  const discountAmount = inv.discount?.amount || 0;
-  const grandTotal = inv.total;
-
-  doc.setFont("times", "normal");
-  doc.setFontSize(9);
-  doc.text("Sub - Total amount:", 150, currentY, { align: 'right' });
-  doc.text(formatRp(subtotal), 195, currentY, { align: 'right' });
-
-  if (discountAmount > 0) {
-    currentY += 4.5;
-    doc.text(`Discount (${inv.discount?.desc || 'Promo'}):`, 150, currentY, { align: 'right' });
-    doc.text(`- ${formatRp(discountAmount)}`, 195, currentY, { align: 'right' });
-  }
-
-  currentY += 5.5;
-  doc.setFont("times", "bold");
+  // 8. NOTES / TERMS SECTION (gambar 6)
+  currentY = ensureInvoicePageSpace(doc, currentY, 26, inv);
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
-  doc.text("Total:", 150, currentY, { align: 'right' });
-  doc.text(formatRp(grandTotal), 195, currentY, { align: 'right' });
+  doc.setTextColor(0, 0, 0);
+  doc.text("Notes/Terms", 14, currentY);
+  currentY += 5.5;
 
-  currentY += 7;
-
-  // Installment schedule table for PDF
-  if (inv.installments && inv.installments.length > 0) {
-    if (currentY > 210) { doc.addPage(); currentY = 20; }
-    doc.setFontSize(9);
-    doc.setFont("times", "bold");
-    doc.setTextColor(30, 58, 138);
-    doc.text("Jadwal Termin Pembayaran (Installment Plan):", 14, currentY);
-    currentY += 3.5;
-
-    const installmentRows = inv.installments.map((inst, idx) => [
-      String(idx + 1),
-      inst.jatuhTempo || "-",
-      formatRp(Number(inst.nominal || 0)),
-      inst.keterangan || ("Cicilan ke-" + (idx + 1))
-    ]);
-
-    autoTable(doc, {
-      startY: currentY,
-      head: [["Termin", "Jatuh Tempo", "Nominal (Rp)", "Keterangan"]],
-      body: installmentRows,
-      styles: { font: 'times' },
-      headStyles: { font: 'times', fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
-      bodyStyles: { font: 'times', textColor: 0, fontSize: 8 },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 18 },
-        1: { halign: 'center', cellWidth: 38 },
-        2: { halign: 'right', fontStyle: 'bold', cellWidth: 44 },
-        3: { cellWidth: 80 }
-      },
-      theme: 'grid'
-    });
-    currentY = doc.lastAutoTable.finalY + 6;
+  if (inv.kelasMulai) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(17, 24, 39);
+    doc.text(`Kelas Mulai : ${inv.kelasMulai}`, 14, currentY);
+    currentY += 5.5;
   }
 
-  // 5. INCLUSIONS & EXCLUSIONS (Side-by-side 2 Columns for elegance & space-saving)
-  if (currentY > 210) { doc.addPage(); currentY = 20; }
-
-  const includes = (inv.includes && inv.includes.length > 0) ? inv.includes : [
-    "Kelas Bahasa Jepang Level N5 & N4",
-    "Kelas Persiapan Ujian JFT & SSW",
-    "Biaya Ujian JFT A2.2 & SSW (1x Tercover)",
-    "Buku & Materi Pelajaran Minna no Nihongo",
-    "Panel & Moodle Online Learning System",
-    "Seragam, ID Card & Suripa",
-    "Sertifikat Kompetensi LPK",
-    "Fasilitas Kelas & Asrama selama 7 bulan",
-    "Konsultasi Pelatihan & Peluang Karir di Jepang"
-  ];
-
-  const excludes = (inv.excludes && inv.excludes.length > 0) ? inv.excludes : [
-    "Biaya Paspor & Medical Check Up (MCU)",
-    "Biaya Visa & CoE",
-    "Tiket Pesawat ke Jepang",
-    "Biaya Utilitas Asrama (Air, Listrik, Internet per bulan)",
-    "Biaya Makan & Keperluan Pribadi"
-  ];
-
-  const colYStart = currentY;
-
-  // Left Column: Included
-  doc.setFont("times", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(30, 58, 138); // blue-900
-  doc.text("Biaya Sudah Termasuk (Included):", 14, colYStart);
-
-  let leftY = colYStart + 4.2;
-  doc.setFont("times", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(50);
-  includes.forEach((item) => {
-    doc.setFillColor(16, 185, 129); // emerald green bullet dot
-    doc.circle(16, leftY - 0.8, 0.7, 'F');
-    const lines = doc.splitTextToSize(item, 82);
-    doc.text(lines, 18.5, leftY);
-    leftY += lines.length * 3.6;
-  });
-
-  // Right Column: Excluded
-  doc.setFont("times", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(180, 40, 40); // rose-700
-  doc.text("Biaya Tidak Termasuk (Excluded):", 108, colYStart);
-
-  let rightY = colYStart + 4.2;
-  doc.setFont("times", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(50);
-  excludes.forEach((item) => {
-    doc.setFillColor(239, 68, 68); // rose bullet dot
-    doc.circle(110, rightY - 0.8, 0.7, 'F');
-    const lines = doc.splitTextToSize(item, 82);
-    doc.text(lines, 112.5, rightY);
-    rightY += lines.length * 3.6;
-  });
-
-  currentY = Math.max(leftY, rightY) + 5;
-
-  // 6. CATATAN & TERMS (Pastikan masuk lengkap dengan Rekening BCA)
-  if (currentY > 215) { doc.addPage(); currentY = 20; }
-
-  doc.setFont("times", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text("Catatan, Rekening & Syarat Pembayaran (Terms & Conditions):", 14, currentY);
-  currentY += 4;
-
-  const officialTerms = inv.notes ||
-    `1. Invoice ini bersifat confidential (rahasia) dan merupakan bukti tagihan resmi dari PT Creativa Bridging International.
-2. Cara Pembayaran Resmi:
-   - Transfer Bank BCA No. Rekening: 1832-918-428 a/n PT CREATIVA BRIDGING INTERN
-   - Harap cantumkan Nomor Invoice (${inv.id || ''}) pada berita transfer.
-   - Kirimkan bukti transfer ke WhatsApp Finance atau email finance@creativabridging.com untuk penerbitan kuitansi resmi.
-3. Pelunasan tagihan wajib diselesaikan sesuai tanggal jatuh tempo yang tertera pada jadwal termin.
-4. Terimakasih telah bergabung dengan LPK Creativa Bridging International.`;
-
-  const noteLines = doc.splitTextToSize(officialTerms, 176);
-  const noteBoxHeight = noteLines.length * 3.5 + 5;
-
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, currentY, 182, noteBoxHeight, 2, 2, 'FD');
-
-  doc.setFont("times", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(51, 65, 85);
-  doc.text(noteLines, 17, currentY + 4);
-  currentY += noteBoxHeight + 6;
-
-  // 7. FOOTER & SIGNATURE
-  if (currentY > 245) { doc.addPage(); currentY = 20; }
-  doc.setFont("times", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(71, 85, 105);
-  doc.text("Diketahui & Disahkan Oleh,", 14, currentY);
-  currentY += 15;
-
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.4);
-  doc.line(14, currentY - 2, 70, currentY - 2);
-
-  doc.setFont("times", "bold");
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text("Siti Nurhatifah", 14, currentY + 2);
-  doc.setFont("times", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text("Direktur Utama — PT Creativa Bridging International", 14, currentY + 6.5);
+  doc.setTextColor(17, 24, 39);
+  const sswTermLines = doc.splitTextToSize(
+    "Biaya ujian SSW selain program SSW kaigo, pengolahan makanan, pertanian, perikanan, dan restoran dikenakan biaya tambahan Rp 500.000.",
+    182
+  );
+  doc.text(sswTermLines, 14, currentY);
+  currentY += sswTermLines.length * 4.4 + 1.5;
 
-  if (mode === 'preview') {
-    const blobUrl = doc.output('bloburl');
-    window.open(blobUrl, '_blank');
+  if (inv.customNotes) {
+    const customNoteLines = doc.splitTextToSize(inv.customNotes, 182);
+    currentY = ensureInvoicePageSpace(doc, currentY, customNoteLines.length * 4.4 + 4, inv);
+    doc.text(customNoteLines, 14, currentY);
+    currentY += customNoteLines.length * 4.4 + 1.5;
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(107, 114, 128);
+  doc.text("https://creativabridging.com/", 14, currentY);
+  currentY += 9;
+
+  // 9. CONFIDENTIAL, CARA PEMBAYARAN, TEAM CONTACT & DIRECTOR STAMP/SIGNATURE (gambar 7 & 8)
+  currentY = ensureInvoicePageSpace(doc, currentY, 108, inv);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(17, 24, 39);
+  doc.text("Invoice bersifat confidential (rahasia)", 14, currentY);
+  currentY += 6.5;
+
+  doc.text("Cara Pembayaran :", 14, currentY);
+  currentY += 6;
+
+  // Step 1
+  doc.text("1.", 19, currentY);
+  doc.text("Transfer via ATM/Bank", 25, currentY);
+  currentY += 4.8;
+  const bankLine = doc.splitTextToSize(
+    `Bank ${inv.bank.bankName} No. Rekening ${inv.bank.accountNumber} atas nama ${inv.bank.accountHolder}`,
+    168
+  );
+  doc.text(bankLine, 25, currentY);
+  currentY += bankLine.length * 4.5 + 1;
+
+  // Step 2
+  doc.text("2.", 19, currentY);
+  const step2Lines = doc.splitTextToSize(
+    "Cantumkan keterangan / berita Transfer dengan memasukkan Nomor Invoice diatas",
+    168
+  );
+  doc.text(step2Lines, 25, currentY);
+  currentY += step2Lines.length * 4.5 + 1;
+
+  // Step 3
+  doc.text("3.", 19, currentY);
+  const prefix3 = "Kirim Bukti Transfer ke email ";
+  const emailAddr = "finance@creativabridging.com";
+  doc.text(prefix3, 25, currentY);
+  const emailX = 25 + doc.getTextWidth(prefix3);
+  doc.setTextColor(29, 78, 216);
+  doc.text(emailAddr, emailX, currentY);
+  const emailW = doc.getTextWidth(emailAddr);
+  doc.setDrawColor(29, 78, 216);
+  doc.setLineWidth(0.25);
+  doc.line(emailX, currentY + 0.6, emailX + emailW, currentY + 0.6);
+
+  currentY += 9;
+  doc.setTextColor(17, 24, 39);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.text("Terimakasih telah bergabung dengan LPK CREATIVA", 14, currentY);
+
+  currentY += 9.5;
+  doc.text("LPK CREATIVA Team", 14, currentY);
+  doc.text("https://creativabridging.com/", 14, currentY + 4.8);
+  doc.text("Telp/SMS/WA +81 80-7948-7205", 14, currentY + 9.6);
+
+  currentY += 17;
+  doc.text("Diketahui Oleh,", 14, currentY);
+  currentY += 2;
+
+  const stampUrl = createDirectorStampDataURL();
+  if (stampUrl) {
+    try {
+      doc.addImage(stampUrl, "PNG", 14, currentY, 52, 20.5);
+    } catch {
+      // Fallback spacing when image rendering is unavailable
+    }
+  }
+
+  currentY += 25;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(17, 24, 39);
+  doc.text("Siti Nurhatifah", 14, currentY);
+  doc.text("Direktur", 14, currentY + 4.8);
+
+  if (mode === "preview") {
+    const blobUrl = doc.output("bloburl");
+    window.open(blobUrl, "_blank");
     return blobUrl;
   }
 
-  doc.save(`${inv.id || 'INVOICE'}.pdf`);
+  doc.save(`${inv.id || "INVOICE"}.pdf`);
 }
 
 export function previewInvoicePDF(inv) {
@@ -636,25 +1194,8 @@ export function previewReceiptPDF(payment, inv) {
 }
 
 // ─── TEMPLATES FOR INCLUDE, EXCLUDE & NOTES ─────────────────────────────────────
-const DEFAULT_INCLUDES = [
-  "Kelas Bahasa Jepang Level N5 & N4",
-  "Kelas Persiapan Ujian JFT & SSW",
-  "Biaya Ujian JFT A2.2 & SSW (1x Tercover)",
-  "Buku & Materi Pelajaran Minna no Nihongo",
-  "Panel & Moodle Online Learning System",
-  "Seragam, ID Card & Suripa",
-  "Sertifikat Kompetensi Pelatihan LPK",
-  "Fasilitas Kelas & Asrama selama 7 bulan",
-  "Konsultasi Pelatihan & Peluang Karir di Jepang",
-];
-
-const DEFAULT_EXCLUDES = [
-  "Biaya Paspor & Medical Check Up (MCU)",
-  "Biaya Visa & CoE",
-  "Tiket Pesawat ke Jepang",
-  "Biaya Utilitas Asrama (Air, Listrik, Internet per bulan)",
-  "Biaya Makan & Keperluan Pribadi",
-];
+const DEFAULT_INCLUDES = OFFICIAL_INCLUSIONS_DEFAULT;
+const DEFAULT_EXCLUDES = OFFICIAL_EXCLUSIONS_DEFAULT;
 
 const DEFAULT_NOTES_TEMPLATES = {
   cicilan: `1. Invoice ini bersifat confidential (rahasia) dan merupakan bukti tagihan resmi.
@@ -676,16 +1217,7 @@ Terimakasih atas kepercayaan Anda pada LPK Creativa Bridging International.`,
 Segala pertanyaan dapat diajukan ke customer care kami di +62 815-2222-672.`,
 };
 
-const DEFAULT_CUSTOMERS = [
-  { name: "ACHMAD REYNALDI PRASETYO", code: "-", email: "achmad.reynaldi@gmail.com", phone: "081234567891" },
-  { name: "ALLICYA VRANSDINA", code: "LC24 - Yayasan LC", email: "allicya.vransdina@gmail.com", phone: "081234567892" },
-  { name: "ANNISA BR NASUTION", code: "-", email: "annisa.nasution@gmail.com", phone: "081234567893" },
-  { name: "AULIA SANTIKA", code: "-", email: "aulia.santika@gmail.com", phone: "081234567894" },
-  { name: "AURA WIDIANTIKA", code: "-", email: "aura.widiantika@gmail.com", phone: "081234567895" },
-  { name: "ANDI SAPUTRA", code: "Batch 23", email: "andi.saputra@gmail.com", phone: "081299881122" },
-  { name: "SITI AMINAH", code: "Batch 23", email: "siti.aminah@gmail.com", phone: "081288776655" },
-  { name: "BUDI SANTOSO", code: "Intensif Kaigo", email: "budi.santoso@gmail.com", phone: "081377889900" },
-];
+const DEFAULT_CUSTOMERS = [];
 
 // ─── BUAT INVOICE MODAL (MOCKUP #2 MATCHING) ──────────────────────────────────
 function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
@@ -1351,8 +1883,8 @@ function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
                   type="button"
                   onClick={() => setActiveTabExtras("include")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${activeTabExtras === "include"
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   ✓ Biaya Sudah Termasuk ({includedList.length})
@@ -1361,8 +1893,8 @@ function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
                   type="button"
                   onClick={() => setActiveTabExtras("exclude")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${activeTabExtras === "exclude"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-rose-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   ✕ Biaya Tidak Termasuk ({excludedList.length})
@@ -1371,8 +1903,8 @@ function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
                   type="button"
                   onClick={() => setActiveTabExtras("notes")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${activeTabExtras === "notes"
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   📝 Notes / Terms
@@ -1396,8 +1928,8 @@ function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
                         key={idx}
                         onClick={() => toggleInclude(item)}
                         className={`flex items-start gap-2.5 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${isChecked
-                            ? "bg-blue-50/70 border-blue-200 text-blue-900"
-                            : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                          ? "bg-blue-50/70 border-blue-200 text-blue-900"
+                          : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
                           }`}
                       >
                         <input
@@ -1445,8 +1977,8 @@ function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
                         key={idx}
                         onClick={() => toggleExclude(item)}
                         className={`flex items-start gap-2.5 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${isChecked
-                            ? "bg-rose-50/70 border-rose-200 text-rose-900"
-                            : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                          ? "bg-rose-50/70 border-rose-200 text-rose-900"
+                          : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
                           }`}
                       >
                         <input
@@ -2348,8 +2880,8 @@ function SiswaDetailModal({ item, onClose }) {
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-bold text-xs text-blue-600">#{inv.id}</span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${invStatus === "Paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                              invStatus === "Partially Paid" ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                                "bg-rose-50 text-rose-600 border border-rose-200"
+                            invStatus === "Partially Paid" ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                              "bg-rose-50 text-rose-600 border border-rose-200"
                             }`}>
                             {invStatus}
                           </span>
@@ -2657,10 +3189,10 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
                         disabled={isPaid}
                         onClick={() => handleSelectTermin(idx, inst)}
                         className={`p-2 rounded-lg border text-left flex items-center justify-between transition cursor-pointer ${isPaid
-                            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
-                            : isSelected
-                              ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20"
-                              : "bg-white border-blue-100 hover:border-blue-300 text-slate-700"
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                          : isSelected
+                            ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20"
+                            : "bg-white border-blue-100 hover:border-blue-300 text-slate-700"
                           }`}
                       >
                         <div>
@@ -2905,8 +3437,8 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
                 type="submit"
                 disabled={submitting}
                 className={`px-5 py-2.5 rounded-xl font-bold transition shadow-xs flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 ${isSuccessAnimated
-                    ? "bg-emerald-700 text-white"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  ? "bg-emerald-700 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
                   }`}
               >
                 {isSuccessAnimated ? (
@@ -3390,8 +3922,8 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                       type="button"
                       onClick={() => setPage(pNum)}
                       className={`w-8 h-8 rounded-lg font-bold text-xs transition ${currentPage === pNum
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                         }`}
                     >
                       {pNum}
@@ -4569,8 +5101,8 @@ export default function InvoicePenagihan() {
                 key={i}
                 onClick={() => setActiveTab(i)}
                 className={`py-3.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all cursor-pointer ${activeTab === i
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
                   }`}
               >
                 {t}

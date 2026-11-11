@@ -13,6 +13,15 @@ import {
 import { FileText, Clock, CheckCircle2, AlertTriangle, Eye, Plus, Trash2, UserCheck, Building2, CreditCard, UploadCloud, Link as LinkIcon, ExternalLink, X, Image as ImageIcon } from "lucide-react";
 import Swal from "sweetalert2";
 import axios from "axios";
+import { fetchCashBankOptions, buildCashBankOptions, findMatchingCashBankOption } from "../../utils/cashBankAccounts";
+
+function billDataUrlToFile(dataUrl, filename = "bukti-pelunasan-bill.jpg") {
+  if (!String(dataUrl || "").startsWith("data:")) return null;
+  const [meta, body] = dataUrl.split(",");
+  const mime = meta.match(/data:([^;]+)/)?.[1] || "image/jpeg";
+  const bytes = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+  return new File([bytes], filename, { type: mime });
+}
 
 // Master vendor awal (dimulai kosong untuk sistem baru)
 const INITIAL_VENDORS_MASTER = [];
@@ -252,24 +261,41 @@ export default function BillsPage() {
     }
   }, [isModalOpen]);
 
+  // Master rekening langsung dari Cash & Bank > Rekening
+  const [bankOptions, setBankOptions] = useState(() => buildCashBankOptions(null));
+
+  useEffect(() => {
+    let active = true;
+    fetchCashBankOptions().then(opts => {
+      if (active) setBankOptions(opts);
+    });
+    return () => { active = false; };
+  }, []);
+
   const [payModalBill, setPayModalBill] = useState(null);
-  const [payForm, setPayForm] = useState({
-    petugasPelunasan: "FINANCE LPK CREATIVA",
-    waktuPelunasan: getNowDateTimeLocal(),
-    akunBayar: "Petty Cash",
-    keterangan: "",
-    buktiType: "file",
-    buktiFoto: "",
-    buktiNama: "",
-    buktiLink: "",
+  const [payForm, setPayForm] = useState(() => {
+    const initialList = buildCashBankOptions(null);
+    return {
+      petugasPelunasan: "FINANCE LPK CREATIVA",
+      waktuPelunasan: getNowDateTimeLocal(),
+      akunBayar: initialList[0]?.value || "BCA (1832-918-428)",
+      bankAccountId: Number(initialList[0]?.bankAccountId || 0),
+      keterangan: "",
+      buktiType: "file",
+      buktiFoto: "",
+      buktiNama: "",
+      buktiLink: "",
+    };
   });
 
   const handleOpenPayment = (bill) => {
-    const defaultAccount = Number(bill.total) <= 5000000 ? "Petty Cash" : "Bank BCA Operasional";
+    const matched = findMatchingCashBankOption(bankOptions, bill.akunBayar, bill.bankAccountId);
+    const chosen = matched || bankOptions[0] || {};
     setPayForm({
       petugasPelunasan: bill.petugasPelunasan || "FINANCE LPK CREATIVA",
       waktuPelunasan: getNowDateTimeLocal(),
-      akunBayar: bill.akunBayar || defaultAccount,
+      akunBayar: matched ? matched.value : (bill.akunBayar || chosen.value || "BCA (1832-918-428)"),
+      bankAccountId: Number(matched?.bankAccountId ?? bill.bankAccountId ?? chosen.bankAccountId ?? 0),
       keterangan: bill.deskripsi || `Pelunasan tagihan ${bill.id} - ${bill.vendor}`,
       buktiType: bill.buktiPelunasanLink ? "link" : "file",
       buktiFoto: bill.buktiPelunasanFoto || "",
@@ -277,12 +303,24 @@ export default function BillsPage() {
       buktiLink: bill.buktiPelunasanLink || "",
     });
     setPayModalBill(bill);
+    fetchCashBankOptions().then(fresh => {
+      setBankOptions(fresh);
+      const refreshed = findMatchingCashBankOption(fresh, bill.akunBayar, bill.bankAccountId) || fresh[0];
+      if (refreshed) {
+        setPayForm(prev => ({
+          ...prev,
+          akunBayar: refreshed.value,
+          bankAccountId: Number(refreshed.bankAccountId || 0),
+        }));
+      }
+    });
   };
 
   const handleOpenCreateModal = () => {
     const currentVendors = getVendorsFromMenu();
     setVendorList(currentVendors);
     const nextId = getNextBillNumber(data);
+    const firstAcc = bankOptions[0] || {};
     setForm({
       id: nextId,
       tanggal: new Date().toISOString().slice(0, 10),
@@ -290,7 +328,8 @@ export default function BillsPage() {
       vendor: currentVendors[0]?.nama || "",
       total: "",
       status: "Belum Dibayar",
-      akunBayar: "Petty Cash",
+      akunBayar: firstAcc.value || "BCA (1832-918-428)",
+      bankAccountId: Number(firstAcc.bankAccountId || 0),
       waktuPelunasan: getNowDateTimeLocal(),
       petugasPelunasan: "FINANCE LPK CREATIVA",
       deskripsi: "",
@@ -300,10 +339,14 @@ export default function BillsPage() {
       buktiLink: "",
     });
     setIsModalOpen(true);
+    fetchCashBankOptions().then(fresh => {
+      setBankOptions(fresh);
+    });
   };
 
   const [form, setForm] = useState(() => {
     const initialList = getVendorsFromMenu();
+    const initialBanks = buildCashBankOptions(null);
     return {
       id: getNextBillNumber([]),
       tanggal: new Date().toISOString().slice(0, 10),
@@ -311,7 +354,8 @@ export default function BillsPage() {
       vendor: initialList[0]?.nama || "",
       total: "",
       status: "Belum Dibayar",
-      akunBayar: "Petty Cash",
+      akunBayar: initialBanks[0]?.value || "BCA (1832-918-428)",
+      bankAccountId: Number(initialBanks[0]?.bankAccountId || 0),
       waktuPelunasan: getNowDateTimeLocal(),
       petugasPelunasan: "FINANCE LPK CREATIVA",
       deskripsi: "",
@@ -361,20 +405,58 @@ export default function BillsPage() {
     );
   };
 
-  // Eksekusi pembayaran bill dan pemotongan saldo kas/bank serta pencatatan di pengeluaran
-  const executePayment = (billObj, payAccount) => {
+  // Eksekusi pembayaran bill dan pemotongan saldo kas/bank di MySQL + pencatatan di pengeluaran
+  const executePayment = async (billObj, payAccount, bankAccountId = 0) => {
     const nominal = Number(billObj.total || 0);
     if (nominal <= 0) return;
 
-    // 1. Potong saldo rekening di finance_rekening_data
+    const matchedOpt = findMatchingCashBankOption(bankOptions, payAccount, bankAccountId);
+    const resolvedBankId = Number(bankAccountId || matchedOpt?.bankAccountId || 0);
+    const payDate = billObj.waktuPelunasan ? billObj.waktuPelunasan.slice(0, 10) : (billObj.tanggal || new Date().toISOString().slice(0, 10));
+    const descText = `Pelunasan tagihan ${billObj.id} - ${billObj.vendor} (${billObj.deskripsi || 'Pengadaan vendor'})`;
+
+    // 0. Simpan pengeluaran ke MySQL (/api/finance.php) & potong saldo rekening Cash & Bank otomatis di jurnal DB
+    try {
+      const fd = new FormData();
+      fd.append("action", "create");
+      fd.append("type", "expense");
+      fd.append("tanggal", payDate);
+      fd.append("vendor", billObj.vendor || "Vendor Rekanan");
+      fd.append("party_name", billObj.vendor || "Vendor Rekanan");
+      fd.append("kategori", "Pembayaran Tagihan Vendor");
+      fd.append("sumberDana", payAccount);
+      if (resolvedBankId > 0) {
+        fd.append("bank_account_id", String(resolvedBankId));
+      }
+      fd.append("nominal", String(nominal));
+      fd.append("status", "Paid");
+      fd.append("deskripsi", descText);
+
+      const linkVal = billObj.buktiPelunasanLink || billObj.buktiLink || "";
+      const fotoVal = billObj.buktiPelunasanFoto || billObj.buktiFoto || "";
+      if (linkVal) {
+        fd.append("buktiLink", linkVal);
+      } else if (fotoVal && fotoVal.startsWith("data:")) {
+        const f = billDataUrlToFile(fotoVal, billObj.buktiPelunasanNama || billObj.buktiNama || `bukti-bill-${billObj.id}.jpg`);
+        if (f) fd.append("proof", f);
+      }
+
+      await axios.post("/api/finance.php", fd);
+      fetchCashBankOptions().then(fresh => setBankOptions(fresh));
+    } catch (err) {
+      console.warn("Gagal simpan pelunasan bill ke database finance:", err);
+    }
+
+    // 1. Potong saldo rekening di cache lokal finance_rekening_data
     try {
       const rekRaw = localStorage.getItem("finance_rekening_data");
       if (rekRaw) {
         let rekList = JSON.parse(rekRaw);
         rekList = rekList.map(r => {
-          const rStr = `${r.nama} ${r.bank}`.toLowerCase();
-          const targetStr = payAccount.toLowerCase();
-          if (rStr.includes(targetStr) || (targetStr.includes('petty') && rStr.includes('petty')) || (targetStr.includes('bca') && rStr.includes('bca'))) {
+          const idMatch = resolvedBankId > 0 && Number(r.id) === resolvedBankId;
+          const noMatch = matchedOpt?.accountNumber && r.noRek && String(r.noRek) === String(matchedOpt.accountNumber);
+          const strMatch = payAccount && (`${r.nama} ${r.bank} ${r.noRek || ""}`).toLowerCase().includes(payAccount.toLowerCase());
+          if (idMatch || noMatch || strMatch) {
             return { ...r, saldo: Math.max(0, Number(r.saldo || 0) - nominal) };
           }
           return r;
@@ -389,10 +471,7 @@ export default function BillsPage() {
       if (coaRaw) {
         let coaList = JSON.parse(coaRaw);
         coaList = coaList.map(c => {
-          if (payAccount.toLowerCase().includes('petty') && String(c.kode) === '1001') {
-            return { ...c, saldo: Math.max(0, Number(c.saldo || 0) - nominal) };
-          }
-          if (payAccount.toLowerCase().includes('bca') && String(c.kode) === '1002') {
+          if (matchedOpt?.code && String(c.kode) === String(matchedOpt.code)) {
             return { ...c, saldo: Math.max(0, Number(c.saldo || 0) - nominal) };
           }
           return c;
@@ -410,17 +489,18 @@ export default function BillsPage() {
       
       const newExpense = {
         id: expId,
-        tanggal: billObj.waktuPelunasan ? billObj.waktuPelunasan.slice(0, 10) : (billObj.tanggal || new Date().toISOString().slice(0, 10)),
+        tanggal: payDate,
         waktuPelunasan: billObj.waktuPelunasan || getNowDateTimeLocal(),
         petugasPelunasan: billObj.petugasPelunasan || "FINANCE LPK CREATIVA",
-        kategori: "Operasional Kantor",
+        kategori: "Pembayaran Tagihan Vendor",
         vendor: billObj.vendor,
         pihak: billObj.vendor,
-        deskripsi: `Pelunasan tagihan ${billObj.id} - ${billObj.vendor} (${billObj.deskripsi || 'Pengadaan vendor'})`,
-        keterangan: `Pelunasan tagihan ${billObj.id} - ${billObj.vendor} (${billObj.deskripsi || 'Pengadaan vendor'})`,
+        deskripsi: descText,
+        keterangan: descText,
         nominal: nominal,
         sumberDana: payAccount,
         akun: payAccount,
+        bankAccountId: resolvedBankId || null,
         status: "Paid",
         buktiFoto: billObj.buktiPelunasanFoto || billObj.buktiFoto || "",
         buktiLink: billObj.buktiPelunasanLink || billObj.buktiLink || "",
@@ -440,12 +520,12 @@ export default function BillsPage() {
       const filteredJrn = jrnList.filter(j => j.id !== jrnId);
       filteredJrn.unshift({
         id: jrnId,
-        tanggal: billObj.waktuPelunasan ? billObj.waktuPelunasan.slice(0, 10) : (billObj.tanggal || new Date().toISOString().slice(0, 10)),
-        rawDate: billObj.waktuPelunasan ? billObj.waktuPelunasan.slice(0, 10) : (billObj.tanggal || new Date().toISOString().slice(0, 10)),
+        tanggal: payDate,
+        rawDate: payDate,
         deskripsi: `Pelunasan Tagihan #${billObj.id} - ${billObj.vendor} oleh ${billObj.petugasPelunasan || 'FINANCE LPK CREATIVA'}`,
         referensi: billObj.id,
         debitAccount: "2001 - Utang Usaha (Account Payable) / Beban Operasional",
-        creditAccount: payAccount.toLowerCase().includes('petty') ? "1001 - Petty Cash" : "1002 - Bank BCA Operasional",
+        creditAccount: matchedOpt?.code ? `${matchedOpt.code} - ${payAccount}` : payAccount,
         totalDebit: nominal,
         totalKredit: nominal,
         status: "Posted",
@@ -455,7 +535,7 @@ export default function BillsPage() {
     } catch (e) {}
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const activeVendor = form.vendor || vendorList[0]?.nama || "";
     if (!activeVendor) {
@@ -495,6 +575,7 @@ export default function BillsPage() {
     setBusy(true);
 
     const billId = form.id || getNextBillNumber(data);
+    const chosenBank = findMatchingCashBankOption(bankOptions, form.akunBayar, form.bankAccountId) || bankOptions[0];
     const newBill = {
       id: billId,
       tanggal: form.tanggal,
@@ -502,7 +583,8 @@ export default function BillsPage() {
       vendor: activeVendor,
       total: Number(form.total),
       status: form.status,
-      akunBayar: form.akunBayar || (Number(form.total) <= 5000000 ? "Petty Cash" : "Bank BCA Operasional"),
+      akunBayar: chosenBank?.value || form.akunBayar || "BCA (1832-918-428)",
+      bankAccountId: Number(form.bankAccountId || chosenBank?.bankAccountId || 0),
       waktuPelunasan: form.status === "Lunas" ? (form.waktuPelunasan || getNowDateTimeLocal()) : null,
       petugasPelunasan: form.status === "Lunas" ? (form.petugasPelunasan || "FINANCE LPK CREATIVA") : null,
       deskripsi: form.deskripsi,
@@ -523,7 +605,7 @@ export default function BillsPage() {
 
     // 2. Eksekusi kas jika lunas
     if (newBill.status === "Lunas") {
-      executePayment(newBill, newBill.akunBayar);
+      await executePayment(newBill, newBill.akunBayar, newBill.bankAccountId);
     }
 
     // 3. Simpan tagihan ke state & localStorage
@@ -567,7 +649,7 @@ export default function BillsPage() {
     });
   };
 
-  const handleConfirmPayment = (e) => {
+  const handleConfirmPayment = async (e) => {
     e.preventDefault();
     if (!payModalBill) return;
 
@@ -584,12 +666,14 @@ export default function BillsPage() {
 
     setBusy(true);
 
+    const chosenPayBank = findMatchingCashBankOption(bankOptions, payForm.akunBayar, payForm.bankAccountId);
     const updatedBill = {
       ...payModalBill,
       status: "Lunas",
       petugasPelunasan: payForm.petugasPelunasan || "FINANCE LPK CREATIVA",
       waktuPelunasan: payForm.waktuPelunasan || getNowDateTimeLocal(),
-      akunBayar: payForm.akunBayar,
+      akunBayar: chosenPayBank?.value || payForm.akunBayar,
+      bankAccountId: Number(payForm.bankAccountId || chosenPayBank?.bankAccountId || 0),
       deskripsi: payForm.keterangan || payModalBill.deskripsi,
       buktiPelunasanType: payForm.buktiType,
       buktiPelunasanFoto: payForm.buktiType === "file" ? payForm.buktiFoto : "",
@@ -597,8 +681,8 @@ export default function BillsPage() {
       buktiPelunasanLink: payForm.buktiType === "link" ? payForm.buktiLink : "",
     };
 
-    // 1. Eksekusi kas & catat pengeluaran
-    executePayment(updatedBill, payForm.akunBayar);
+    // 1. Eksekusi kas & catat pengeluaran di DB
+    await executePayment(updatedBill, updatedBill.akunBayar, updatedBill.bankAccountId);
 
     // 2. Update bills state
     const updated = data.map(b => b.id === payModalBill.id ? updatedBill : b);
@@ -1017,18 +1101,32 @@ export default function BillsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-emerald-900 mb-1">
-                    Sumber Dana Pembayaran (Kas / Bank)
+                    Sumber Dana Pembayaran (Cash &amp; Bank)
                   </label>
                   <select
                     value={form.akunBayar}
-                    onChange={e => setForm({ ...form, akunBayar: e.target.value })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const matched = bankOptions.find(opt => opt.value === val);
+                      setForm({
+                        ...form,
+                        akunBayar: val,
+                        bankAccountId: matched ? Number(matched.bankAccountId || 0) : 0,
+                      });
+                    }}
                     className="w-full bg-white border border-emerald-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   >
-                    <option value="Petty Cash">Petty Cash (Kas Kecil Tunai & Vendor Kecil)</option>
-                    <option value="Bank BCA Operasional">Bank BCA Operasional (LPK Creativa Bridging Intern)</option>
+                    {form.akunBayar && !bankOptions.some(opt => opt.value === form.akunBayar) && (
+                      <option value={form.akunBayar}>{form.akunBayar} (Data Sebelumnya)</option>
+                    )}
+                    {bankOptions.map(opt => (
+                      <option key={opt.id} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                   <p className="text-[11px] text-emerald-700 mt-1">
-                    Saldo rekening yang dipilih akan otomatis terpotong dan tercatat di pengeluaran kas & cashflow.
+                    Saldo rekening yang dipilih akan otomatis terpotong dan tercatat di pengeluaran kas &amp; cashflow.
                   </p>
                 </div>
               </div>
@@ -1366,19 +1464,32 @@ export default function BillsPage() {
 
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Sumber Rekening Kas / Bank <span className="text-rose-500">*</span>
+                    Sumber Rekening Kas / Bank (Cash &amp; Bank) <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={payForm.akunBayar}
-                    onChange={e => setPayForm({ ...payForm, akunBayar: e.target.value })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const matched = bankOptions.find(opt => opt.value === val);
+                      setPayForm({
+                        ...payForm,
+                        akunBayar: val,
+                        bankAccountId: matched ? Number(matched.bankAccountId || 0) : 0,
+                      });
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-slate-800"
                   >
-                    <option value="Petty Cash">Petty Cash (Kas Kecil Tunai & Vendor Kecil)</option>
-                    <option value="Bank BCA Operasional">Bank BCA Operasional (LPK Creativa Bridging Intern)</option>
-                    <option value="Rekening Cadangan Mandiri">Rekening Cadangan Mandiri</option>
+                    {payForm.akunBayar && !bankOptions.some(opt => opt.value === payForm.akunBayar) && (
+                      <option value={payForm.akunBayar}>{payForm.akunBayar} (Data Sebelumnya)</option>
+                    )}
+                    {bankOptions.map(opt => (
+                      <option key={opt.id} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Saldo kas/bank akan otomatis terpotong dan terbit bukti pengeluaran di menu Transaksi Pengeluaran.
+                    Saldo rekening Cash &amp; Bank terpilih akan otomatis terpotong di sistem dan terbit di menu Transaksi Pengeluaran.
                   </p>
                 </div>
 

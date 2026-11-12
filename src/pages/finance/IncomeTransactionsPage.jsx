@@ -7,6 +7,7 @@ import {
   FinanceTable,
   FinanceBadge,
   FinanceModal,
+  FinanceBackupButton,
   formatRupiah,
   exportToExcel
 } from "./FinancePageComponents";
@@ -612,7 +613,9 @@ export default function IncomeTransactionsPage() {
           primaryLabel="+ Tambah Pemasukan"
           onPrimaryClick={handleOpenCreate}
           onSecondaryClick={handleExport}
-        />
+        >
+          <FinanceBackupButton startDate={startDate} endDate={endDate} />
+        </FinancePageHeader>
 
         <FinanceFilterBar
           startDate={startDate}

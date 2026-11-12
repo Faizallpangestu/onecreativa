@@ -545,6 +545,13 @@ header('X-Robots-Tag: noindex, nofollow');
 <body>
   <div class="toolbar">
     <button class="btn-print" onclick="window.print()">Cetak / Simpan PDF</button>
+    <?php if (!$isPrint && $amountDue > 0 && $storedToken !== ''):
+      $pubPayStatusUrl = rpa_build_public_urls($invoiceId, $storedToken)['status_url'];
+    ?>
+      <a class="btn-print" style="background:#059669;text-decoration:none;margin-left:8px;display:inline-flex;align-items:center;" href="<?= htmlspecialchars($pubPayStatusUrl) ?>" target="_blank" rel="noopener noreferrer">
+        Bayar Online (QRIS / VA)
+      </a>
+    <?php endif; ?>
   </div>
 
   <div class="sheet">

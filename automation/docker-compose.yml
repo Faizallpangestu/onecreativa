@@ -1,0 +1,71 @@
+services:
+  playwright-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: creativa-playwright-worker
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3100}:3100"
+    environment:
+      PORT: 3100
+      WORKER_SECRET: ${WORKER_SECRET:-CREATIVA_SYNC_SECRET_2026}
+      ONECREATIVA_WEBHOOK_SECRET: ${ONECREATIVA_WEBHOOK_SECRET:-CREATIVA_SYNC_SECRET_2026}
+      ALLOWED_RENDER_ORIGINS: ${ALLOWED_RENDER_ORIGINS:-https://one.creativabridging.com,http://localhost,http://127.0.0.1}
+    networks:
+      - creativa-rpa
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: creativa-n8n
+    restart: unless-stopped
+    depends_on:
+      - playwright-worker
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      TZ: Asia/Jakarta
+      GENERIC_TIMEZONE: Asia/Jakarta
+      WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678/}
+      N8N_PORT: 5678
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-creativa_rpa_2026_default_enc_key}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      ONECREATIVA_BASE_URL: ${ONECREATIVA_BASE_URL:-https://one.creativabridging.com}
+      ONECREATIVA_WEBHOOK_SECRET: ${ONECREATIVA_WEBHOOK_SECRET:-CREATIVA_SYNC_SECRET_2026}
+      PLAYWRIGHT_WORKER_URL: http://playwright-worker:3100
+      WABLAS_DOMAIN: ${WABLAS_DOMAIN:-kudus.wablas.com}
+      WABLAS_TOKEN: ${WABLAS_TOKEN:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - creativa-rpa
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: creativa-rpa-caddy
+    restart: unless-stopped
+    profiles: ["ssl"]
+    depends_on:
+      - n8n
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      N8N_DOMAIN: ${N8N_DOMAIN:-rpa.creativabridging.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - creativa-rpa
+
+volumes:
+  n8n_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  creativa-rpa:
+    driver: bridge
+

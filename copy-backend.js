@@ -9,7 +9,7 @@ function copyDir(src, dest) {
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (let entry of entries) {
-    if (['mail.local.php','db_env.php','backups','tests'].includes(entry.name)) continue;
+    if (['mail.local.php','db_env.php','rpa.local.php','backups','tests'].includes(entry.name)) continue;
     if (src === path.join(__dirname,'backend','api') && /^(test|debug|check|fix_|schema_dump|show_tables|migrate|db_|add_status_col|assets_migrate|profile_debug|resolve_map|jwt|cors)/i.test(entry.name)) continue;
     if (src === path.join(__dirname,'backend') && entry.isFile() && entry.name.endsWith('.php')) continue; // Configure SMTP separately on each server.
     if (src === path.join(__dirname,'backend','migrations') && !['.htaccess','repair_employee_schema.php','lms_account_deletion.php','finance_traceability.php','budget_workflow.php','salary_workflow.php','fix_collations.php','20261014_matching_jobs.sql','20261012_relationships.sql','20261012_attendance_sessions.sql','20261012_student_payments.sql','20261012_overtime_requests.sql','20261031_finance_production_master_seed.sql','hostinger_complete_migration.sql'].includes(entry.name)) continue;

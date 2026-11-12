@@ -13,6 +13,7 @@ dist-ssr
 *.local
 backend/config/mail.local.php
 backend/config/db_env.php
+backend/config/rpa.local.php
 backend/storage/backups/
 backend/storage/finance-proofs/
 backend/storage/budget-attachments/
@@ -35,3 +36,5 @@ backend/storage/documents/
 backend/storage/*.log
 .prerender-build/
 One-creativa-build-*.zip
+automation/.env
+automation/node_modules/

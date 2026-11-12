@@ -20,35 +20,7 @@ require_once __DIR__ . '/../services/rpa_automation.php';
 $EXPECTED_SECRET = rpa_get_secret();
 
 function compute_installments_progress(array $meta, float $totalInvoice, float $paidTotal, string $fallbackDueDate): array {
-    $rawInst = (!empty($meta['installments']) && is_array($meta['installments']))
-        ? $meta['installments']
-        : [[
-            'id' => 1,
-            'keterangan' => 'FULL PAYMENT',
-            'jatuhTempo' => $fallbackDueDate,
-            'nominal' => $totalInvoice,
-        ]];
-
-    $remainingPaidPool = max(0.0, $paidTotal);
-    $result = [];
-    foreach ($rawInst as $idx => $inst) {
-        $nom = (float)($inst['nominal'] ?? $inst['amount'] ?? 0);
-        $label = strtoupper((string)($inst['keterangan'] ?? $inst['deskripsi'] ?? $inst['label'] ?? (count($rawInst) === 1 ? 'FULL PAYMENT' : 'CICILAN KE-' . ($idx + 1))));
-        $due = trim((string)($inst['jatuhTempo'] ?? $inst['tanggal'] ?? $fallbackDueDate));
-        $applied = min($nom, $remainingPaidPool);
-        $remainingPaidPool = max(0.0, $remainingPaidPool - $applied);
-        $unpaid = max(0.0, $nom - $applied);
-        $result[] = [
-            'index' => $idx + 1,
-            'label' => $label,
-            'jatuhTempo' => $due,
-            'nominal' => $nom,
-            'terbayar' => $applied,
-            'sisa' => $unpaid,
-            'status' => $unpaid <= 0.01 ? 'Paid' : ($applied > 0.01 ? 'Partially Paid' : 'Unpaid'),
-        ];
-    }
-    return $result;
+    return rpa_compute_installments_due($meta, $totalInvoice, $paidTotal, $fallbackDueDate)['installments'];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -136,8 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     "• Jatuh Tempo: *{$dueDate}*\n" .
                     "• Nominal Tagihan Termin: *{$fmtNom}*\n" .
                     "• Rekening Resmi: *Bank BCA 1832-918-428* a.n. *CREATIVA BRIDGING INTERN*\n\n" .
-                    "Lihat Invoice & Status Pendaftaran:\n{$urls['status_url']}\n\n" .
-                    "Mohon kirimkan bukti transfer ke WhatsApp Finance +62 815-2222-672 atau email finance@creativabridging.com setelah melakukan pembayaran. Terima kasih! 🙏";
+                    "Bayar Instan (QRIS / Virtual Account) atau Lihat Invoice:\n{$urls['status_url']}\n\n" .
+                    "Jika membayar via QRIS/VA di halaman tersebut, status tagihan & Receipt otomatis terbit tanpa perlu kirim bukti. Untuk transfer manual BCA, kirim bukti ke WhatsApp Finance +62 815-2222-672 atau email finance@creativabridging.com. Terima kasih! 🙏";
 
                 $emailSubject = "[Pengingat Pembayaran {$dueBadge}] Invoice #{$invId} - {$nextDue['label']} ({$customer})";
                 $emailHtml = "<div style='font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.6;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;padding:24px;'>"
@@ -152,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     . "<tr><td><strong>Rekening Resmi</strong></td><td>Bank BCA <strong>1832-918-428</strong> a/n <strong>CREATIVA BRIDGING INTERN</strong></td></tr>"
                     . "</table>"
                     . "<p style='margin:16px 0;'>"
-                    . "<a href='" . htmlspecialchars($urls['status_url']) . "' style='background:#163660;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin-right:8px;'>Pantau Status &amp; Invoice</a>"
+                    . "<a href='" . htmlspecialchars($urls['status_url']) . "' style='background:#1d4ed8;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin-right:8px;'>Bayar QRIS / VA &amp; Status</a>"
                     . "<a href='" . htmlspecialchars($urls['invoice_url']) . "' style='background:#059669;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;'>Buka Invoice PDF</a>"
                     . "</p></div>";
 
@@ -267,10 +239,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     $urls = rpa_build_public_urls($invoiceId, (string)$inv['public_token'], !empty($payments) ? $payments[0]['payment_id'] : null);
-    $installmentsProgress = compute_installments_progress($meta, $total, $terbayar, (string)$inv['jatuhTempo']);
+    $instCalc = rpa_compute_installments_due($meta, $total, $terbayar, (string)$inv['jatuhTempo']);
+    $installmentsProgress = $instCalc['installments'];
+    $nextDueInst = $instCalc['next_due'];
     $screeningMeta = (!empty($meta['screening']) && is_array($meta['screening'])) ? $meta['screening'] : null;
 
     $hasReceipt = !empty($payments) || $effectiveStatus === 'Paid';
+    $mtCfg = rpa_get_midtrans_config();
+    $mtLast = (!empty($meta['midtrans_last']) && is_array($meta['midtrans_last'])) ? $meta['midtrans_last'] : null;
+    $activePaymentLink = ($mtLast && !empty($mtLast['redirect_url']) && (($mtLast['status'] ?? 'pending') === 'pending') && (((int)($mtLast['created_at_ts'] ?? 0)) > (time() - 72000)))
+        ? (string)$mtLast['redirect_url']
+        : null;
 
     echo json_encode([
         'status' => 'success',
@@ -290,6 +269,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'terbayar' => $terbayar,
             'sisa' => $sisa,
             'payment_status' => $effectiveStatus,
+            'due_now_nominal' => $nextDueInst ? (float)$nextDueInst['sisa'] : $sisa,
+            'due_now_label' => $nextDueInst ? (string)$nextDueInst['label'] : 'FULL PAYMENT',
+            'midtrans_enabled' => $mtCfg['is_configured'],
+            'midtrans_is_production' => $mtCfg['is_production'],
+            'active_payment_link' => $sisa > 0.01 ? $activePaymentLink : null,
             'invoice_url' => $urls['invoice_url'],
             'latest_receipt_url' => $hasReceipt ? $urls['receipt_url'] : null,
             'status_url' => $urls['status_url'],

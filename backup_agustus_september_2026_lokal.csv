@@ -1,0 +1,11 @@
+﻿No,"Sumber Tabel","ID DB","No Referensi",Jenis,Tanggal,Kategori,"Pihak (Siswa/Vendor/Karyawan)","Rekening / Metode","Nominal (Rp)",Status,Keterangan,"Bukti / Link"
+1,finance_records,15,FIN-00015,Pengeluaran,2026-09-14,Pembelian,"Percetakan Mitra","Kas Tunai",3200000.00,Paid,"Cetak Modul Pelajaran Minna no Nihongo & Kotoba N5",
+2,finance_records,14,FIN-00014,Pengeluaran,2026-09-18,"Operasional Kantor","PT Maju Internet",Kas/Bank,850000.00,Paid,"Langganan Internet Dedicated Fiber 100 Mbps",
+3,finance_records,13,FIN-00013,Pengeluaran,2026-09-20,"Gaji Karyawan","Karyawan LPK",Kas/Bank,25000000.00,Paid,"Penggajian Bulanan Sensei & Karyawan LPK",
+4,finance_records,12,FIN-00012,Pengeluaran,2026-09-25,Reimbursement,"Staff Admin",Kas/Bank,500000.00,Paid,"Reimbursement Transport Dinas & Monitoring Peserta",
+5,finance_records,11,FIN-00011,Pengeluaran,2026-09-29,"Operasional Kantor","PLN Persero",Kas/Bank,1200000.00,Paid,"Token Listrik Gedung LPK Periode Oktober",
+
+"RINGKASAN PERIODE","2026-08-01 s/d 2026-09-30"
+"Total Pemasukan (0 trx)",,,,,,,,,0.00
+"Total Pengeluaran (5 trx)",,,,,,,,,30750000.00
+"Selisih Bersih",,,,,,,,,-30750000.00

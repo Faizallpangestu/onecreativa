@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   Search, Download, Plus, Calendar, ChevronLeft, ChevronRight, 
-  Filter, RotateCcw, X, Check, AlertCircle, ArrowUpRight, ArrowDownRight 
+  Filter, RotateCcw, X, Check, AlertCircle, ArrowUpRight, ArrowDownRight, Database, ChevronDown
 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
@@ -395,6 +395,145 @@ export function FinanceModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// ── BACKUP DB BUTTON (SQL & CSV) ──
+export function FinanceBackupButton({ startDate = "2026-08-01", endDate = "2026-09-30" }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  const handleDownload = async (from, to, format) => {
+    setBusy(true);
+    setErrorMsg("");
+    try {
+      const qs = new URLSearchParams({
+        from: from || "2026-08-01",
+        to: to || "2026-09-30",
+        format,
+        type: "all",
+        download: "1",
+      });
+      const res = await fetch(`/api/finance_backup_export.php?${qs.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        let msg = `Gagal menarik backup (HTTP ${res.status})`;
+        try {
+          const payload = await res.json();
+          if (payload?.message) msg = payload.message;
+        } catch {
+          // ignore non-json error body
+        }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup_finance_${from}_sd_${to}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setOpen(false);
+    } catch (err) {
+      setErrorMsg(err?.message || "Gagal mengunduh backup database.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hasCustomFilter =
+    Boolean(startDate && endDate) &&
+    (startDate !== "2026-08-01" || endDate !== "2026-09-30");
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          setErrorMsg("");
+          setOpen((prev) => !prev);
+        }}
+        className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition shadow-2xs disabled:opacity-60"
+        title="Unduh Backup SQL / CSV transaksi Pemasukan & Pengeluaran langsung dari database server"
+      >
+        <Database className="w-4 h-4 text-emerald-600" />
+        <span>{busy ? "Menyiapkan..." : "Backup DB (Agt–Sep)"}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-emerald-600" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-40 text-left">
+          <div className="px-2.5 py-1.5 border-b border-slate-100 mb-1">
+            <p className="text-[11px] font-bold text-slate-800">Tarik Backup Pemasukan & Pengeluaran</p>
+            <p className="text-[10px] text-slate-500">Format SQL memakai INSERT IGNORE (aman untuk restore deploy).</p>
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => handleDownload("2026-08-01", "2026-09-30", "sql")}
+            className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+          >
+            1. Backup SQL (01 Agt – 30 Sep 2026)
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => handleDownload("2026-08-01", "2026-09-30", "csv")}
+            className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
+          >
+            2. Backup Excel CSV (01 Agt – 30 Sep 2026)
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => handleDownload("2025-01-01", "2027-12-31", "csv")}
+            className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition"
+          >
+            3. Backup Excel CSV Lengkap (Semua Data)
+          </button>
+          {hasCustomFilter && (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => handleDownload(startDate, endDate, "sql")}
+                className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium text-blue-700 hover:bg-blue-50 transition border-t border-slate-100 mt-1"
+              >
+                4. Backup SQL Filter Aktif ({startDate} s/d {endDate})
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => handleDownload(startDate, endDate, "csv")}
+                className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium text-blue-700 hover:bg-blue-50 transition"
+              >
+                5. Backup Excel CSV Filter ({startDate} s/d {endDate})
+              </button>
+            </>
+          )}
+          {errorMsg && (
+            <p className="px-2.5 pt-1.5 text-[11px] font-medium text-rose-600">{errorMsg}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

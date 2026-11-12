@@ -15,7 +15,7 @@ import {
   ShieldCheck, Hourglass, ArrowRight, Pencil, Phone, X,
   Building2, Hash, CalendarDays, Banknote, Tag, PieChart,
   Settings, CheckSquare, Square, Printer, Check, PlusCircle, Sparkles, HelpCircle,
-  Image as ImageIcon, ExternalLink, ZoomIn, FileCheck, UploadCloud
+  Image as ImageIcon, ExternalLink, ZoomIn, FileCheck, UploadCloud, QrCode, Link2
 } from "lucide-react";
 
 const formatRp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
@@ -278,7 +278,7 @@ function PaymentProofThumbnail({ payment, sizeClass = "w-14 h-14" }) {
 }
 
 
-const TABS = ["Daftar Invoice", "Invoice Terkirim", "Pembayaran", "Siswa"];
+const TABS = ["Daftar Invoice", "Invoice Terkirim", "Pembayaran", "Siswa", "Riwayat RPA & QRIS"];
 
 // ─── INITIAL DATA ─────────────────────────────────────────────────────────────
 
@@ -3858,6 +3858,39 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                               </button>
                             )}
 
+                            {/* Portal Bayar QRIS & Status Kandidat Button */}
+                            {inv.status_url && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const portalUrl = inv.status_url;
+                                  if (navigator.clipboard?.writeText) {
+                                    navigator.clipboard.writeText(portalUrl).catch(() => {});
+                                  }
+                                  Swal.fire({
+                                    icon: "info",
+                                    title: `Portal Bayar & Status (${inv.id})`,
+                                    html: `<div style="font-size:12px;text-align:left;line-height:1.6;">
+                                      <p style="margin-bottom:8px;">Tautan Portal Pembayaran QRIS / VA &amp; Status Pendaftaran telah disalin:</p>
+                                      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:8px;word-break:break-all;font-family:monospace;font-size:11px;">${portalUrl}</div>
+                                    </div>`,
+                                    confirmButtonText: "Buka Portal Kandidat",
+                                    showCancelButton: true,
+                                    cancelButtonText: "Tutup",
+                                    confirmButtonColor: "#2563eb",
+                                  }).then((res) => {
+                                    if (res.isConfirmed) {
+                                      window.open(portalUrl, "_blank", "noopener,noreferrer");
+                                    }
+                                  });
+                                }}
+                                title="Salin / Buka Portal Bayar QRIS & Status Kandidat"
+                                className="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 hover:text-sky-900 transition cursor-pointer"
+                              >
+                                <QrCode className="w-4 h-4" />
+                              </button>
+                            )}
+
                             {/* Preview Invoice Eye Button */}
                             <button
                               type="button"
@@ -4480,6 +4513,175 @@ function TabSiswa({ data, onDelete }) {
   );
 }
 
+// ─── TAB 4: Riwayat RPA & Midtrans ────────────────────────────────────────────
+const RPA_STAGE_LABELS = {
+  phase1_delivery: { label: "Fase 1: Invoice WA/Email", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  phase2_receipt_trigger: { label: "Fase 2: Trigger Receipt", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  phase2_receipt: { label: "Fase 2: Receipt Terkirim", cls: "bg-teal-50 text-teal-700 border-teal-200" },
+  phase2_installment_reminder: { label: "Fase 2: Reminder Cicilan H-3", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  phase3_snap_created: { label: "Fase 3: Link QRIS / VA Dibuat", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  phase3_midtrans_webhook: { label: "Fase 3: Webhook Midtrans", cls: "bg-violet-50 text-violet-700 border-violet-200" },
+};
+
+function TabRiwayatRpa({ logs = [], rpaStatus = {}, invoices = [], onRefresh }) {
+  const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState("ALL");
+
+  const invoiceUrlMap = new Map();
+  invoices.forEach((inv) => {
+    if (inv?.id && inv?.status_url) invoiceUrlMap.set(String(inv.id), inv.status_url);
+  });
+
+  const filteredLogs = logs.filter((row) => {
+    const matchesStage = stageFilter === "ALL" || String(row.stage || "") === stageFilter;
+    const q = search.trim().toLowerCase();
+    const matchesQuery =
+      !q ||
+      String(row.invoice_id || "").toLowerCase().includes(q) ||
+      String(row.recipient || "").toLowerCase().includes(q) ||
+      String(row.stage || "").toLowerCase().includes(q) ||
+      String(row.error_message || "").toLowerCase().includes(q);
+    return matchesStage && matchesQuery;
+  });
+
+  const successCount = logs.filter((l) => ["terkirim", "success", "sudah lunas"].includes(String(l.status || "").toLowerCase())).length;
+  const failCount = logs.filter((l) => ["gagal", "error", "failed"].includes(String(l.status || "").toLowerCase())).length;
+
+  return (
+    <div className="p-5 space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className={`rounded-xl border p-3.5 ${rpaStatus.midtrans_enabled ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"}`}>
+          <div className="text-[11px] font-bold uppercase text-slate-500">Gateway Midtrans QRIS/VA</div>
+          <div className={`text-sm font-extrabold mt-1 ${rpaStatus.midtrans_enabled ? "text-emerald-700" : "text-amber-700"}`}>
+            {rpaStatus.midtrans_enabled
+              ? (rpaStatus.midtrans_is_production ? "Aktif (Production)" : "Aktif (Sandbox Test)")
+              : "Belum Diaktifkan"}
+          </div>
+        </div>
+        <div className={`rounded-xl border p-3.5 ${rpaStatus.n8n_receipt_configured ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"}`}>
+          <div className="text-[11px] font-bold uppercase text-slate-500">Webhook Receipt (n8n Fase 2)</div>
+          <div className={`text-sm font-extrabold mt-1 ${rpaStatus.n8n_receipt_configured ? "text-emerald-700" : "text-amber-700"}`}>
+            {rpaStatus.n8n_receipt_configured ? "Terhubung" : "Belum Diatur"}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Log Eksekusi Sukses</div>
+          <div className="text-lg font-extrabold text-emerald-600 mt-0.5">{successCount} Event</div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Log Gagal / Perlu Cek</div>
+          <div className={`text-lg font-extrabold mt-0.5 ${failCount > 0 ? "text-rose-600" : "text-slate-700"}`}>{failCount} Event</div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[260px]">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari No. Invoice, penerima, pesan..."
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="text-xs font-semibold rounded-xl border border-slate-200 px-3 py-2 bg-white text-slate-700 focus:outline-none"
+          >
+            <option value="ALL">Semua Tahap RPA</option>
+            <option value="phase1_delivery">Fase 1: Invoice WA/Email</option>
+            <option value="phase2_receipt_trigger">Fase 2: Trigger Receipt</option>
+            <option value="phase2_receipt">Fase 2: Receipt Terkirim</option>
+            <option value="phase2_installment_reminder">Fase 2: Reminder Cicilan</option>
+            <option value="phase3_snap_created">Fase 3: Link QRIS / VA</option>
+            <option value="phase3_midtrans_webhook">Fase 3: Webhook Midtrans</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Muat Ulang Log
+        </button>
+      </div>
+
+      <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+        <table className="w-full text-xs text-left">
+          <thead className="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200">
+            <tr>
+              <th className="px-4 py-3">Waktu</th>
+              <th className="px-4 py-3">No. Invoice</th>
+              <th className="px-4 py-3">Tahap Otomasi</th>
+              <th className="px-4 py-3">Kanal</th>
+              <th className="px-4 py-3">Penerima / Ref</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Catatan / Error</th>
+              <th className="px-4 py-3 text-right">Portal</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filteredLogs.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
+                  Belum ada log eksekusi RPA Fase 1–3 atau Midtrans webhook.
+                </td>
+              </tr>
+            ) : (
+              filteredLogs.map((log) => {
+                const stMeta = RPA_STAGE_LABELS[log.stage] || { label: log.stage || "Event", cls: "bg-slate-100 text-slate-700 border-slate-200" };
+                const stLower = String(log.status || "").toLowerCase();
+                const statusBadge = ["terkirim", "success", "sudah lunas"].includes(stLower)
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : ["gagal", "error", "failed"].includes(stLower)
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200";
+                const portalHref = invoiceUrlMap.get(String(log.invoice_id || "")) || "";
+                const detailOrder = log.detail?.order_id ? `Order: ${log.detail.order_id}` : (log.detail?.receipt_number ? `Receipt: ${log.detail.receipt_number}` : "");
+                const noteText = log.error_message || detailOrder || "-";
+                return (
+                  <tr key={log.id} className="hover:bg-slate-50/70">
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-500">{log.created_at}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{log.invoice_id}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-md border text-[11px] font-bold ${stMeta.cls}`}>
+                        {stMeta.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 uppercase font-semibold text-slate-600">{log.channel}</td>
+                    <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate">{log.recipient || "-"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full border text-[11px] font-bold ${statusBadge}`}>
+                        {log.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 max-w-[260px] truncate" title={noteText}>{noteText}</td>
+                    <td className="px-4 py-3 text-right">
+                      {portalHref ? (
+                        <a
+                          href={portalHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-600 hover:underline font-bold"
+                        >
+                          <Link2 className="w-3.5 h-3.5" /> Portal
+                        </a>
+                      ) : "-"}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── SIDEBAR (tab 0 & 1) ──────────────────────────────────────────────────────
 function Sidebar({ invoiceData = [] }) {
   const paidCount = invoiceData.filter(i => normalizeFinanceStatus(i.status) === "Paid").length;
@@ -4778,6 +4980,8 @@ export default function InvoicePenagihan() {
   const [terkirim, setTerkirim] = useState([]);
   const [pembayaran, setPembayaran] = useState([]);
   const [siswa, setSiswa] = useState([]);
+  const [automationLogs, setAutomationLogs] = useState([]);
+  const [rpaStatus, setRpaStatus] = useState({});
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -4806,6 +5010,9 @@ export default function InvoicePenagihan() {
         // 3. SINKRONISASI SISWA
         const syncedSiswa = syncSiswaWithInvoices(finalInvoices, res.data.data.siswa || []);
         setSiswa(syncedSiswa);
+
+        setAutomationLogs(Array.isArray(res.data.data.automation_logs) ? res.data.data.automation_logs : []);
+        setRpaStatus(res.data.data.rpa_status || {});
       } else throw new Error('Respons billing tidak valid.');
     } catch (e) {
       setLoadError(e.response?.data?.message || e.message);
@@ -4836,6 +5043,9 @@ export default function InvoicePenagihan() {
       // 3. SINKRONISASI SISWA
       const syncedSiswa = syncSiswaWithInvoices(finalInvoices, data.data.siswa || []);
       setSiswa(syncedSiswa);
+
+      setAutomationLogs(Array.isArray(data.data.automation_logs) ? data.data.automation_logs : []);
+      setRpaStatus(data.data.rpa_status || {});
     }).catch(error => { if (active) setLoadError(error.response?.data?.message || error.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -5125,6 +5335,14 @@ export default function InvoicePenagihan() {
             {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} />}
             {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
             {activeTab === 3 && <div className="p-6"><TabSiswa data={siswa} onDelete={(id) => handleDelete('siswa', id)} /></div>}
+            {activeTab === 4 && (
+              <TabRiwayatRpa
+                logs={automationLogs}
+                rpaStatus={rpaStatus}
+                invoices={invoices}
+                onRefresh={fetchData}
+              />
+            )}
           </div>
         </div>
 

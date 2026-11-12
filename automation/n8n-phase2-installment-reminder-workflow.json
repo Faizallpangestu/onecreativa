@@ -1,5 +1,5 @@
 {
-  "name": "OneCreativa - Reminder Cicilan H-3 Phase 2 (n8n Cron)",
+  "name": "OneCreativa - Reminder Cicilan H-3 Phase 2 (n8n Cron + Wablas)",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,10 @@
       "name": "1. Jadwal Harian (09:00 WIB)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -52,37 +55,43 @@
       "name": "2. Ambil Cicilan Jatuh Tempo H-3",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 300]
+      "position": [
+        440,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const list = $input.first().json.data || [];\nreturn list.map((item) => ({ json: item }));"
+        "jsCode": "const list = $input.first().json.data || [];\nif (!list.length) return [];\nreturn list.map((item) => ({ json: item }));"
       },
       "id": "node-split-items",
       "name": "3. Pecah Per Kandidat",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 300]
+      "position": [
+        680,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.WA_API_URL || 'https://api.fonnte.com/send'}}",
+        "url": "=https://{{$env.WABLAS_DOMAIN || 'kudus.wablas.com'}}/api/send-message",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{$env.WA_API_TOKEN}}"
+              "value": "={{$env.WABLAS_TOKEN}}"
             }
           ]
         },
         "sendBody": true,
-        "contentType": "multipart-form-data",
+        "contentType": "form-urlencoded",
         "bodyParameters": {
           "parameters": [
             {
-              "name": "target",
+              "name": "phone",
               "value": "={{$json.whatsapp_phone}}"
             },
             {
@@ -90,13 +99,19 @@
               "value": "={{$json.whatsapp_message}}"
             }
           ]
+        },
+        "options": {
+          "timeout": 15000
         }
       },
       "id": "node-wa-remind",
       "name": "4a. Kirim Pengingat WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [940, 190],
+      "position": [
+        940,
+        190
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -111,8 +126,41 @@
       "name": "4b. Kirim Pengingat Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [940, 410],
+      "position": [
+        940,
+        410
+      ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "node-merge-remind",
+      "name": "4c. Tunggu WA & Email",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1170,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cand = $('3. Pecah Per Kandidat').item.json;\nconst merged = $input.item.json || {};\nconst hasAnySuccess = !merged.error && merged.status !== false;\n\nreturn [{\n  json: {\n    action: 'mark_installment_reminder',\n    invoice_id: cand.invoice_id,\n    kanal: 'Keduanya',\n    penerima: cand.whatsapp_phone || cand.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    details: {\n      term_label: cand.term_label,\n      due_date: cand.due_date,\n      channelResult: merged\n    }\n  }\n}];"
+      },
+      "id": "node-build-remind",
+      "name": "4d. Ringkas Status Pengingat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1390,
+        300
+      ]
     },
     {
       "parameters": {
@@ -133,36 +181,103 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ action: 'mark_installment_reminder', invoice_id: $('3. Pecah Per Kandidat').item.json.invoice_id, kanal: 'Keduanya', penerima: $('3. Pecah Per Kandidat').item.json.whatsapp_phone || $('3. Pecah Per Kandidat').item.json.email, statusKirim: 'Terkirim', details: { term_label: $('3. Pecah Per Kandidat').item.json.term_label, due_date: $('3. Pecah Per Kandidat').item.json.due_date } }) }}"
+        "jsonBody": "={{ JSON.stringify($json) }}"
       },
       "id": "node-log-remind",
       "name": "5. Catat Log Pengingat",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1210, 190]
+      "position": [
+        1620,
+        300
+      ]
     }
   ],
   "connections": {
     "1. Jadwal Harian (09:00 WIB)": {
-      "main": [[{ "node": "2. Ambil Cicilan Jatuh Tempo H-3", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "2. Ambil Cicilan Jatuh Tempo H-3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "2. Ambil Cicilan Jatuh Tempo H-3": {
-      "main": [[{ "node": "3. Pecah Per Kandidat", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "3. Pecah Per Kandidat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "3. Pecah Per Kandidat": {
       "main": [
         [
-          { "node": "4a. Kirim Pengingat WhatsApp", "type": "main", "index": 0 },
-          { "node": "4b. Kirim Pengingat Email", "type": "main", "index": 0 }
+          {
+            "node": "4a. Kirim Pengingat WhatsApp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "4b. Kirim Pengingat Email",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "4a. Kirim Pengingat WhatsApp": {
-      "main": [[{ "node": "5. Catat Log Pengingat", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "4c. Tunggu WA & Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4b. Kirim Pengingat Email": {
+      "main": [
+        [
+          {
+            "node": "4c. Tunggu WA & Email",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "4c. Tunggu WA & Email": {
+      "main": [
+        [
+          {
+            "node": "4d. Ringkas Status Pengingat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4d. Ringkas Status Pengingat": {
+      "main": [
+        [
+          {
+            "node": "5. Catat Log Pengingat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
   }
 }
-

@@ -121,13 +121,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.WA_API_URL || 'https://api.fonnte.com/send'}}",
+        "url": "=https://{{$env.WABLAS_DOMAIN || 'kudus.wablas.com'}}/api/send-document-from-local",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{$env.WA_API_TOKEN}}"
+              "value": "={{$env.WABLAS_TOKEN}}"
             }
           ]
         },
@@ -136,16 +136,16 @@
         "bodyParameters": {
           "parameters": [
             {
-              "name": "target",
+              "name": "phone",
               "value": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].whatsapp_phone}}"
             },
             {
-              "name": "message",
+              "name": "caption",
               "value": "={{$('3. API OneCreativa - Buat Invoice').first().json.data[0].whatsapp_message}}"
             },
             {
               "parameterType": "formBinaryData",
-              "name": "file",
+              "name": "document",
               "inputDataFieldName": "invoicePdf"
             }
           ]
@@ -191,7 +191,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const inv = $('3. API OneCreativa - Buat Invoice').first().json.data[0];\nconst items = $input.all().map((i) => i.json || {});\nconst hasAnySuccess = items.some((x) => !x.error);\nconst kanal = items.length >= 2 ? 'Keduanya' : (inv.whatsapp_phone ? 'WhatsApp' : 'Email');\n\nreturn [{\n  json: {\n    action: 'mark_delivery',\n    invoice_id: inv.invoice_id,\n    customer: inv.nama,\n    kanal,\n    penerima: inv.whatsapp_phone || inv.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    stage: 'phase1_delivery',\n    details: { channelResponses: items }\n  }\n}];"
+        "jsCode": "const inv = $('3. API OneCreativa - Buat Invoice').first().json.data[0];\nconst items = $input.all().map((i) => i.json || {});\nconst hasAnySuccess = items.some((x) => !x.error && x.status !== false);\nconst kanal = items.length >= 2 ? 'Keduanya' : (inv.whatsapp_phone ? 'WhatsApp' : 'Email');\n\nreturn [{\n  json: {\n    action: 'mark_delivery',\n    invoice_id: inv.invoice_id,\n    customer: inv.nama,\n    kanal,\n    penerima: inv.whatsapp_phone || inv.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    stage: 'phase1_delivery',\n    details: { channelResponses: items }\n  }\n}];"
       },
       "id": "node-build-status",
       "name": "6d. Ringkas Status Pengiriman",

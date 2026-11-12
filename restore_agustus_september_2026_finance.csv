@@ -1,0 +1,13 @@
+﻿No,Jenis,Tanggal,Kategori,Pihak,"Rekening / Bank",Metode,"Nominal (Rp)",Status,Keterangan
+1,Pemasukan,2026-09-04,Modal,"Siti Nurhatifah","BCA (1832-918-428)",Transfer,25000000.00,Lunas,"Setoran modal operasional LPK Creativa"
+2,Pemasukan,2026-08-23,"Biaya Kursus",Nopela,"BCA (1832-918-428)",Transfer,15000000.00,Lunas,"Pembayaran Biaya Kursus Intensif"
+3,Pemasukan,2026-08-23,"Biaya Kursus",Hanny,"BCA (1832-918-428)",Transfer,15000000.00,Lunas,"Pembayaran Biaya Kursus Intensif"
+4,Pemasukan,2026-08-10,Modal,"Siti Nurhatifah","BCA (1832-918-428)",Transfer,21000000.00,Lunas,"Setoran modal operasional LPK Creativa"
+5,Pengeluaran,2026-09-29,"Operasional Kantor","PLN Persero",Kas/Bank,Transfer,1200000.00,Paid,"Token Listrik Gedung LPK Periode Oktober"
+6,Pengeluaran,2026-09-25,Reimbursement,"Staff Admin",Kas/Bank,Transfer,500000.00,Paid,"Reimbursement Transport Dinas & Monitoring Peserta"
+7,Pengeluaran,2026-09-20,"Gaji Karyawan","Karyawan LPK",Kas/Bank,Transfer,25000000.00,Paid,"Penggajian Bulanan Sensei & Karyawan LPK"
+8,Pengeluaran,2026-09-18,"Operasional Kantor","PT Maju Internet",Kas/Bank,Transfer,850000.00,Paid,"Langganan Internet Dedicated Fiber 100 Mbps"
+9,Pengeluaran,2026-09-14,Pembelian,"Percetakan Mitra","Kas Tunai",Transfer,3200000.00,Paid,"Cetak Modul Pelajaran Minna no Nihongo & Kotoba N5"
+
+"Total Pemasukan (4 trx)",,,,,,,76000000.00
+"Total Pengeluaran (5 trx)",,,,,,,30750000.00

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Playwright Headless PDF Worker untuk Otomasi Invoice Fase 1 (n8n + OneCreativa)",
   "scripts": {
-    "start": "node playwright-pdf-worker.mjs",
+    "start": "node --env-file-if-exists=.env playwright-pdf-worker.mjs",
     "install-browser": "npx playwright install chromium"
   },
   "dependencies": {

@@ -1,0 +1,413 @@
+﻿ No,"ID Lama",Jenis,Tanggal,Kategori,"Pihak / Vendor / Sumber",Metode,"Nominal (Rp)",Deskripsi,Catatan,"Bukti Foto / Link","Created At"
+1,72,Pengeluaran,2025-11-29,"Keperluan Kantor","Karya Malik",Transfer,50000.00,Stempel,,,"2026-08-19 14:37:45"
+2,269,Pengeluaran,2025-12-02,"Keperluan Kantor","Alverse Tech",Transfer,2065000.00,"Logo CBI",,https://drive.google.com/file/d/1e_NnnxwoNCy7vUcW85WqD8DN-G9CT-TK/view?usp=sharing,"2026-08-21 14:23:26"
+3,54,Pengeluaran,2025-12-03,"Keperluan Kantor","Toko AA",Cash,155500.00,"Pembelian Keperluan Kantor dan Kelas ( ATK )",,https://drive.google.com/file/d/1K9gbemb_qwL2WZsYaFZThYfYpqwgEXD6/view,"2026-08-18 16:29:33"
+4,60,Pengeluaran,2025-12-03,"Keperluan Kantor","Toko Jaya Meubeul",Cash,2600000.00,"Pembelian Keperluan Kantor dan Asrama DP Kursi Lipat, Kursi Tamu dan Kasur",,https://drive.google.com/file/d/1fcIAC6xVQ1PClWVGIZ10vrO0GuGpXYof/view?usp=drive_link,"2026-08-19 09:28:32"
+5,268,Pengeluaran,2025-12-03,"Keperluan Kantor",Digicom,Cash,2795000.00,"Printer Epson L3250 dan USB Hub Type C",,https://drive.google.com/file/d/1-5ktMJgfRNA-NzHco-jiPwCHllWV2NS4/view?usp=drive_link,"2026-08-21 14:14:33"
+6,270,Pengeluaran,2025-12-03,"Keperluan Kantor",Digicom,Cash,360000.00,"Tinta Refill Epson x4","Harga Satuan 90.000 x 4 = 360.000",https://drive.google.com/file/d/1lvDEclnzr66R8jNkIzU9YcONgWfYshsc/view?usp=drive_link,"2026-08-21 14:25:42"
+7,271,Pengeluaran,2025-12-03,"Keperluan Kantor",Digicom,Cash,38000.00,"Mouse Voxy E24 Wireless",,https://drive.google.com/file/d/1clgonE3qpANsE3xOuJDQiHicGvgSfdaR/view?usp=drive_link,"2026-08-21 14:27:35"
+8,272,Pengeluaran,2025-12-03,"Keperluan Kantor","Toko Nasional",Cash,295000.00,"Stand Kipas dan wall kipas",,https://drive.google.com/file/d/1vAu0jR2BOsWw3VYGxac_KjHYFEfD07uc/view?usp=drive_link,"2026-08-21 14:31:37"
+9,273,Pengeluaran,2025-12-03,"Keperluan Kantor","Toko Sanya",Cash,99000.00,"Pembelian Keperluan Kantor dan Alat Kebersihan Asrama Rumah","Rincian :
+- wall sticker
+- sapu injuk
+- poster president
+- mousepad",https://drive.google.com/file/d/1NWmGKcUsNKXyCiED3PO6yofN-AzW8mlj/view?usp=drive_link,"2026-08-21 14:42:23"
+10,66,Pengeluaran,2025-12-04,"Keperluan Kantor",Canva,Transfer,62500.00,"Biaya Canva Pro Bulanan",,,"2026-08-19 11:58:57"
+11,8,Pemasukan,2025-12-05,Modal,"Siti Nurhatifah",Transfer,2065000.00,"Modal Saham",,https://drive.google.com/file/d/1e_NnnxwoNCy7vUcW85WqD8DN-G9CT-TK/view?usp=sharing,"2026-08-18 11:56:03"
+12,9,Pemasukan,2025-12-05,Modal,"Siti Nurhatifah",Transfer,19950000.00,"Modal Saham",,finance/finance_1787029030_1411.jpeg,"2026-08-18 11:57:10"
+13,56,Pengeluaran,2025-12-05,"Keperluan Kantor",-,Cash,6000.00,"Pembelian Nota Kecil",,,"2026-08-18 16:44:14"
+14,58,Pengeluaran,2025-12-08,Transportasi,-,Transfer,20000.00,"BBM Staff Administrasi Ramsya",,,"2026-08-18 16:53:43"
+15,65,Pengeluaran,2025-12-08,"Keperluan Kantor","Toko AA",Transfer,449000.00,"Pembelian Mesin Laminating dan Plastik Laminating","Rincian : 
+- Mesin Laminating
+- Plastik Laminating",https://drive.google.com/file/d/11LBMuueZ4ZgrAJtFXU7ypmAU8xjhO9ma/view?usp=drive_link,"2026-08-19 11:43:06"
+16,59,Pengeluaran,2025-12-09,"Keperluan Kantor","Karya  Malik",Cash,55000.00,"Stempel CBI",,https://drive.google.com/file/d/1oySsdb7Rqf7f7mGw9ogQ6BMEtCs9x1vK/view?usp=drive_link,"2026-08-18 16:55:28"
+17,62,Pengeluaran,2025-12-10,"Keperluan Kantor",-,Cash,30000.00,"Kertas A4 Art Paper Cetak Brosur",,https://drive.google.com/file/d/1ohLe4teK1BA80HqEeEcPW7cAcC4EvQvg/view?usp=drive_link,"2026-08-19 09:57:39"
+18,17,Pemasukan,2025-12-11,Lainnya,"Siti Nurhatifah",Transfer,150000.00,"Voucher Kuota 100gb",,,"2026-08-18 14:29:45"
+19,63,Pengeluaran,2025-12-11,"Keperluan Kantor",-,Cash,150000.00,"Voucher Kuota 100gb",,,"2026-08-19 09:59:04"
+20,64,Pengeluaran,2025-12-12,"Keperluan Kantor","Rumah Kuota",Cash,12000.00,"Perpanjang masa aktif kartu LPK IM3","Kartu LPK",,"2026-08-19 10:02:13"
+21,67,Pengeluaran,2025-12-12,Transportasi,-,Transfer,23000.00,"BBM + Makan Staff",,,"2026-08-19 12:01:21"
+22,11,Pemasukan,2025-12-15,Modal,"Siti Nurhatifah",Transfer,3000000.00,"Web dan Sistem",,,"2026-08-18 13:33:53"
+23,68,Pengeluaran,2025-12-15,"Keperluan Kantor",-,Transfer,3000000.00,"Web dan Sistem",,,"2026-08-19 12:02:54"
+24,18,Pemasukan,2025-12-16,Lainnya,"Siti Nurhatifah",Transfer,650000.00,"Brosur 1 Rim (500 pcs)",,,"2026-08-18 14:31:17"
+25,69,Pengeluaran,2025-12-16,"Keperluan Kantor",-,Transfer,650000.00,"Brosur 1 Rim ( 500 pcs )",,,"2026-08-19 14:09:42"
+26,19,Pemasukan,2025-12-22,Lainnya,"Siti Nurhatifah",Transfer,200000.00,"Pembelian Buku Minna No Nihongo edisi 1 dan 2 ( 4 pcs )",,,"2026-08-18 14:35:59"
+27,70,Pengeluaran,2025-12-22,"Keperluan Siswa",-,Transfer,200000.00,"Buku Miinna No Nihongo Edisi 1 dan 2",,,"2026-08-19 14:10:28"
+28,71,Pengeluaran,2025-12-23,Gaji,Ramsya,Transfer,2700000.00,"Gaji Staff Administrasi Desember 2025",,https://drive.google.com/file/d/1klcJ8fTL8Nb7yqfCprGhEVWsK-vVJ0hx/view?usp=drive_link,"2026-08-19 14:16:00"
+29,73,Pengeluaran,2026-01-08,Lainnya,-,Transfer,1590087.00,"Pengadaan Toren Air beserta bahan pipa, lem, sambungan",,https://drive.google.com/file/d/1FoVV9b7Kw0Xe0VG_eSCtP7dbpAdRvKoa/view?usp=sharing,"2026-08-19 14:39:44"
+30,74,Pengeluaran,2026-01-08,Lainnya,-,Transfer,126500.00,"Tambahan Pipa Untuk Toren Air",,https://drive.google.com/file/d/1yiicCyKn8-tbTSO_Pxx1MXqXmJF1wNAM/view?usp=drive_link,"2026-08-19 14:40:59"
+31,75,Pengeluaran,2026-01-08,Transportasi,-,Transfer,64286.00,"Jasa Transport Toren Cianjur - Mekarsari",,https://drive.google.com/file/d/1AJyYmgKrChpY6TeEuQMx7yRWkJAkbxYO/view?usp=drive_link,"2026-08-19 14:49:12"
+32,12,Pemasukan,2026-01-17,Modal,"Siti Nurhatifah",Transfer,2300000.00,"Deposit untuk  Pembelian Torren Air Asrama dan Jasa Tukang",,https://drive.google.com/file/d/1sHBzXGMeKFsp9B0Pt5kMIygXgCJx2zSk/view?usp=drive_link,"2026-08-18 13:45:12"
+33,13,Pemasukan,2026-01-18,Modal,"Siti Nurhatifah",Transfer,1790000.00,"Deposit untuk Pembelian Peralatan Dapur Asrama",,https://drive.google.com/file/d/1tnIFe1qoSyuVSO3iQRQmij7ugLG5WzrT/view?usp=drive_link,"2026-08-18 13:48:26"
+34,20,Pemasukan,2026-01-18,Lainnya,"Siti Nurhatifah",Transfer,280999.00,"Transport Kapal Laut Sensei Fitri",,https://drive.google.com/file/d/1pPpP2ZgSYr1hZEEN6H1wAk-XRuJ6R2ff/view?usp=drive_link,"2026-08-18 14:37:17"
+35,76,Pengeluaran,2026-01-18,Lainnya,-,Transfer,1368000.00,"Pembelian keperluan asrama rumah memuat  magicom, kompor, sendok",,https://drive.google.com/file/d/1AQP461Ch0B_m1C0CuNIgEwn5RLyjJoAb/view?usp=drive_link,"2026-08-19 15:14:48"
+36,77,Pengeluaran,2026-01-21,Transportasi,-,Transfer,271654.00,"Transport Travel Pulang Pergi CJR-BKS Pak Alfin",,https://drive.google.com/file/d/193mpTWxgpcnQyVPxnYf9SSB0V81SaYN_/view?usp=drive_link,"2026-08-19 15:17:25"
+37,78,Pengeluaran,2026-01-21,Lainnya,-,Transfer,607706.00,"Penginapan Hotel untuk Pak Alfin",,https://drive.google.com/file/d/1uU7mMVAxEW7mSiW7GKJsiM8K2QMlLa-z/view?usp=drive_link,"2026-08-19 15:19:49"
+38,79,Pengeluaran,2026-01-22,Transportasi,-,Transfer,270000.00,"Transport Kapal Laut Staff Fitri",,https://drive.google.com/file/d/1mo6URMguv2mCOxqIXUN8tBB8-AH6EApQ/view?usp=drive_link,"2026-08-19 15:21:03"
+39,80,Pengeluaran,2026-01-25,Gaji,Ramsya,Transfer,2540000.00,"Gaji Staff Administrasi Januari 2026","Hari Kerja : 25 Hari
+Jam Lembur : 2 Jam",https://drive.google.com/file/d/1KjxDsm8UEWhqtE7YhC_kPPBsoGEFQey7/view?usp=drive_link,"2026-08-19 15:35:34"
+40,14,Pemasukan,2026-01-26,Modal,"Siti Nurhatifah",Transfer,1056000.00,"Deposit Pembelian Jemuran dan Keperluan Kantor Lainnya",,https://drive.google.com/file/d/10x3CXUy-H6WkVlNrPo6MOD8D803MeACM/view?usp=drive_link,"2026-08-18 13:52:38"
+41,81,Pengeluaran,2026-01-27,"Keperluan Kantor",-,Transfer,150265.00,"Paket Kotak P3K",,https://drive.google.com/file/d/1-1NzObOP4RNo0zZ2OKWwcu1UaOyfpPnW/view?usp=drive_link,"2026-08-19 15:44:58"
+42,82,Pengeluaran,2026-01-27,"Keperluan Siswa",-,Transfer,106697.00,Jemuran,,https://drive.google.com/file/d/18Bc3-9dv-FfCQGi5kBhUY-c276bbzove/view?usp=drive_link,"2026-08-19 16:43:38"
+43,83,Pengeluaran,2026-01-27,"Keperluan Kantor",Shopee,Transfer,64867.00,"Box File Jumbo",,https://drive.google.com/file/d/1dVlpb38MT03V3uTgLevGdMwefs7a1X4c/view?usp=drive_link,"2026-08-19 16:44:46"
+44,84,Pengeluaran,2026-01-27,"Keperluan Kantor",Shopee,Transfer,67091.00,"Map Siswa",,https://drive.google.com/file/d/1fJVOPFTrgf_Tzfx92Bpe1maUssXUgAi3/view?usp=drive_link,"2026-08-19 16:45:30"
+45,85,Pengeluaran,2026-01-27,Utilitas,-,Transfer,200000.00,"Listrik Air Kantor dan Asrama",,https://drive.google.com/file/d/122QtgpPHNZKj6xjjnTnBDdCG3eKfobHF/view?usp=drive_link,"2026-08-19 16:46:22"
+46,86,Pengeluaran,2026-01-27,Lainnya,Prometric,Transfer,450000.00,"Ujian Test SSW Bowo",,https://drive.google.com/file/d/1rmBhhT6Gz62Aa4lBcGsPKrAZOzY0RpH2/view?usp=drive_link,"2026-08-19 16:47:39"
+47,15,Pemasukan,2026-01-30,Modal,"Siiti Nurhatifah",Transfer,4800000.00,"Deposit Pembelian Laptop untuk Staff",,https://drive.google.com/file/d/1gpNcMeA3SrWV_24T9Y49mtLHdwi_2e6g/view?usp=drive_link,"2026-08-18 13:54:52"
+48,21,Pemasukan,2026-01-30,Lainnya,"Siti Nurhatifah",Transfer,879500.00,"Reimburstment Tiket Travel dan Booking Hotel Pak Alfin",,https://drive.google.com/file/d/1z1UJDK9sDVdk3Eoqd4y9Bubgb3ZSs_T5/view?usp=drive_link,"2026-08-18 14:40:13"
+49,16,Pemasukan,2026-01-31,Modal,"Siti Nurhatifah",Transfer,1200000.00,"Deposit Pengadaan Instalasi Wi-Fi Bizznet untuk kantor",,https://drive.google.com/file/d/1yX81yZZGKK35OiXIU7hlE6OoCivlNSfi/view?usp=drive_link,"2026-08-18 14:02:11"
+50,87,Pengeluaran,2026-01-31,"Keperluan Kantor",Bizznet,Transfer,1054500.00,"Pengadaan Instalasi Wifi di Kantor",,https://drive.google.com/file/d/1wC1docFCdREOumdXN4M5vlZpamXr_wv5/view?usp=drive_link,"2026-08-19 16:48:33"
+51,22,Pemasukan,2026-02-02,Modal,"Siti Nurhatifah",Transfer,200000.00,"Kekurangan Transfer Pembelian Laptop Staff",,https://drive.google.com/file/d/14fLumPKn_kVlToR-g4efpKNVUP9jXH48/view?usp=drive_link,"2026-08-18 14:41:41"
+52,88,Pengeluaran,2026-02-02,"Keperluan Kantor",Digicom,Cash,4890000.00,"Pengadaan laptop Lenovo IdeaPad Slim3 untuk staff",,https://drive.google.com/file/d/1cp04Yz0ZJBoiRybZ2NPH7AerlQ8hjCnc/view?usp=drive_link,"2026-08-19 16:55:50"
+53,89,Pengeluaran,2026-02-02,Lainnya,-,Transfer,100000.00,"Fee/Tip Instalasi Wi-Fi",,,"2026-08-19 16:56:55"
+54,90,Pengeluaran,2026-02-02,"Keperluan Kantor",Canva,Transfer,62500.00,"Biaya langganan canva bulan februari",,https://drive.google.com/file/d/1tBqtCzB9bSwB_OJnbHSdS7Sg1Ulx2TOv/view?usp=drive_link,"2026-08-19 16:58:18"
+55,23,Pemasukan,2026-02-09,Modal,"Siti Nurhatifah",Transfer,500000.00,"Modal Pembelian Kertas BC untuk Tangocho",,https://drive.google.com/file/d/1hZKBVcg54kmNrLzRKsoAwrYp5L_3Xo0M/view?usp=drive_link,"2026-08-18 14:43:39"
+56,91,Pengeluaran,2026-02-11,"Keperluan Kantor","Toko AA",Cash,80500.00,"Pembelian ATK Keperluan Kantor","kertas bc a4, cutter, pensil, penghapus, serutan, double tape 2, karton putih 10",https://drive.google.com/file/d/18oyIpjdakQHsJBHu5hCNe36p5g4o_Sys/view?usp=drive_link,"2026-08-19 16:59:47"
+57,92,Pengeluaran,2026-02-12,"Keperluan Kantor","Toko AA",Transfer,49500.00,"Kertas Buffalo 100 lembar F4 untuk tangocho",,https://drive.google.com/file/d/1-PqlzUpcMbjgCs3anGNNcWhmQyBvhJna/view?usp=drive_link,"2026-08-20 09:12:14"
+58,93,Pengeluaran,2026-02-20,Lainnya,"Panembong Baja",Transfer,40000.00,"Renovasi Asrama, Pembelian Ruff Baja",,https://drive.google.com/file/d/1-AXvPIEMQW8koipEe08V19qX-EFeP2X7/view?usp=drive_link,"2026-08-20 09:23:05"
+59,95,Pengeluaran,2026-02-22,Lainnya,"Indo Super Grosir",Transfer,2301049.00,"Renovasi Asrama, Pembelian cat, karpet talang, dan fiber",,https://drive.google.com/file/d/1II_c1_7j7UPOWh2CFHrnhykCwBA10_x7/view?usp=drive_link,"2026-08-20 09:27:25"
+60,96,Pengeluaran,2026-02-23,Lainnya,"TB Faqih Jaya",Transfer,41000.00,"Renovasi Asrama, Pembelian Papan dan Paku",,https://drive.google.com/file/d/14JBvyqbs2fu7BAxn7tU4KVfP7-Cv_s46/view?usp=drive_link,"2026-08-20 09:28:54"
+61,24,Pemasukan,2026-02-24,Modal,"Siti Nurhatifah",Transfer,4970000.00,"Renovasi Asrama",,https://drive.google.com/file/d/10G4ze_eMExAgIiRm-FO948Qqe0ybfawh/view?usp=drive_link,"2026-08-18 14:48:10"
+62,25,Pemasukan,2026-02-25,Modal,"Siti Nurhatifah",Transfer,6385000.00,"Gaji dan Insentif Karyawan",,https://drive.google.com/file/d/1p-7mP-Y_nn1FhDP1VbYMndKWvoY3-9vr/view?usp=drive_link,"2026-08-18 14:49:28"
+63,97,Pengeluaran,2026-02-25,Lainnya,"Indo Super Grosir",Transfer,344025.00,"Renovasi Asrama, GRC Board",,https://drive.google.com/file/d/1vada66tLwqqSqVojsIjCw7bP7m6BqYEU/view?usp=drive_link,"2026-08-20 09:31:18"
+64,98,Pengeluaran,2026-02-25,Transportasi,"Indo Super Grosir",Transfer,64286.00,"Ongkos Kirim GRC Ke Asrama",,https://drive.google.com/file/d/1UdTOpybMxSJGVrxChleacwVPF74Fp9vm/view?usp=drive_link,"2026-08-20 09:33:06"
+65,99,Pengeluaran,2026-02-25,Lainnya,"Indo Super Grosir",Transfer,949983.00,"Renovasi Asrama, Pembelian Bahan Untuk Listrik","Bahan Lampu, Fiber, Kawat stop kontak, saklar.
+ada retur barang asbes diganti dengan grc sehingga pengurangan total pembelian",https://drive.google.com/file/d/1es4JE_u2Eb3zQqGTrPbZaycE38sHSZdr/view?usp=drive_link,"2026-08-20 09:36:22"
+66,100,Pengeluaran,2026-02-25,Gaji,Fitri,Transfer,2360000.00,"Gaji Staff Pengajar (sensei) Februari 2026","Hari Kerja : 25 Hari
+Jam Lembur : 2 Jam
+Intensif : 150.000
+THR : 170.000
+Total gaji diterima Rp. 2.360.000",https://drive.google.com/file/d/15PJGUTQDyCOSgQnEOwqc8c-y2NPbBDwd/view?usp=drive_link,"2026-08-20 09:45:24"
+67,101,Pengeluaran,2026-02-25,Gaji,Ramsya,Transfer,3525000.00,"Gaji Staff  Administrasi Februari 2026","Hari Kerja : 25 Hari
+Jam Lembur : 5 Jam
+Insentif : Rp. 300.000
+THR : Rp. 625.000",https://drive.google.com/file/d/10toMFht7d_7Lpxb8g5WBCrSKpBe4hx1S/view?usp=drive_link,"2026-08-20 09:48:33"
+68,26,Pemasukan,2026-02-26,Modal,"Siti Nurhatifah",Transfer,1400000.00,"Jasa Renovasi Asrama Grasi",,https://drive.google.com/file/d/1y25-qdWdceu4-75bTSOeoft7YNXM_LHj/view?usp=drive_link,"2026-08-18 14:51:10"
+69,102,Pengeluaran,2026-02-26,Lainnya,"TB Faqih Jaya",Transfer,213000.00,"Renovasi Asrama, Pembelian paku 7 (1kg), Kaso 3m(15)",,https://drive.google.com/file/d/1_qNQA0UVva2B0Gluvn0EkSsAgK4i2z96/view?usp=drive_link,"2026-08-20 09:58:17"
+70,103,Pengeluaran,2026-03-02,"Keperluan Kantor",Canva,Transfer,125000.00,"Biaya Langganan Canva Bulan Maret",,https://drive.google.com/file/d/1RTIbkHM2tVn9Q0oVoiyFnC7L89q4W7PO/view?usp=drive_link,"2026-08-20 10:02:28"
+71,104,Pengeluaran,2026-03-03,Lainnya,"TB Faqih Jaya",Transfer,187000.00,"Renovasi Asrama, Pembelian Bahan Matrial","Pembelian GRC(3), Kaso 3m(2), Paku GRC 1dus, Benang 1",https://drive.google.com/file/d/1YmEIHyVLp65gmjr_CRSfQkqnMv23cWJE/view?usp=drive_link,"2026-08-20 10:04:14"
+72,105,Pengeluaran,2026-03-03,Lainnya,"TB Faqih Jaya",Transfer,494000.00,"Renovasi Asrama, Pembelian Bahan Matrial","Pembelian wapin 1/2 (3), T 1/2 (2), Knee 1/2 (6), Saringan (4), Kdd 1/2 (3), T drat 1/2 (1), Knee 3 (3), Glass Block (1dus), megalon 3 (2)",https://drive.google.com/file/d/1doHkA8LSPUgphzXOhnl85Z87obdL-1Z8/view?usp=drive_link,"2026-08-20 10:05:53"
+73,106,Pengeluaran,2026-03-03,"Keperluan Siswa","Aira Percetakan",Transfer,13000.00,"Tes Print Cover Tangocho + Laminasi",,,"2026-08-20 10:07:50"
+74,107,Pengeluaran,2026-03-03,"Keperluan Siswa","Aira Percetakan",Cash,13000.00,"Pembeliann Art Paper + Glossy",,https://drive.google.com/file/d/1CGqNu9qjyLJvFTNzM0BSAreNbeHho4Ud/view?usp=sharing,"2026-08-20 10:08:50"
+75,27,Pemasukan,2026-03-05,Modal,"Siti Nurhatifah",Transfer,1000000.00,"Tambahan untuk kekurangan renovasi asrama",,https://drive.google.com/file/d/1BVomPiyiNd-0UNBgXyt899XJ2eSxIEhj/view?usp=drive_link,"2026-08-18 14:52:53"
+76,108,Pengeluaran,2026-03-05,"Keperluan Siswa","Fotocopy Sinar M",Cash,121000.00,"Jilid Spiral Tangocho 20 Buku",,,"2026-08-20 10:10:05"
+77,109,Pengeluaran,2026-03-05,"Keperluan Siswa","Aira Percetakan",Transfer,52000.00,"Art paper + Laminasi Cover Tangocho",,https://drive.google.com/file/d/1Sn4ouZk2cxsrihu6Za0YdU_chwokS1HQ/view?usp=drive_link,"2026-08-20 10:11:08"
+78,110,Pengeluaran,2026-03-07,Lainnya,"TB Faqih Jaya",Cash,69000.00,"Renovasi Asrama, Pembelian Bahan Matrial","Pembelian Loster (4), Plug 1/2 (4), Sealtape (1)",https://drive.google.com/file/d/1e0RiiBoGON93us08OMvpljIbtMWVwTQ8/view?usp=sharing,"2026-08-20 10:14:53"
+79,111,Pengeluaran,2026-03-08,Transportasi,"Indo Trans",Transfer,64286.00,"Transport Pengiriman Bahan Bangunan",,https://drive.google.com/file/d/1rf9aNNj9cFDgnFmUkwTpKSEo7bUJoD4g/view?usp=sharing,"2026-08-20 10:16:45"
+80,112,Pengeluaran,2026-03-09,Lainnya,"TB Faqih Jaya",Cash,17000.00,"Renovasi Asrama, Pembelian Bahan Matrial","Pembelian Bahan Renovasi T3 (1), Knee Drat 1/2 (1)",https://drive.google.com/file/d/1DYY_zxxmpl2qcL-39al9sQUKhIFb5_OQ/view?usp=drive_link,"2026-08-20 10:18:22"
+81,113,Pengeluaran,2026-03-09,"Keperluan Siswa","Yoez Desain & Printing",Cash,15000.00,"Art Paper (260gr) + Laminasi Cover tangaocho",,https://drive.google.com/file/d/1QxsxWjb9bmDXti1i5tbHJ1GOXOL3GxZB/view?usp=sharing,"2026-08-20 10:20:21"
+82,28,Pemasukan,2026-03-10,Lainnya,"Siti Nurhatifah",Transfer,95840.00,"Pembelian Buku Soal Minna No Nihongo",,https://drive.google.com/file/d/12f9iqlepRueIkPKEH7RV0vXxpDgEPMV6/view?usp=drive_link,"2026-08-18 14:53:59"
+83,114,Pengeluaran,2026-03-10,"Keperluan Kantor",Fotocopy,Cash,22000.00,"Pembelian Cutter dan isi cutter",,,"2026-08-20 10:21:45"
+84,115,Pengeluaran,2026-03-10,"Keperluan Siswa",Shopee,Transfer,95840.00,"Pembelian Buku Soal Minna No Nihongo",,https://drive.google.com/file/d/12f9iqlepRueIkPKEH7RV0vXxpDgEPMV6/view?usp=drive_link,"2026-08-20 10:22:58"
+85,29,Pemasukan,2026-03-11,Lainnya,"Siti Nurhatifah",Transfer,300000.00,"Biaya Langganan Canva Bulan Februari dan Maret",,https://drive.google.com/file/d/1RqNEE9bJih5jI1MHkflepDBK5MfNksOQ/view?usp=drive_link,"2026-08-18 14:56:21"
+86,116,Pengeluaran,2026-03-11,"Keperluan Siswa","Yoez Desain & Printing",Transfer,60000.00,"Print A3+ Laminasi Cover Tangocho 4 lembar",,https://drive.google.com/file/d/1VnecCj_bDgJD1fYAW901hTUB54mSPWh-/view?usp=sharing,"2026-08-20 10:24:37"
+87,122,Pengeluaran,2026-03-11,"Keperluan Siswa","Toko AA",Cash,90000.00,"Pembelian Kertas Jilid F4","Buffalo 1 pak x 3",https://drive.google.com/file/d/1UN23IRA63HTSaMaLOJ5vglwUD98btpRp/view?usp=sharing,"2026-08-20 10:46:40"
+88,30,Pemasukan,2026-03-12,Lainnya,"Siti Nurhatifah",Transfer,200000.00,"Jilid Spiral Tangocho Minna Vol 2 20 Buku",,https://drive.google.com/file/d/1l-4OdeS9E19FoR6qE_BTqU4Duu9BP9_l/view?usp=drive_link,"2026-08-18 14:58:23"
+89,117,Pengeluaran,2026-03-12,"Keperluan Siswa","Sauda Copy Service",Cash,160000.00,"Jilid Spiral 20 Buku",,https://drive.google.com/file/d/1NSVJOVxg-gTUd8oWSnEIEcLZjrfMF36i/view?usp=sharing,"2026-08-20 10:39:02"
+90,118,Pengeluaran,2026-03-13,Lainnya,"Indo Super Grosir",Cash,71000.00,"Renovasi Asrama, Pembelian Bahan Matrial",,https://drive.google.com/file/d/13ptSJR1ji8pjUcfqImMgoeU0LIUGKsi7/view?usp=sharing,"2026-08-20 10:40:53"
+91,31,Pemasukan,2026-03-17,Lainnya,"Siti Nurhatifah",Transfer,500000.00,"Pembelian Kertas Tangocho dan Token Listrik",,https://drive.google.com/file/d/1huX8Gg2d_gaBDDuQ-ZzjDR4NSZibVoX7/view?usp=drive_link,"2026-08-18 14:59:15"
+92,119,Pengeluaran,2026-03-26,Gaji,Ramsya,Transfer,3080000.00,"Gaji Staff Administrasi Maret 2026","Hari Kerja : 25 Hari
+Jam Lembur : 4 Jam",https://drive.google.com/file/d/1TjWiERu2IMjdzOpT3r27jRUp9jNrIz79/view?usp=drive_link,"2026-08-20 10:42:00"
+93,120,Pengeluaran,2026-03-26,Gaji,Fitri,Transfer,2000000.00,"Gaji Staff Pengajar Sensei Maret 2026",,https://drive.google.com/file/d/1ega6KaciBrl8h3mFtA7fcc57TgZZxIhn/view?usp=drive_link,"2026-08-20 10:43:19"
+94,121,Pengeluaran,2026-03-28,Lainnya,"TB Faqih Jaya",Transfer,63600.00,"Renovasi Asrama, Pembelian Bahan Matrial","Holo 2x4 (23), Triplek 3m (8)",https://drive.google.com/file/d/1JZzoLrPtxg2aYzcks7y_liyZ-tzsWIx8/view?usp=sharing,"2026-08-20 10:45:00"
+95,32,Pemasukan,2026-04-01,Lainnya,"Siti Nurhatifah",Transfer,200000.00,"Pembelian Token Asrama 1 dan Token Asrama 2",,https://drive.google.com/file/d/1wdY2x7JyjGW_JMC1r1L7Angc0VqgYyCh/view?usp=drive_link,"2026-08-18 15:02:58"
+96,126,Pengeluaran,2026-04-01,Lainnya,"Lilis Sumarsih",Cash,7427777.00,"Biaya Renovasi Asrama Gerasi",,,"2026-08-20 10:55:08"
+97,127,Pengeluaran,2026-04-02,Utilitas,Shopee,Transfer,104000.00,"Pembelian Token Kantor Bu Lilis",,https://drive.google.com/file/d/1rRyg1OBmYg-6Ovvkh6eiUIqFWBvHNCzK/view?usp=drive_link,"2026-08-20 10:58:27"
+98,128,Pengeluaran,2026-04-02,Utilitas,Shopee,Transfer,51500.00,"Pembelian Token Asrama Rumah",,https://drive.google.com/file/d/1uISe76XICvvG_yAZTE-76R7alBrt74FP/view?usp=drive_link,"2026-08-20 11:01:52"
+99,33,Pemasukan,2026-04-04,Lainnya,"Siti Nurhatifah",Transfer,55000.00,"Pembelian Alat Kebersihan Toilet",,https://drive.google.com/file/d/1bj9AIwRJwNDsKuwOC9kj2_b6GVu8jhmf/view?usp=drive_link,"2026-08-18 15:03:56"
+100,129,Pengeluaran,2026-04-04,"Keperluan Kantor",Alfamart,Cash,53800.00,"Pembelian Alat kebersihan",,https://drive.google.com/file/d/1mMzAIwlKsPw2kfDQhTZ9iIau5yPcmB4F/view?usp=drive_link,"2026-08-20 11:05:53"
+101,34,Pemasukan,2026-04-08,Modal,"Siti Nurhatifah",Transfer,2000000.00,"Modal Saham",,https://drive.google.com/file/d/1sSZlqhoCb_iDvv2W5uxrF3oAQePg6Ebq/view?usp=drivesdk,"2026-08-18 15:05:25"
+102,36,Pemasukan,2026-04-08,Modal,"Siti Nurhatifah",Transfer,15000000.00,"Modal Saham",,https://drive.google.com/file/d/12UCnyGDxWkfPkxI0m-mi4DwJGroEFO-t/view?usp=drivesdk,"2026-08-18 15:08:42"
+103,130,Pengeluaran,2026-04-09,Operasional,Indosat,Transfer,115000.00,"Pembelian Masa Aktif No LPK 360 Hari",,https://drive.google.com/file/d/10hexOeWW6rhB7ckht_bNLKXpKopsYtxv/view?usp=drive_link,"2026-08-20 11:09:20"
+104,123,Pengeluaran,2026-04-13,Lainnya,"A Alfin",Transfer,1085000.00,"Biaya Insentif Pak Alfin",,https://drive.google.com/file/d/1KFkuNGLJcYvW_UUzVoinDCje9JPVv0F9/view?usp=drive_link,"2026-08-20 10:49:00"
+105,124,Pengeluaran,2026-04-13,"Keperluan Kantor",Canva,Transfer,125000.00,"Biaya Langganan Canva April",,https://drive.google.com/file/d/1vS7-Nrdm1IYK2FbwOqqNtqq5ICtjjG5k/view?usp=drive_link,"2026-08-20 10:51:33"
+106,125,Pengeluaran,2026-04-16,Utilitas,"Kori Suripno",Transfer,200000.00,"Pembayaran Iuran Pengelolaan Lingkungan ( IPL ) April",,https://drive.google.com/file/d/12InOSQXHDq0fuMsi-4gywNvmRXNySPmW/view?usp=drive_link,"2026-08-20 10:53:26"
+107,35,Pemasukan,2026-04-17,Modal,"Siti Nurhatifah",Transfer,21000000.00,"Modal Saham",,https://drive.google.com/file/d/1UPrO_Iu2cRsCNkvnRatLa9I1NsllXxPU/view?usp=drive_link,"2026-08-18 15:07:23"
+108,131,Pengeluaran,2026-04-17,Utilitas,Shopee,Transfer,52500.00,"Pembelian Token Asrama Rumah",,https://drive.google.com/file/d/1NvJCyrjwlhBYNcguskFH5JO6cPd7n5W_/view?usp=drive_link,"2026-08-20 11:15:05"
+109,132,Pengeluaran,2026-04-17,"Keperluan Kantor","M. Anwar Roziqin ( LPK SAMIT )",Transfer,22840000.00,"Pembelian Sandblast, Gorden dan Ac Daikin 2 PK",,https://drive.google.com/file/d/1tPtPcUm0IrSiZbpdwYQ-uVM4Qxmg6v_X/view?usp=drive_link,"2026-08-20 11:16:46"
+110,274,Pemasukan,2026-04-17,Modal,"Siti Nurhatifah ( Rekening Koran )",Transfer,1000000.00,"Modal Saham",,,"2026-08-21 16:04:51"
+111,133,Pengeluaran,2026-04-18,Utilitas,"PLN Mobile",Transfer,6024550.00,"Penambahan daya Listrik 10.600 watt untuk kantor B1","Biaya pembelian : 6.022.800
+Tambahan biaya admin : Rp. 1.750",https://drive.google.com/file/d/1GYyJT1YT-TvDSXxwH1IjVICZjT9tL7sD/view?usp=drive_link,"2026-08-20 11:20:03"
+112,134,Pengeluaran,2026-04-18,Lainnya,BCA,Transfer,15000.00,"Biaya Admin Bank BCA April",,,"2026-08-20 11:23:58"
+113,135,Pengeluaran,2026-04-21,Transportasi,Faizal,Transfer,500000.00,"BIaya Transport Faizal dan Raihan ke Cianjur",,https://drive.google.com/file/d/1BeP9vnqWdfA8JWxz_T5sFKdok7uk8Spv/view?usp=drive_link,"2026-08-20 11:25:13"
+114,136,Pengeluaran,2026-04-22,"Keperluan Kantor",Alfamart,Transfer,45000.00,"Pembelian Materai dan Alat pembersih Kloset",,https://drive.google.com/file/d/1xPzchWys1mokURo_x3xuxl5-K_tx8N7Y/view?usp=drive_link,"2026-08-20 11:29:11"
+115,137,Pengeluaran,2026-04-22,"Keperluan Kantor","TB Hanjaya",Transfer,425000.00,"Pembelian Kabel Panel HItam 4 x6 ml ( 5 Meter )",,https://drive.google.com/file/d/1oMs9WWx9ViwdarX3l6oX_r4ClgHhmGS9/view?usp=drive_link,"2026-08-20 11:30:54"
+116,138,Pengeluaran,2026-04-22,"Keperluan Kantor","Toko Surya Plastik",Cash,25000.00,"Pembelian Trashbag 60 x 100 ( 1 pak )",,https://drive.google.com/file/d/10ckWBuEHXpaMeOFcijPbBobJGQPK1QW1/view?usp=drive_link,"2026-08-20 11:37:50"
+117,139,Pengeluaran,2026-04-22,Lainnya,"M. Anwar Roziqin (LPK SAMIT)",Transfer,600000.00,"Pemasangan Sandblast & Gorden",,https://drive.google.com/file/d/1yYwdxQWJKIISR_vEMlJB4prP1FbnalAn/view?usp=drive_link,"2026-08-20 11:42:18"
+118,140,Pengeluaran,2026-04-22,Lainnya,Faizal,Transfer,46000.00,"Pembelian Kopi Cup Indomaret untuk seluruh tim",,https://drive.google.com/file/d/1MRA9wHjSkca2Kwkv2CAXRg_zGlcI2R8C/view?usp=drive_link,"2026-08-20 11:46:31"
+119,141,Pengeluaran,2026-04-22,"Keperluan Kantor",Alfamart,Cash,11500.00,"Pembelian Materai 10000 x1",,https://drive.google.com/file/d/1DNdwSk8C7p3LIHk7D1sf2IIJLA99NYof/view?usp=drive_link,"2026-08-20 11:49:13"
+120,142,Pengeluaran,2026-04-22,Lainnya,"Siti Nurhatifah",Transfer,1000000.00,"Peminjaman dari Bu Tiffa",,https://drive.google.com/file/d/1BcO64L8_-egITvAsv7qIGyMkSNjalsiD/view?usp=drive_link,"2026-08-20 11:52:10"
+121,143,Pengeluaran,2026-04-24,"Keperluan Kantor",Shopee,Transfer,24000.00,"Pembelian Kuota Zoom April - Mei",,,"2026-08-20 11:56:13"
+122,37,Pemasukan,2026-04-25,Modal,"Siti Nurhatifah",Transfer,6000000.00,"Modal Saham",,https://drive.google.com/file/d/1yMnJHSyH4yuUDeG1qG6wIuc1EScaBDBZ/view?usp=drivesdk,"2026-08-18 15:09:42"
+123,144,Pengeluaran,2026-04-25,Gaji,Ramsya,Transfer,3160000.00,"Gaji Staff Administrasi April 2026","Hari Kerja : 25 Hari
+Jam Lembur : 8 Jam",https://drive.google.com/file/d/1LpqiKUwnc9tkW8q882QJIlBVq4cLrE2z/view?usp=drivesdk,"2026-08-20 11:57:33"
+124,145,Pengeluaran,2026-04-25,Gaji,Fitri,Transfer,2062500.00,"Gaji Staff Pengajar Sensei Maret 2026","Hari Kerja : 25 Hari Jam Lembur : 3 Jam Tambahan biaya admin : 2.500",https://drive.google.com/file/d/1JmuPm5dTXjyYEuz1yfaIK8oEybBe_yLM/view?usp=drivesdk,"2026-08-20 11:59:26"
+125,146,Pengeluaran,2026-04-25,Lainnya,"A Alfin",Transfer,1002500.00,"BIaya Intensif Pak Alfin","Tambahan biaya admin : 2.500",https://drive.google.com/file/d/1_mRaUEMqSWKzeGQn5pvU1MONT4oekVW9/view?usp=drivesdk,"2026-08-20 12:01:00"
+126,147,Pengeluaran,2026-04-27,"Keperluan Kantor","Ahmad Kodir ( PLN )",Transfer,502500.00,"Biaya Jasa Instalasi MCB Ruko B1","admin 2.500",https://drive.google.com/file/d/1JLz3VFnfQ4wP70fPafiZRDdExHzSpa_P/view?usp=drivesdk,"2026-08-20 12:02:55"
+127,148,Pengeluaran,2026-04-27,"Keperluan Kantor","TB Hanjaya",Transfer,630000.00,"Pembelian MCB Merk Schneider 16A x2 dan 10A x5 untuk Ruko B1",,https://drive.google.com/file/d/1T1HVJt3NcfWb0wG5sVori73W6wEKtiVn/view?usp=drivesdk,"2026-08-20 12:04:40"
+128,149,Pengeluaran,2026-04-29,"Keperluan Kantor","STRIZ (Risky Eka Tama)",Transfer,127500.00,"Pembuatan Baju Sample Creativa untuk Staff","Tambahan biaya admin : 2.500",https://drive.google.com/file/d/17WXYCfmLvGI64iUutOyAqiX3KxoOij50/view?usp=drive_link,"2026-08-20 12:06:03"
+129,38,Pemasukan,2026-04-30,Modal,"Siti Nurhatifah",Transfer,22500000.00,"Modal Saham",,https://drive.google.com/file/d/12vPH_pRnyZCKEvw8lTpgNQwe0-_X-W1f/view?usp=drive_link,"2026-08-18 15:10:30"
+130,39,Pemasukan,2026-04-30,Lainnya,BCA,Transfer,67.00,"Bunga dari ATM BCA",,,"2026-08-18 15:11:19"
+131,150,Pengeluaran,2026-04-30,Utilitas,Gopay,Transfer,53500.00,"Pembelian Token Asrama Rumah","Tambahan biaya admin : 1.000",https://drive.google.com/file/d/1iWINMja0twDGV0WciTqlKkkqH4RXPmde/view?usp=drive_link,"2026-08-20 12:09:08"
+132,151,Pengeluaran,2026-04-30,"Keperluan Kantor","M. Anwar Roziqin (LPK SAMIT)",Transfer,5108000.00,"Pembelian Bahan untuk Instalasi AC Ruko B1 dan B2","Pembelian Pipa AC hoda 1/4 1.2 (26m), Kabel eterna 3 x 1,5 / roll (50m), Pipa pembuangan air (28m), Braket AC 2pk (2 set), Dinabol (2set), Ductip lem (8pcs), Ductip biasa (4pcs)",https://drive.google.com/file/d/19P9Q01LPyeNO4ULf3SzYqCJBYA6ryqhX/view?usp=drive_link,"2026-08-20 12:11:04"
+133,152,Pengeluaran,2026-04-30,Lainnya,BCA,Transfer,13.00,"Pajak Bunga dari BCA",,,"2026-08-20 12:12:50"
+134,153,Pengeluaran,2026-05-02,"Keperluan Kantor","Wijaya Material / Anwar",Transfer,1200000.00,"Pembelian Ducting Pipa AC (12m)",,https://drive.google.com/file/d/16MUGmKvtvZb11I49JX4Y3yRGqKDG1wbg/view?usp=drive_link,"2026-08-20 14:10:45"
+135,154,Pengeluaran,2026-05-02,"Keperluan Kantor",Ramsya,Transfer,30000.00,"Pembuatan Sample Nafuda dan Lanyard Creativa",,https://drive.google.com/file/d/1bwWEsY7FbL62zhXre9YuhjuqZtXvTIxy/view?usp=drive_link,"2026-08-20 14:11:48"
+136,155,Pengeluaran,2026-05-03,"Keperluan Kantor",Faizal,Transfer,100000.00,"Pembelian Nomor Bisnis untuk Akuntansi",,https://drive.google.com/file/d/18CPyi5_VL29qQoxdCdqj3Bj_arVOUcAz/view?usp=drive_link,"2026-08-20 14:13:08"
+137,156,Pengeluaran,2026-05-03,Transportasi,"M. Anwar Roziqin (LPK SAMIT)",Transfer,880000.00,"Biaya Transportasi Kebutuhan AC ke Cianjur","Tambahan biaya tol : 200.000
+Total pembulatan biaya ongkir : 880.000",https://drive.google.com/file/d/1zUMZMhMOci_Fd7udt0AQGd_FMlINcCHH/view?usp=drive_link,"2026-08-20 14:14:36"
+138,157,Pengeluaran,2026-05-04,Transportasi,Faizal,Transfer,200000.00,"BIaya Transportasi Faizal Ke LPK SAMIT",,https://drive.google.com/file/d/1Zz42L-dx7ZRJ4xLeRmHTxSy5E_2geLfL/view?usp=drive_link,"2026-08-20 14:16:00"
+139,158,Pengeluaran,2026-05-04,Transportasi,Raihan,Transfer,200000.00,"Biaya Transportasi Raihan ke LPK SAMIT",,https://drive.google.com/file/d/1gqPrEQcqwBN5XgHfbqzDwfbWWOshT3_T/view?usp=drive_link,"2026-08-20 14:16:43"
+140,159,Pengeluaran,2026-05-04,Transportasi,Ramsya,Transfer,250000.00,"Biaya Transportasi Ramsya ke LPK SAMIT",,https://drive.google.com/file/d/10l0FaYywmdOO5jfN2F5YWVBivHgQRJHh/view?usp=drive_link,"2026-08-20 14:18:51"
+141,160,Pengeluaran,2026-05-04,Lainnya,Fitri,Transfer,202500.00,"Kasbon ke kas Creativa untuk Transportasi ke Cianjur","Tambahan biaya admin : 2.500",https://drive.google.com/file/d/1BgMUwCuIaFzk7OZntWNktGaHnkhRzkt_/view?usp=drive_link,"2026-08-20 14:23:49"
+142,161,Pengeluaran,2026-05-04,"Keperluan Siswa","Nando Digital Textile (Deni I.)",Transfer,100000.00,"Pembuatan Baju Sample Creativa untuk Siswa",,https://drive.google.com/file/d/1EBFHPD6sqJCnXIhiSQ_w8CVt9UWXZnlu/view?usp=drive_link,"2026-08-20 14:25:01"
+143,162,Pengeluaran,2026-05-05,Lainnya,BCA,Transfer,12500.00,"Pencetakan Rekening Koran untuk Akuntansi",,https://drive.google.com/file/d/1okAvb9Zj9-TFRh92LQi_aIr1VNxJ9QKH/view?usp=drive_link,"2026-08-20 14:26:25"
+144,163,Pengeluaran,2026-05-08,"Keperluan Kantor",Ramsya,Transfer,50000.00,"Membuat surat keterangan domisili dari desa untuk persyaratan legalitas",,https://drive.google.com/file/d/16MlckvDYqGQqusy1jYPY9iZx95JPLXDj/view?usp=drive_link,"2026-08-20 14:27:19"
+145,164,Pengeluaran,2026-05-09,"Keperluan Kantor","Anwar Sensei",Cash,2440000.00,"Pemasangan AC",,https://drive.google.com/file/d/1B15asG8koG1rhWKOtwkWE7qGf5TkjJiN/view?usp=drive_link,"2026-08-20 14:27:50"
+146,165,Pengeluaran,2026-05-09,"Keperluan Kantor","LPK SAMIT",Transfer,10000000.00,"DP Partisi Kantor dan Kelas Ruko B1 dan B2",,https://drive.google.com/file/d/1r2yxSS-dCgEwU8WFF-0KYBH200XBDPyw/view?usp=drive_link,"2026-08-20 14:45:23"
+147,40,Pemasukan,2026-05-10,Lainnya,"Siti Nurhatifah",Transfer,103000.00,"Pembelian Token Ruko/Kantor",,https://drive.google.com/file/d/14gDRjnbdzmWFW0F75nwPHC69v1wgnzwk/view?usp=drivesdk,"2026-08-18 15:12:49"
+148,166,Pengeluaran,2026-05-10,"Keperluan Kantor","M. Anwar Roziqin (LPK SAMIT)",Transfer,45000.00,"Pembelian Skrup(50pcs) dan Fischer(50pcs)","Sudah sempat dibayar 1.200.000 ditanggal 02 Mei 2026, 
+Dan ini ada biaya tambahan sebesar 45.000",https://drive.google.com/file/d/16MUGmKvtvZb11I49JX4Y3yRGqKDG1wbg/view?usp=drivesdk,"2026-08-20 14:46:41"
+149,167,Pengeluaran,2026-05-10,Utilitas,"M. Anwar Roziqin (LPK SAMIT)",Transfer,103000.00,"Pembelian Token Ruko B1 / Kantor","Bukti TF pembelian Token dan Skrup dan fischer AC",https://drive.google.com/file/d/1nn4_kJigIySkXatU_vLOowNyyxrObUwX/view?usp=drivesdk,"2026-08-20 14:48:42"
+150,41,Pemasukan,2026-05-11,Modal,"Siti Nurhatifah",Transfer,60000000.00,"Modal Saham",,https://drive.google.com/file/d/1_ME3P_Dt2C3-rnMUxuGlxu0p9beVDxu8/view?usp=drivesdk,"2026-08-18 15:14:05"
+151,168,Pengeluaran,2026-05-12,"Keperluan Kelas",Shopee,Transfer,672526.00,"Pembelian Papan Tulis Tempel (Keiko) 120 × 180",,https://drive.google.com/file/d/1lPfP0vABgH08wE-VmD_2ac6oljd8fCuw/view?usp=drivesdk,"2026-08-20 15:02:33"
+152,169,Pengeluaran,2026-05-12,"Keperluan Kantor","Karya Malik",Transfer,110000.00,"Pembuatan 2 Stempel Creativa",,https://drive.google.com/file/d/1dXfmHY3T2d-3_vDO1L93BwZH1lJ_Av1O/view?usp=drivesdk,"2026-08-20 15:04:03"
+153,170,Pengeluaran,2026-05-13,Utilitas,Gopay,Transfer,101000.00,"Pembelian Token Asrama Rumah","Biaya admin 1000",https://drive.google.com/file/d/1xPARKEIw6NNrjfsyIfaNPKdDs_qGbex4/view?usp=drivesdk,"2026-08-20 15:07:48"
+154,171,Pengeluaran,2026-05-13,"Keperluan Kantor","LPK SAMIT",Transfer,36000000.00,"Pelunasan Renovasi Ruko B1 Kantor Creativa",,https://drive.google.com/file/d/130v26wHcOlxj4apLuafv-cXjmr4FTh_4/view?usp=drivesdk,"2026-08-20 15:09:04"
+155,172,Pengeluaran,2026-05-13,"Keperluan Kelas","LPK SAMIT",Transfer,26800000.00,"DP Pembelian Set Kursi dan Meja",,https://drive.google.com/file/d/1cCBivpmfFrfH_l42FDh9y43QrV_XCMCf/view?usp=drivesdk,"2026-08-20 15:12:33"
+156,173,Pengeluaran,2026-05-13,Utilitas,"PLN Mobile",Transfer,501750.00,"Tambahan token kantor ruko B1",,https://drive.google.com/file/d/15QE_Dh0r5niEY-B4vGMF-xLLxmpwBX5m/view?usp=drivesdk,"2026-08-20 15:14:56"
+157,174,Pengeluaran,2026-05-14,"Keperluan Kantor",Canva,Transfer,125000.00,"Pembelian Canva Pro Mei 2026",,https://drive.google.com/file/d/1BWPAUSofVnaZLft2XZ7RAX6bmSz9NU1_/view?usp=drivesdk,"2026-08-20 15:16:10"
+158,175,Pengeluaran,2026-05-16,Lainnya,-,Transfer,15000.00,"Biaya Admin Bank BCA Mei",,,"2026-08-20 15:19:28"
+159,42,Pemasukan,2026-05-18,Modal,"Siti Nurhatifah",Transfer,100000.00,"Modal Saham",,https://drive.google.com/file/d/1sq-myxr0eZS-gLPMbvI-GAH32JWL3u5V/view?usp=drivesdk,"2026-08-18 15:17:00"
+160,176,Pengeluaran,2026-05-18,"Keperluan Kantor",Bizznet,Transfer,721500.00,"Instalasi Wi-Fi Kantor Ruko B1",,https://drive.google.com/file/d/1UODTs2ACfqeipc3qN8W-PzfD9_KNSvxO/view?usp=drivesdk,"2026-08-20 15:21:11"
+161,177,Pengeluaran,2026-05-18,Lainnya,Ramsya,Transfer,121000.00,"Biaya Tip Teknisi Wifi dan pembelian galon untuk tukang partisi","Tip Teknisi Wifi : 100.000
+Beli 1 Galon : 21.000",https://drive.google.com/file/d/1IZ4W6EgU2clHmsi-Q1qmOlv5b5xtKc0a/view?usp=drive_link,"2026-08-20 15:22:25"
+162,43,Pemasukan,2026-05-19,Modal,"Siti Nurhatifah",Transfer,300000.00,"Modal Saham",,https://drive.google.com/file/d/1DStXY-0pWG3DebPMTU4Fq3NCXCpxvxsP/view?usp=drive_link,"2026-08-18 15:18:39"
+163,178,Pengeluaran,2026-05-21,"Keperluan Kelas","M. Anwar Roziqin (LPK SAMIT)",Transfer,1066900.00,"Pemasangan Router untuk kelas lt 2","Pemasangan Router, Router Xiaomi + Kabel LAN cat6 (25m) + Ducting TC (5)
+Karna tidak ada di nota, tambahan :
+Ducting TC (5) = 15.000 x 5 = 75.000",https://drive.google.com/file/d/1Pq8nOEm0pqa8S2T1eAZy2wjDl80eschE/view?usp=drive_link,"2026-08-20 15:25:20"
+164,179,Pengeluaran,2026-05-21,"Keperluan Kantor","M. Anwar Roziqin (LPK SAMIT)",Transfer,766000.00,"Pembelian Lampu Sorot untuk B1 dan B2","Pembelian Hannocs Sorot 100W (2) + Kabel HYO Hitam 2 x 1,5 (10m) +Klem Paku Beton 8mm (2) + Dinabolt (4)",https://drive.google.com/file/d/113c37yjDAs3a39TIN7T7b1uaNrnnSa5J/view?usp=drive_link,"2026-08-20 15:26:58"
+165,180,Pengeluaran,2026-05-21,"Keperluan Kantor","M. Anwar Roziqin (LPK SAMIT)",Transfer,98000.00,"Pembelian Kabel Eterna 2 x 1,5 (7m)",,https://drive.google.com/file/d/119o8FDlQj7vegx_tzrE4WOn7Ety7oHEk/view?usp=drive_link,"2026-08-20 15:31:18"
+166,44,Pemasukan,2026-05-22,Modal,"Siti Nurhatifah",Transfer,2000000.00,"Modal Saham",,https://drive.google.com/file/d/1hm81m2ALSMTC_hKi9TqyAs6u21Xc3gC9/view?usp=drivesdk,"2026-08-18 15:19:14"
+167,45,Pemasukan,2026-05-25,Modal,"Anggi Alfin",Transfer,5780000.00,"Modal Saham",,https://drive.google.com/file/d/1VdK67CO_k0Og9tQQqXflIKJ1atjE7Y0C/view?usp=drive_link,"2026-08-18 15:22:11"
+168,181,Pengeluaran,2026-05-25,Gaji,Ramsya,Transfer,3180000.00,"Gaji Staff Administrasi Mei 2026","Hari Kerja : 25 Hari
+Jam Lembur : 4 Jam
+Insentif : 100.000",https://drive.google.com/file/d/1kydggENXo3lYZ_B189vn5Zu-FjuRElTY/view?usp=drive_link,"2026-08-20 15:32:39"
+169,182,Pengeluaran,2026-05-25,Gaji,Fitri,Transfer,2005000.00,"Gaji Pengajar (Sensei) Mei 2026","Tambahan biaya admin : 5.000",https://drive.google.com/file/d/12Wg_qCsMM6MWCrx3ReaPsOWlKRsl43_H/view?usp=drive_link,"2026-08-20 15:33:56"
+170,183,Pengeluaran,2026-05-25,Lainnya,Faizal,Transfer,200000.00,"Uang Saku dari Creativa untuk Faizal",,https://drive.google.com/file/d/1sbAQhTmO56QihnlXRwOZFu1JOX-k39X7/view?usp=drive_link,"2026-08-20 15:35:19"
+171,184,Pengeluaran,2026-05-25,Lainnya,Raihan,Transfer,200000.00,"Uang saku dari Creativa untuk Raihan",,https://drive.google.com/file/d/159fAjB3Lw5u283hvYLYU-WzbQHZRnO1K/view?usp=drive_link,"2026-08-20 15:38:56"
+172,185,Pengeluaran,2026-05-25,Lainnya,Navrida,Transfer,202500.00,"Uang saku dari Creativa Navrida","Tambahan biaya admin : 2.500",https://drive.google.com/file/d/1ueywlmg2KpgLmjxrzoY3OcDedfCbAs8r/view?usp=drive_link,"2026-08-20 15:40:22"
+173,186,Pengeluaran,2026-05-26,"Keperluan Kantor",Alfamart,Transfer,11500.00,"Pembelian Materai 10000 untuk keperluan MOU",,https://drive.google.com/file/d/1Q9XwZRT_EKfGxx18aadVjhqHxpYSGeso/view?usp=drivesdk,"2026-08-20 15:41:21"
+174,46,Pemasukan,2026-05-30,Modal,"Siti Nurhatifah",Transfer,12000000.00,"Modal Saham",,https://drive.google.com/file/d/1ByWXupmtwhrEkMLsSXWk5XAdrvND1jUq/view?usp=drivesdk,"2026-08-18 15:23:02"
+175,187,Pengeluaran,2026-06-01,"Keperluan Kantor","Shopee Zoom",Transfer,23000.00,"Pembelian Kuota Zoom Meeting Pro",,https://drive.google.com/file/d/1VT2uCmIQPrpY0rh4Obi9_rzyIxvTAxmh/view?usp=drive_link,"2026-08-20 15:43:37"
+176,188,Pengeluaran,2026-06-02,Utilitas,"PLN Mobile",Transfer,100000.00,"Pengisian Token Kantor / Ruko B1  bulan Juni",,https://drive.google.com/file/d/1HrRCnKDY1rTn-KHdOEkasXcR3sKJqXif/view?usp=drive_link,"2026-08-20 15:44:40"
+177,189,Pengeluaran,2026-06-02,Lainnya,Shopee,Transfer,100000.00,"Pengisian Token Asrama bulan Juni",,https://drive.google.com/file/d/1T0B46Qc0Ngc27Yy5Xi6m1H2lIwDTclDK/view?usp=drive_link,"2026-08-20 15:46:08"
+178,190,Pengeluaran,2026-06-02,Lainnya,BCA,Transfer,15000.00,"BIaya admin Bank BCA Juni",,,"2026-08-20 15:47:49"
+179,191,Pengeluaran,2026-06-05,"Keperluan Kantor",Faizal,Transfer,30000.00,"Pembelian Slot Pintu  Toilet (2)","Harga satuan slot pintu = 15.000
+15.000 x 2 = 30.000",https://drive.google.com/file/d/1ZMGtgrY5sIjgKL-bw51Y5zQlStE45I8M/view?usp=drivesdk,"2026-08-20 15:49:14"
+180,192,Pengeluaran,2026-06-05,"Keperluan Kantor","Yul Toko 2",Transfer,467500.00,"Pembelian alat kebersihan untuk kantor dan kelas","Pembelian Pengki (2), Ember (2), Ember (2), Kapstok, Rak Gantung (1), Sikat Bebek (2), Gayung (2), Wefer Kaca (2), Sapu Lidi, Pel Karet, Sapu Ijuk (3), Mop Pel (3), Sikat Tongkat Panjang",https://drive.google.com/file/d/1Qr7INLaMBKNv9hxRIFyRI7WwbnX7FE5r/view?usp=drivesdk,"2026-08-20 15:51:06"
+181,193,Pengeluaran,2026-06-05,"Keperluan Kantor",Alfamart,Transfer,153700.00,"Pembelian alat kebersihan toilet","Pembelian Paperbag Alfamart, Vixal (2), Pengharum Toilet Bola (2), Wipol, Soklin Apel, Soklin Lemon, Glade Escape",https://drive.google.com/file/d/1bnIbqPLVMdHgVzbJHZKeMAWQ9mlCBTQ8/view?usp=drivesdk,"2026-08-20 15:53:11"
+182,194,Pengeluaran,2026-06-05,"Keperluan Kantor",alfamart,Transfer,168400.00,"Pembelian Sabun Cuci Tangan (2), Stella Alat + Refill, WLS, Stella",,https://drive.google.com/file/d/1Z3iH9ii8-nSvcEw7RxggMMGoSLECzoLr/view?usp=drivesdk,"2026-08-20 15:56:31"
+183,195,Pengeluaran,2026-06-05,Lainnya,alfamart,Transfer,33000.00,"Pembelian Alfamart Totebag, Aqua 600ml (6), Tisu","Pembelian ini untuk Kebutuhan Disnaker",https://drive.google.com/file/d/1fsHD-PQBOtrOw-GVqR7LGU9Hx-XVwtrT/view?usp=drivesdk,"2026-08-20 15:57:48"
+184,196,Pengeluaran,2026-06-05,Lainnya,Indomaret,Transfer,148700.00,"Pembelian Rokok dan Parfum untuk disnaker","Pembelian ini untuk Kebutuhan Disnaker",https://drive.google.com/file/d/1DIqEcT-zpL1V9rUNZMWUzMVyjCQULKse/view?usp=drivesdk,"2026-08-20 16:25:10"
+185,197,Pengeluaran,2026-06-05,Utilitas,"Kori Suripno",Transfer,400000.00,"Pembayaran IPL dibulan Mei dan Juni","Harga perbulannya = 200.000
+200.000 x 2 = 400.000",https://drive.google.com/file/d/1qQ2rc7bIO9TII0LL4qihmSL2-TLRDtPK/view?usp=drivesdk,"2026-08-20 16:27:02"
+186,198,Pengeluaran,2026-06-06,"Keperluan Kantor","Nesya Reload",Transfer,45000.00,"Pembelian Kepala Charger untuk Handphone Kantor",,https://drive.google.com/file/d/1hdMvUbjPs_0pru03pUGRg0b3R4kQSQIi/view?usp=drivesdk,"2026-08-20 16:29:04"
+187,199,Pengeluaran,2026-06-08,"Keperluan Kantor","Fotocopy Saudara Nindira 1",Transfer,25000.00,"Pembelian Map Kertas (5)","Harga satuan Map = 5.000
+5.000 x 5 = 25.000",https://drive.google.com/file/d/19taS_fON1RojzdC-TWznNeGMYaWh5oTL/view?usp=drivesdk,"2026-08-20 16:31:29"
+188,200,Pengeluaran,2026-06-08,"Keperluan Kantor","Mr. D.I.Y",Transfer,161700.00,"Pembelian Alat Kantor dan Alat Kebersihan","Pembelian Keset Anyam (4), Stick Pad (2), Sticky Hook, Wall Clock, Baterai, Duster (2), Paperbag",https://drive.google.com/file/d/1hGuEa9Z-8bn4U8vBBTlhImDsADzC6YXZ/view?usp=drivesdk,"2026-08-20 16:34:17"
+189,201,Pengeluaran,2026-06-08,"Keperluan Kantor",Indomaret,Transfer,29000.00,"Pembelian Kebutuhan Toilet Blue Clean","Pembelian Blue Clean (2)",https://drive.google.com/file/d/1QsxS0zq5dY1z5Fyz0wIknaRZf_adIpmW/view?usp=drivesdk,"2026-08-20 16:36:08"
+190,202,Pengeluaran,2026-06-08,"Keperluan Kantor",Shopee,Transfer,551497.00,"Pembelian Kotak sampah dan blue clean kantor dan kelas","Pembelian Kotak Sampah Warna - Warni (4), Kotak Sampah Biasa 15 liter, Blue Clean (4)",https://drive.google.com/file/d/1CBqTCb0SL0xNqKemkkGxrhIpQYBwgppS/view?usp=drivesdk,"2026-08-20 16:37:32"
+191,203,Pengeluaran,2026-06-09,"Keperluan Kantor",Alfamart,Transfer,23600.00,"Pembelian galon untuk kantor",,https://drive.google.com/file/d/1gfKP8W5h-w3yXYWu8VAfnnHPcf9pCGmL/view?usp=drivesdk,"2026-08-20 16:39:10"
+192,204,Pengeluaran,2026-06-09,"Keperluan Kantor","Toko Besi Panembong Baja",Transfer,40000.00,"Pembelian Mata Bor dan Skrup",,https://drive.google.com/file/d/1k8NU2GPKnM_lP-JXGcUFD08ZZTFbvxel/view?usp=drivesdk,"2026-08-20 16:40:07"
+193,205,Pengeluaran,2026-06-09,"Keperluan Kantor",Alfamart,Transfer,31000.00,"Pembelian Kabel Ties dan Pembasmi Serangga HIT","Harga pembelian Kabel Ties dan HIT = 25.700
+30.000 - 24.700 = 5.300. Sisanya ada di Gopay Fitri
+Tambahan Biaya admin 1.000",https://drive.google.com/file/d/1awOR8DyngfqKRXtaXb1QXOthQLLMYptu/view?usp=drivesdk,"2026-08-20 16:43:00"
+194,206,Pengeluaran,2026-06-09,"Keperluan Kantor","Pak Kori",Transfer,120000.00,"Biaya Jasa Pembersihan Toren ruko B1 (Kantor)",,https://drive.google.com/file/d/1i4mfKOkkJNTTfGh7zmVpc3LBtwHytyvu/view?usp=drivesdk,"2026-08-20 16:44:05"
+195,207,Pengeluaran,2026-06-12,"Keperluan Kantor","M Nuh Iskandar D",Transfer,1400000.00,"Pembelian Apar 2 Tabung","Harga Satuan Apar = 680.000
+680.000 x 2 = 1.360.000
+Dibulatkan menjadi 1.400.000",https://drive.google.com/file/d/1E6Zh2kAwjYLixBQbQrgadRK9BWemZ8tS/view?usp=drivesdk,"2026-08-20 16:47:16"
+196,208,Pengeluaran,2026-06-12,"Keperluan Kantor","STRIZ (Risky Eka Tama)",Transfer,912500.00,"Pembayaran DP untuk Seragam Staff & Lanyard + ID Card","Harga Total Keseluruhannya : 1.820.000
+Bayar DP 50% : 910.000
+Tambahan Biaya Admin : 2.500",https://drive.google.com/file/d/1F432mY1Kl0GN4B9zg4EU1zGaxMXn8Lnr/view?usp=drivesdk,"2026-08-20 16:49:35"
+197,209,Pengeluaran,2026-06-13,"Keperluan Kantor",Alfamart,Transfer,20400.00,"Pembelian Solatip untuk Packing Ulang Lemari yang diretur",,https://drive.google.com/file/d/1pF48CMqAor-M19K3_pS18l1fY8BWABKi/view?usp=drivesdk,"2026-08-20 16:51:18"
+198,210,Pengeluaran,2026-06-15,Lainnya,"Siti Nurhatifah",Transfer,3000000.00,"Kebutuhan Pribadi Bu Tiffa",,https://drive.google.com/file/d/1Bwa7M5aHq_z9JQzAdlHz-IrUk0UqAjNL/view?usp=drivesdk,"2026-08-20 16:52:47"
+199,211,Pengeluaran,2026-06-17,"Keperluan Kantor","STRIZ (Risky Eka Tama)",Transfer,1940000.00,"DP Seragam Siswa Creativa","Total Keseluruhan : 3.875.000
+Bayar DP 50 % : 1.937.500
+Tambahan Biaya Admin : 2.500",https://drive.google.com/file/d/1onXZ8ilMlAPH7y3R6nPUeLLSfZYGJUyK/view?usp=drivesdk,"2026-08-20 16:54:44"
+200,49,Pemasukan,2026-06-19,Modal,"Siti Nurhatifah",Transfer,855965.00,"Modal Saham",,,"2026-08-18 15:26:12"
+201,212,Pengeluaran,2026-06-19,"Keperluan Kantor","Toko Serba Murah 1",Transfer,255500.00,"Pembelian Ember (3), Gayung (3), Pel, Sikat, Tempat Sampah (2), Plastik Sampah",,https://drive.google.com/file/d/1EzGY0Xjg4HXqDLUi_mZJui07AWrkywMm/view?usp=drivesdk,"2026-08-20 16:55:58"
+202,213,Pengeluaran,2026-06-19,"Keperluan Kantor","Cahaya Lampu",Transfer,180000.00,"Lampu Philips 15 W (2) dan Lampu Philips 11 W",,https://drive.google.com/file/d/1jBRKLd4B_ChBZQsICBJAxVOv4pq92Q4P/view?usp=drivesdk,"2026-08-20 16:56:59"
+203,214,Pengeluaran,2026-06-19,"Keperluan Kantor","Bocah Marga Jaya",Transfer,60000.00,"Pencetakan Kartu Nama Creativa (2 box), AC 260 gr BB",,https://drive.google.com/file/d/1ma97MMXogxy7pOs28lc0lvgvMfOpCEST/view?usp=drivesdk,"2026-08-20 16:58:04"
+204,215,Pengeluaran,2026-06-19,"Keperluan Kantor","Toko Nuhun Elektronik",Transfer,480000.00,"Stand Kipas Cosmos Hitam x 2","Harga Satuan 250.000 Diskon 20.000 Total 480.000",https://drive.google.com/file/d/1FQ1EHHs28nvfcRMDd6QT5FR3JoXjIWPt/view?usp=drive_link,"2026-08-20 16:59:15"
+205,216,Pengeluaran,2026-06-21,"Keperluan Kantor","MR D.I.Y",Transfer,30000.00,"Glass Wiper 92 cm",,https://drive.google.com/file/d/1hmY5-R6BzPIdst-bRvATtsJKKDQIa9XD/view?usp=drivesdk,"2026-08-20 17:00:01"
+206,217,Pengeluaran,2026-06-21,"Keperluan Kantor",Fitri,Transfer,39000.00,"Plastik Sampah 90 x 120 & Plastik Sampah 40 x 60",,https://drive.google.com/file/d/1_0hlz9K6XQPuGHJe9088yRf5O51XKL0w/view?usp=drivesdk,"2026-08-20 17:04:59"
+207,218,Pengeluaran,2026-06-21,"Keperluan Kantor","Toko Yul 2",Transfer,19500.00,"Serbet Microfiber",,https://drive.google.com/file/d/1GqyoFXgiEaMweKRSuKegH4GonYjdIuiA/view?usp=drivesdk,"2026-08-20 17:06:05"
+208,219,Pengeluaran,2026-06-21,"Keperluan Kantor","Toko Yul 2",Transfer,319000.00,"Pembelian Kebutuhan Alat Kebersihan Kantor dan Asrama B2","Rak Sepatu (2), Tempat Sampah TS-10 (2), Tempat Sampah TS-15 (2), Tempat Sampah TS-42 (2)",https://drive.google.com/file/d/1BqH1K4TmnP785wP3FxTDEhZPbALyv66n/view?usp=drivesdk,"2026-08-20 17:07:31"
+209,220,Pengeluaran,2026-06-21,"Keperluan Kantor","Toko Yul 2",Transfer,60000.00,"Pembelian Alat Kebersihan Toilet","Sikat Cuci Coklat, Sikat Cuci Biasa, Sodet, Saringan Jeruk, Irus Tanggung, Sikat Orlando (3)",https://drive.google.com/file/d/1orJtc3oQZSOhudylQYGEHn0KL6Bl4o9R/view?usp=drivesdk,"2026-08-20 17:08:55"
+210,48,Pemasukan,2026-06-23,Modal,"Siti Nurhatifah",Transfer,10000000.00,"Modal Saham",,https://drive.google.com/file/d/1M3tuuygTO1MoYGZIy7KH1KOswSs33VBY/view?usp=drivesdk,"2026-08-18 15:25:32"
+211,50,Pemasukan,2026-06-23,Modal,"Siti Nurhatifah",Transfer,3000000.00,"Modal Saham",,https://drive.google.com/file/d/1nCSPeHzDwgDy1AdVT0ZNubTJkFapdAFH/view?usp=drivesdk,"2026-08-18 15:26:39"
+212,221,Pengeluaran,2026-06-23,"Keperluan Kantor","Bocah Marga Jaya",Transfer,107200.00,"Pencetakan Katalog (AC 260 gr / 230 gr BB (12), AC 260 gr BB, OP)",,https://drive.google.com/file/d/1LEg16ABZlO6h08VUADk3MyO7GQyqkISr/view?usp=drivesdk,"2026-08-20 17:10:35"
+213,222,Pengeluaran,2026-06-23,"Keperluan Kantor","STRIZ (Risky Eka Tama)",Transfer,836250.00,"Pelunasan Seragam Staff Creativa + ID Card + Lanyard Staff","Biaya Pelunasan : 835.000
+Tambahan Biaya Admin : 1.250",https://drive.google.com/file/d/1yCknFcSzfd4BFFjHhroR35YwBfnwtI80/view?usp=drivesdk,"2026-08-20 17:12:07"
+214,223,Pengeluaran,2026-06-23,"Keperluan Kantor","STRIZ (Risky Eka Tama)",Transfer,2064250.00,"Pelunasan Seragam Siswa Creativa","Biaya pelunasan : 2.063.000
+Tambahan biaya admin : 1.250",https://drive.google.com/file/d/1dGQi6b1rX6yBGBJMUezkRjNLccRjH05i/view?usp=drivesdk,"2026-08-20 17:13:20"
+215,224,Pengeluaran,2026-06-23,"Keperluan Kantor","M. Anwar Roziqin (LPK SAMIT)",Transfer,5990000.00,"Pembelian Kulkas","Untuk di bukti pembayaran, itu digabung dengan pembelian Speaker JBL",https://drive.google.com/file/d/1wLHedVVOSUblzw9cIoojAuRwq_I_pzdz/view?usp=drivesdk,"2026-08-20 17:14:50"
+216,225,Pengeluaran,2026-06-23,"Keperluan Kantor","M. Anwar Roziqin (LPK SAMIT)",Transfer,6135100.00,"Pembelian Speaker JBL","Untuk di bukti pembayaran, itu digabung dengan pembelian Kulkas",https://drive.google.com/file/d/1wLHedVVOSUblzw9cIoojAuRwq_I_pzdz/view?usp=drivesdk,"2026-08-20 17:16:14"
+217,226,Pengeluaran,2026-06-23,"Keperluan Kantor",Ramsya,Transfer,120000.00,"Pembelian  ⁠Hekter, isi Hekter, ⁠Steker broco, ⁠Engsel toilet, Alat Kebersihan, makan untuk staff dan pak anwar","Rincian Pembelian
+
+•⁠  ⁠Hekter + isi = 18.500
+•⁠  ⁠Steker broco = 14.000
+•⁠  ⁠Engsel toilet = 10.000
+•⁠  Keperluan kantor dan kelas = 47.000
+•⁠  ⁠makan pecel untuk staff dan pak anwar = 30.000
+
+Total 119.500",https://drive.google.com/file/d/1AOFC3hmsvo5YokStXeCdxYnRap8NcETI/view?usp=drive_link,"2026-08-20 17:17:20"
+218,51,Pemasukan,2026-06-24,Modal,"Siti Nurhatifah",Transfer,50000.00,"Modal Saham",,https://drive.google.com/file/d/1-aOmoRrl6-yYU2uu3DIXarFubXSntOfT/view?usp=drivesdk,"2026-08-18 15:27:13"
+219,227,Pengeluaran,2026-06-24,"Keperluan Kantor","Toko AA",Transfer,73500.00,"Pembelian Kertas HVS A4",,https://drive.google.com/file/d/1hG8u7N-K1wabJz1iy4i1OR6QavTDqbRC/view?usp=drivesdk,"2026-08-20 17:18:49"
+220,228,Pengeluaran,2026-06-24,Utilitas,"PLN Mobile",Transfer,101750.00,"Pembelian Token Listrik Kantor Ruko B1","Tambahan Biaya Admin : 1.750",https://drive.google.com/file/d/1iXoNtwDWITvNaZ6zASoAEeRf0vMpI-KO/view?usp=drivesdk,"2026-08-20 17:20:09"
+221,52,Pemasukan,2026-06-25,Modal,"Siti Nurhatifah",Transfer,5000000.00,"Modal Saham",,https://drive.google.com/file/d/1zNcDfuUQ-lJ8O98dWl5g0o_TyZ0V5w6F/view?usp=drivesdk,"2026-08-18 15:27:57"
+222,229,Pengeluaran,2026-06-25,Gaji,Ramsya,Transfer,3000000.00,"Gaji Staff Administrasi bulan Juni",,https://drive.google.com/file/d/1HxpT3lg6xBFU6EArYC8nZClvQb3NiPos/view?usp=drivesdk,"2026-08-20 17:21:34"
+223,230,Pengeluaran,2026-06-25,Gaji,Fitri,Transfer,2002500.00,"Gaji Sensei bulan Juni","Tambahan biaya admin : 2.500",https://drive.google.com/file/d/1Sw46a67VR5h0jrAB1DYigrEDqk83uMqS/view?usp=drivesdk,"2026-08-20 17:23:18"
+224,231,Pengeluaran,2026-06-26,Lainnya,Ramsya,Transfer,400000.00,"Belanja untuk kedatangan TSK ke Creativa ( Rincian Ada Di Catatan )","Rincian belanja kedatangan tsk :
+
+•⁠  ⁠Sendal suripa 35.000 x 4 = 140.000
+•⁠  ⁠Biaya Tol pengiriman baju staff & siswa via lalamove = 45.000
+•⁠  ⁠Kopi kapal api 150g x2 = 45.000
+•⁠  ⁠Kopi kapal api 350g x2 = 99.800
+•⁠  ⁠Kantong Batik x2 = 11.000
+•⁠  ⁠Aqua dingin x6 = 17.700
+•⁠  ⁠Transport Ramsya = 41.500",https://drive.google.com/file/d/1IVPquF0N4SECmc6_ieigmEnkaO_aOUUn/view?usp=drive_link,"2026-08-20 17:24:12"
+225,232,Pengeluaran,2026-06-26,"Keperluan Asrama B2",Ramsya,Transfer,1100000.00,"Pembelian Jemuran 2 unit untuk Asrama B2 dan Dispenser untuk Asrama Rumah","Jemuran 1 = 375.000
+Jemuran 2 = 375.000 
+Dispenser = 290.000
+Transport Grab = 60.000",https://drive.google.com/file/d/1d6NLpeXQdAHopxgpfP3QmLD3FfVhmHhD/view?usp=drive_link,"2026-08-20 17:25:47"
+226,233,Pengeluaran,2026-06-26,Lainnya,"Toko Karya Mulya",Cash,26500.00,"Pembelian selang mesin cuci asrama rumah dan kleman",,https://drive.google.com/file/d/18-oeUDSP41rRCLtvHee5WB8iHD140xzr/view?usp=drive_link,"2026-08-20 17:27:27"
+227,234,Pengeluaran,2026-06-26,"Keperluan Kantor","Shopee / Ramsya",Transfer,23000.00,"Voucher Zoom 1 Bulan",,https://drive.google.com/file/d/1tkk0CxfqIZNHGTVfFxgHdAj5eYe5WH1T/view?usp=drive_link,"2026-08-20 17:29:06"
+228,285,Pemasukan,2026-06-26,Modal,"Siti Nurhatifah",Transfer,1100000.00,"Dana untuk pembelian jemuran asrama rumah 2 unit dan dispenser  di asrama rumah","Jemuran 1 = 375.000
+Jemuran 2 = 375.000 
+Dispenser = 290.000
+Transport Grab = 60.000",https://drive.google.com/file/d/1d6NLpeXQdAHopxgpfP3QmLD3FfVhmHhD/view?usp=drive_link,"2026-08-22 10:23:51"
+229,235,Pengeluaran,2026-06-29,"Keperluan Kantor",Ramsya,Transfer,200000.00,"Pembelian Dudukan Toilet 2 pcs, Kran Seal Tape",,,"2026-08-20 17:30:06"
+230,236,Pengeluaran,2026-07-01,Utilitas,Ramsya,Transfer,156000.00,"Token Kantor Kelas Tgl 29 Juni 2026 dan Pembelian Terminal Listrik","- Token Kantor Kelas Tgl 29 Juni 2026 = 100.000
+- Terminal Colokan 3 = 23.000
+- Terminal Colokan 4 = 28.000
+- Kleman Kabel 8mm = 5.000",https://drive.google.com/file/d/1llrdfFQPNB2TLBif_1rhksjbHzXA0Pp9/view?usp=drive_link,"2026-08-20 17:32:05"
+231,237,Pengeluaran,2026-07-01,Utilitas,"PLN Mobile / Ramsya",Transfer,200000.00,"Token Kantor dan Kelas Ruko B1",,https://drive.google.com/file/d/10nR9kcEPffAsmWr9mr-xtBNDlL5Uz8oM/view?usp=drive_link,"2026-08-20 17:34:31"
+232,286,Pemasukan,2026-07-01,Lainnya,"Siti Nurhatifah",Transfer,200000.00,"Dana untuk pembelian token kantor B1","- Token Kantor Kelas Tgl 29 Juni 2026 = 100.000
+- Terminal Colokan 3 = 23.000
+- Terminal Colokan 4 = 28.000
+- Kleman Kabel 8mm = 5.000",https://drive.google.com/file/d/10nR9kcEPffAsmWr9mr-xtBNDlL5Uz8oM/view?usp=drive_link,"2026-08-22 10:25:35"
+233,287,Pemasukan,2026-07-01,Lainnya,"Siti Nurhatifah",Transfer,156000.00,"Reimburstment pembelian token kantor B1 di tanggal 29 Juni dan pembelian terminal listrik",,https://drive.google.com/file/d/1llrdfFQPNB2TLBif_1rhksjbHzXA0Pp9/view?usp=drive_link,"2026-08-22 10:28:01"
+234,238,Pengeluaran,2026-07-02,Utilitas,"Shopee / Ramsya",Transfer,102000.00,"Token Asrama rumah",,https://drive.google.com/file/d/1RQlJ_W-J41OllD5-bVO3RPma3EacDkjG/view?usp=drive_link,"2026-08-20 17:35:52"
+235,284,Pemasukan,2026-07-02,Lainnya,"Siti Nurhatifah",Transfer,102000.00,"Dana untuk pembelian token asrama rumah",,https://drive.google.com/file/d/1RQlJ_W-J41OllD5-bVO3RPma3EacDkjG/view?usp=drive_link,"2026-08-22 10:21:34"
+236,239,Pengeluaran,2026-07-03,Operasional,"BPJS Ketenagakerjaan / Ramsya",Transfer,413859.00,"Aktivasi BPJS Ketenagakerjaan CREATIVA",,https://drive.google.com/file/d/1LWbLJ1hy9qPKqcMkUZIFJM8MW9nhYYaM/view?usp=drive_link,"2026-08-20 17:37:27"
+237,282,Pemasukan,2026-07-03,Lainnya,"Siti Nurhatifah",Transfer,413859.00,"Aktivasi BPJS Ketenagakerjaan Creativa Bulan Juli",,https://drive.google.com/file/d/1LWbLJ1hy9qPKqcMkUZIFJM8MW9nhYYaM/view?usp=drive_link,"2026-08-22 10:18:38"
+238,240,Pengeluaran,2026-07-04,Utilitas,"Kori Suripno",Transfer,200000.00,"Pembayaran IPL Ruko Bulan Juli",,https://drive.google.com/file/d/1m9v5yzdpGZEqvriGtej4dToC9TIKRdLw/view?usp=drive_link,"2026-08-20 17:38:15"
+239,283,Pemasukan,2026-07-04,Lainnya,"Siti Nurhatifah",Transfer,200000.00,"Pembayaran IPL Ruko B1 Bulan Juli",,https://drive.google.com/file/d/1m9v5yzdpGZEqvriGtej4dToC9TIKRdLw/view?usp=drive_link,"2026-08-22 10:19:55"
+240,241,Pengeluaran,2026-07-08,"Keperluan Siswa","Toko AA / Ramsya",Transfer,110000.00,"Pembelian Whiteboard Kecil untuk pra pelatihan siswa",,https://drive.google.com/file/d/1MujhZqSykGl08xGMawJj-fN36wFVz6qS/view?usp=drive_link,"2026-08-20 17:39:27"
+241,288,Pemasukan,2026-07-08,Lainnya,"Siti Nurhatifah",Transfer,110000.00,"Dana untuk pembelian Whiteboard Kecil untuk pra pelatihan siswa",,https://drive.google.com/file/d/1MujhZqSykGl08xGMawJj-fN36wFVz6qS/view?usp=drive_link,"2026-08-22 10:29:47"
+242,242,Pengeluaran,2026-07-10,"Keperluan Kantor","Shopee / Ramsya",Transfer,243132.00,"Pembelian schedule board x2, ⁠meteran 5m x1, ⁠gantungan baju pintu x2, list air pintu toilet x2",,https://drive.google.com/file/d/15PxzPyeD3sXjqUDrxqYJReHQtRUb33Y_/view?usp=drive_link,"2026-08-20 17:40:17"
+243,243,Pengeluaran,2026-07-11,"Keperluan Kantor","Galeri Kencana / Ramsya",Cash,40000.00,"Pembelian Pigura untuk Sertifikat BPJS Ketenagakerjaan",,https://drive.google.com/file/d/1HlYwHziz8xkYTVsk0FpuQLZsVVjj8wi3/view?usp=drive_link,"2026-08-20 17:40:58"
+244,244,Pengeluaran,2026-07-13,"Keperluan Kantor","Aira Percetakan",Transfer,90000.00,"Pembelian Banner LPK, Visi Misi, Struktur Organisasi",,https://drive.google.com/file/d/1JT9Zc4_PVeNhwDELgtDfy_C61ZGpdKB9/view?usp=drive_link,"2026-08-20 17:41:56"
+245,246,Pengeluaran,2026-07-13,"Keperluan Kantor",Ramsya,Transfer,90000.00,"Pembelian mata bor 6ml, skrup fischer, aqua botol, rokok untuk pa rifqi dan pa fajar","•⁠  ⁠mata bor 6m + skrup fishcer = 25.000
+•⁠  ⁠aqua x3 = 11.000
+•⁠  ⁠roko x2 = 54.000",https://drive.google.com/file/d/1hCUR2pfgfvNG00loP6elkdkhIKXgKaKc/view?usp=drive_link,"2026-08-20 17:44:02"
+246,291,Pemasukan,2026-07-13,Lainnya,"Siti Nurhatifah",Transfer,90000.00,"Dana untuk keperluan kunjungan dinas ke LPK","List pembelian 
+•⁠  ⁠mata bor 6m + skrup fishcer = 25.000
+•⁠  ⁠aqua x3 = 11.000
+•⁠  ⁠roko x2 = 54.000",finance/finance_1787370196_1549.jpeg,"2026-08-22 10:43:16"
+247,245,Pengeluaran,2026-07-14,"Keperluan Siswa","Bizznet / Ramsya",Transfer,721500.00,"Pemasangan Wifi untuk Asrama Rumah",,https://drive.google.com/file/d/1LpgVWuTR0YQJNsKba-04nd2fJ-cSRB8l/view?usp=drive_link,"2026-08-20 17:42:59"
+248,247,Pengeluaran,2026-07-14,Lainnya,"Bizznet / Ramsya",Transfer,120000.00,"Tip untuk Teknisi Wi-Fi",,https://drive.google.com/file/d/121g6Vx7iSU4SKHQuANFMnLC_9le1sHhf/view?usp=drive_link,"2026-08-20 17:45:40"
+249,276,Pemasukan,2026-07-14,Lainnya,"Siti Nurhatifah",Transfer,721500.00,"Dana untuk instalasi Wi-Fi Asrama Rumah",,https://drive.google.com/file/d/1LpgVWuTR0YQJNsKba-04nd2fJ-cSRB8l/view?usp=drive_link,"2026-08-22 09:57:34"
+250,277,Pemasukan,2026-07-14,Lainnya,"Siti Nurhatifah",Transfer,120000.00,"Tip untuk teknisi Wi-Fi",,https://drive.google.com/file/d/121g6Vx7iSU4SKHQuANFMnLC_9le1sHhf/view?usp=drive_link,"2026-08-22 09:59:01"
+251,258,Pengeluaran,2026-07-15,"Keperluan Asrama B2",Shopee,Transfer,64191.00,"Pembelian List penahan air untuk toilet asrama b2 lantai 2",,https://drive.google.com/file/d/1fedGRp7XASDtE_-tjnjf-cBWqbAo-N1a/view?usp=drive_link,"2026-08-20 17:59:10"
+252,290,Pemasukan,2026-07-15,Lainnya,"Siti Nurhatifah",Transfer,64191.00,"Dana untuk keperluan toilet asrama B2 lantai 2",,https://drive.google.com/file/d/1fedGRp7XASDtE_-tjnjf-cBWqbAo-N1a/view?usp=drive_link,"2026-08-22 10:39:08"
+253,248,Pengeluaran,2026-07-16,"Keperluan Kantor",Ramsya,Transfer,200000.00,"Pembelian Selang shower toilet, Rak serbaguna, ⁠lem sealent, lem fox, ⁠map","Belanja tanggal 15 Juli 2026 :
+
+•⁠  ⁠Selang shower toilet x2 = 90.000
+•⁠  ⁠Rak serbaguna = 57.000
+•⁠  ⁠lem sealent = 25.000
+•⁠  ⁠lem fox = 18.000
+•⁠  ⁠map = 8.000",https://drive.google.com/file/d/1QNnBdwai-4jsbkE6eoehlxLUNfYcNMO-/view?usp=drive_link,"2026-08-20 17:46:48"
+254,281,Pemasukan,2026-07-16,Modal,"Siti Nurhatifah",Transfer,200000.00,"Dana untuk keperluan tangocho untuk siswa",,finance/finance_1787368591_5429.jpeg,"2026-08-22 10:16:31"
+255,249,Pengeluaran,2026-07-17,"Keperluan Siswa",Ramsya,Transfer,120000.00,"Pembelian Aqua untuk dinas dan Obat untuk siswa","Belanja tanggal 16 Juli 2026 :
+
+•⁠  ⁠Aqua gelas x2 dus = 38.000
+•⁠  ⁠Obat Dexamethasone = 4000
+•⁠  ⁠Tera F = 13.000
+•⁠  ⁠Guafenesin = 3000
+•⁠  ⁠Aqua botol 1 dus = 60.000",https://drive.google.com/file/d/1kYfzzHt173gzIUQfvezJdqIFCIH-swIE/view?usp=drive_link,"2026-08-20 17:47:32"
+256,289,Pemasukan,2026-07-17,Lainnya,"Siti Nurhatifah",Transfer,120000.00,"Dana untuk keperluan Verifikasi kunjungan dinas ke LPK tanggal 16 Juli",,finance/finance_1787369639_7545.jpeg,"2026-08-22 10:33:59"
+257,250,Pengeluaran,2026-07-19,Utilitas,"PLN Mobile",Transfer,205000.00,"Pembelian Token Kantor B1",,https://drive.google.com/file/d/1wqBfNVh7vHhkiLayhXNgYknOdF0N-byk/view?usp=drive_link,"2026-08-20 17:49:20"
+258,280,Pemasukan,2026-07-19,Lainnya,"Siti Nurhatifah",Transfer,205000.00,"Dana untuk pembelian token kantor B1",,finance/finance_1787368473_5060.jpeg,"2026-08-22 10:14:33"
+259,251,Pengeluaran,2026-07-21,"Keperluan Kantor",Ramsya,Transfer,45000.00,"Print Ac Laminasi untuk cover tangocho",,https://drive.google.com/file/d/1HmyAy16KnwlWSUXAI5EU8wiD4IhAi_8m/view?usp=drive_link,"2026-08-20 17:50:18"
+260,252,Pengeluaran,2026-07-22,"Keperluan Kantor","Toko AA",Transfer,126500.00,"Pembelian Kertas HVS A4 1 rim dan Kertas BC F4 3 pcs",,https://drive.google.com/file/d/1UC4Ki7QZ6OKLev6XBQtsLRckWfXkSHPz/view?usp=drive_link,"2026-08-20 17:51:39"
+261,253,Pengeluaran,2026-07-22,"Keperluan Kantor","Sinar M",Transfer,60000.00,"Jilid Spiral 10 Buku Tangocho",,https://drive.google.com/file/d/16bdms_xF7zkuiYbaTfDtwGTs45BCW8o_/view?usp=drive_link,"2026-08-20 17:53:43"
+262,254,Pengeluaran,2026-07-22,"Keperluan Kantor","Toko AA",Transfer,12500.00,"Pembelian Sticker Label dan Nano Double Tape",,https://drive.google.com/file/d/1yzBZ6HPFnmqoi_0kjdrhpd_OGDhlc6z9/view?usp=drive_link,"2026-08-20 17:54:55"
+263,255,Pengeluaran,2026-07-25,"Keperluan Siswa","Jaya Makmur",Cash,110000.00,"Karpet Warrior 120 x 150","Karpet Warrior 120 x 150 22.000 x 5 = 110.000",https://drive.google.com/file/d/1khSJp_gJzxacI6sLOlKp-o3uNl4OCaZW/view?usp=drive_link,"2026-08-20 17:55:57"
+264,256,Pengeluaran,2026-07-27,Utilitas,"PLN Mobile / Ramsya",Transfer,151750.00,"Token Ruko B1",,https://drive.google.com/file/d/1M1vstsCaW5YbU_PcDBH0k8ohxWvrGggF/view?usp=drive_link,"2026-08-20 17:57:03"
+265,257,Pengeluaran,2026-07-28,"Keperluan Kantor","Shopee / Ramsya",Transfer,47798.00,"Pembelian Kuota Voucher Zoom dan List Penghalang Air untuk pintu toilet Asrama B2",,https://drive.google.com/file/d/1OEjmHuedlOi994-4kMyCbkJ7Ne98B9Id/view?usp=drive_link,"2026-08-20 17:57:51"
+266,279,Pemasukan,2026-07-29,Lainnya,"Siti Nurhatifah",Transfer,150000.00,"Reimburstmen pembelian token kantor B1 di tanggal 27",,finance/finance_1787368220_8313.jpeg,"2026-08-22 10:10:20"
+267,259,Pengeluaran,2026-08-03,Utilitas,"PLN Mobile",Transfer,102000.00,"Token Kantor Ruko B1",,https://drive.google.com/file/d/178h0jyom4aEt9UF6F7OSJXa6aYNyX2NS/view?usp=drive_link,"2026-08-20 18:00:43"
+268,260,Pengeluaran,2026-08-05,Utilitas,"Kori Suripno",Transfer,200000.00,"Pembayaran IPL Ruko Bulan Agustus Dibayar oleh Yuni Sensei (SAMIT)",,https://drive.google.com/file/d/1sOpgUygPfzZp9kcjyx2xDOp7nrvDmdYP/view?usp=drive_link,"2026-08-20 18:01:48"
+269,275,Pemasukan,2026-08-05,Lainnya,"SAKURA MITRA INTERNATIONAL",Transfer,200000.00,"Pembayaran IPL Ruko B1 Bulan Agustus",,finance/finance_1787367253_7328.jpeg,"2026-08-22 09:54:13"
+270,278,Pemasukan,2026-08-05,Lainnya,"Siti Nurhatifah",Transfer,100000.00,"Reimburstment untuk pembelian token kantor B1 di tanggal 3",,finance/finance_1787367972_1900.jpeg,"2026-08-22 10:06:12"
+271,319,Pengeluaran,2026-08-07,"Keperluan Kantor","Apotek Bunda Medika",Cash,15000.00,"Pembelian  Tera F dan Omeprazole untuk Staff",,finance/finance_1787804030_3052.jpeg,"2026-08-27 11:13:50"
+272,320,Pengeluaran,2026-08-08,"Keperluan Kantor","Toko Purnama Indah",Cash,10000.00,"Lakban Bening",,finance/finance_1787804138_4916.jpeg,"2026-08-27 11:15:38"
+273,321,Pengeluaran,2026-08-08,Lainnya,J&T,Cash,13000.00,"Ongkos Kirim Lanyar dan buku ke Tangerang",,finance/finance_1787804274_2231.jpeg,"2026-08-27 11:17:54"
+274,53,Pemasukan,2026-08-10,Modal,"SAKURA MITRA INTERNATIONAL",Transfer,21800000.00,"Refund Dp Partisi Kursi Meja",,https://drive.google.com/file/d/1tGyLHDBjGfh7ayvOLHH46M7UTJDqLziS/view?usp=drive_link,"2026-08-18 15:31:16"
+275,264,Pengeluaran,2026-08-10,Gaji,"CREATIVA BRIDGING INTERNATIONAL",Transfer,3500000.00,"Gaji Staff Administrasi dan Marketing Juli Dibayarkan 4 Agustus 2026",,,"2026-08-21 10:08:06"
+276,265,Pengeluaran,2026-08-10,Gaji,"CREATIVA BRIDGING INTERNATIONAL",Transfer,3500000.00,"Gaji Manager Juli Dibayarkan 4 Agustus 2026",,,"2026-08-21 10:22:35"
+277,266,Pengeluaran,2026-08-10,Gaji,"CREATIVA BRIDGING INTERNATIONAL",Transfer,3468838.00,"Gaji General Affair Juli Dibayarkan 4 Agustus 2026",,,"2026-08-21 10:23:31"
+278,311,Pemasukan,2026-08-10,Lainnya,"Siti Nurhatifah",Transfer,745500.00,"Pembayaran BPJS Ketenagakerjaan dan Kesehetan Bulan Agustus",,finance/finance_1787560551_4471.jpeg,"2026-08-24 15:35:51"
+279,312,Pengeluaran,2026-08-10,Operasional,"BPJS Ketenagakerjaan",Transfer,413859.00,"Pembayaran BPJS Ketenagakerjaan CREATIVA Bulan Agustus",,finance/finance_1787561120_2887.jpeg,"2026-08-24 15:45:20"
+280,313,Pengeluaran,2026-08-10,Operasional,"BPSJ Kesehatan",Transfer,334120.00,"Pembayaran BPJS Kesehatan CREATIVA Bulan Agustus",,finance/finance_1787561211_9748.jpeg,"2026-08-24 15:46:51"
+281,292,Pemasukan,2026-08-12,Lainnya,"Siti Nurhatifah",Transfer,1000000.00,"Dana untuk lomba 17 Agustus",,finance/finance_1787553196_1417.jpeg,"2026-08-24 13:33:16"
+282,295,Pengeluaran,2026-08-12,Lainnya,"Toko AA",Cash,173500.00,"Bahan Kebutuhan Lomba 17 Agustus seperti pita, kertas kado, slinger bendera, dll",,finance/finance_1787555572_4941.jpeg,"2026-08-24 14:12:26"
+283,296,Pengeluaran,2026-08-12,Lainnya,"Toko AA",Cash,1000.00,"Parkir Toko AA ke 1",,,"2026-08-24 14:13:33"
+284,297,Pengeluaran,2026-08-12,Lainnya,Niceso,Cash,167000.00,"Pembelian bahan hadiah untuk Juara 1,2,3",,finance/finance_1787555705_8858.jpeg,"2026-08-24 14:15:05"
+285,298,Pengeluaran,2026-08-12,Lainnya,Niceso,Cash,2000.00,"Parkir Niceso ke 2",,,"2026-08-24 14:15:56"
+286,299,Pengeluaran,2026-08-12,Lainnya,"PD Sumber Mekar",Transfer,28000.00,"Pembelian Karung untuk lomba 17 Agustus",,finance/finance_1787555963_6041.jpeg,"2026-08-24 14:19:23"
+287,322,Pengeluaran,2026-08-13,"Keperluan Kantor","TB Faqih Jaya",Cash,16000.00,"Pembelian Kuas dan Serat glasswool",,finance/finance_1787804519_9473.jpeg,"2026-08-27 11:21:59"
+288,294,Pemasukan,2026-08-14,Lainnya,"Siti Nurhatifah",Transfer,200000.00,"Tambahan dana untuk 17 Agustus",,finance/finance_1787553327_6599.jpeg,"2026-08-24 13:35:27"
+289,300,Pengeluaran,2026-08-14,Lainnya,"Pasar Boomero Cianjur",Cash,50000.00,"Pembelian Terigu, Bola, Tali Rapia",,finance/finance_1787556581_6446.jpeg,"2026-08-24 14:29:41"
+290,301,Pengeluaran,2026-08-14,Lainnya,"Pasar Boomero Cianjur",Cash,45000.00,"Baskom untuk perlombaan 17 Agustus",,finance/finance_1787556689_2435.jpeg,"2026-08-24 14:31:29"
+291,302,Pengeluaran,2026-08-14,Lainnya,"Pasar Boomero Cianjur",Cash,25000.00,"Coklat koin untuk perlombaan 17 Agustus",,finance/finance_1787556773_3703.jpeg,"2026-08-24 14:32:53"
+292,303,Pengeluaran,2026-08-14,Lainnya,Indomarett,Cash,32700.00,"Piring Kertas untuk lomba 17 Agustus",,finance/finance_1787558099_2137.jpeg,"2026-08-24 14:54:59"
+293,304,Pengeluaran,2026-08-14,Lainnya,"Pasar Boomero Cianjur",Cash,24000.00,"Kardus bekas dan bendera 1 pak",,finance/finance_1787558185_4600.jpeg,"2026-08-24 14:56:25"
+294,305,Pengeluaran,2026-08-14,Lainnya,"Toko Sembako",Cash,522000.00,"Makanan ringan dan lain lain untuk hadiah perlombaan","163000 + 359000 = 522000",finance/finance_1787558322_1517.jpeg,"2026-08-24 14:58:42"
+295,306,Pengeluaran,2026-08-14,Lainnya,Samudra,Cash,45000.00,"Bola Warna Warni untuk perlombaan 17 Agustus",,finance/finance_1787559008_1854.jpeg,"2026-08-24 15:10:08"
+296,307,Pengeluaran,2026-08-14,Lainnya,Samudra,Cash,2000.00,"Parkir toko samudra ke 3",,,"2026-08-24 15:10:52"
+297,308,Pengeluaran,2026-08-14,Lainnya,"Toko AA",Cash,20000.00,"Tambahan Kertas Kado x4, kapur dan parkir","kertas kado x4 8000
+kapur 10000
+parkir 2000",,"2026-08-24 15:17:50"
+298,309,Pengeluaran,2026-08-15,Lainnya,D.I.Y,Cash,45000.00,"Tambahan Slinger Bendera x 3","satuan 15000",,"2026-08-24 15:19:44"
+299,310,Pengeluaran,2026-08-15,Lainnya,"Warung Madura",Cash,17000.00,"Kerupuk  x3 dan es batu untuk lomba 17 Agustus",,,"2026-08-24 15:22:42"
+300,323,Pengeluaran,2026-08-16,Lainnya,"Warung Madura",Transfer,37000.00,"Aqua gelas 2 dus untuk perlombaan 17 Agustus",,finance/finance_1787804694_8733.jpeg,"2026-08-27 11:24:54"
+301,324,Pengeluaran,2026-08-23,"Keperluan Kantor",Shopee,Transfer,22990.00,"Kuota Zoom Bulan Agustus",,finance/finance_1787804985_6523.jpeg,"2026-08-27 11:27:09"
+302,314,Pemasukan,2026-08-24,Lainnya,"SAKURA MITRA INTERNATIONAL",Transfer,240000.00,"Dana untuk pergantian MCB 6A ke 10A Ruko B2",,finance/finance_1787712374_2026.png,"2026-08-26 09:46:14"
+303,315,Pengeluaran,2026-08-24,"Keperluan Asrama B2","TB. Hanjaya",Cash,90000.00,"Pembelian MCB Schneider 10A",,finance/finance_1787712696_2403.jpeg,"2026-08-26 09:51:36"
+304,316,Pengeluaran,2026-08-25,"Keperluan Asrama B2","Ayi Bydiel",Cash,100000.00,"Jasa Teknisi Penggantian MCB Ruko B2",,finance/finance_1787712778_3176.jpeg,"2026-08-26 09:53:02"
+305,325,Pengeluaran,2026-08-26,"Keperluan Kantor",Alfamart,Transfer,11500.00,"Pembelian Materai 10.000",,finance/finance_1787805117_3478.jpeg,"2026-08-27 11:31:57"
+306,326,Pengeluaran,2026-08-26,"Keperluan Asrama B2","SAKURA MITRA INTERNATIONAL",Transfer,50000.00,"Refund kelebihan dana penggantian MCB Ruko B2",,finance/finance_1787823528_3274.jpeg,"2026-08-27 16:38:48"
+307,317,Pemasukan,2026-08-27,Modal,"Siti Nurhatifah",Transfer,383500.00,"Modal Saham","Dikurangi Sebagian Kebutuhan Pribadi Bu Tiffa",finance/finance_1787798606_9451.jpeg,"2026-08-27 09:43:26"
+308,318,Pengeluaran,2026-08-27,Lainnya,"Kp. Panembong",Transfer,150000.00,"Partisipasi Acara Maulid Nabi",,finance/finance_1787798735_7839.jpeg,"2026-08-27 09:45:35"
+309,327,Pengeluaran,2026-08-27,Utilitas,"SAKURA MITRA INTERNATIONAL",Transfer,103000.00,"Pengisian Token B1",,finance/finance_1787886435_9182.jpeg,"2026-08-28 10:07:15"
+310,328,Pemasukan,2026-08-28,Lainnya,"Siti Nurhatifah",Transfer,115000.00,"Dana untuk Pembelian Materai x 10",,finance/finance_1787912800_6487.jpeg,"2026-08-28 17:26:40"
+311,329,Pengeluaran,2026-08-28,"Keperluan Kantor",Alfamart,Transfer,115000.00,"Pembelian Materai x 10",,finance/finance_1787912954_9844.jpeg,"2026-08-28 17:28:04"
+312,335,Pengeluaran,2026-08-29,"Keperluan Kantor",J&T,Cash,13000.00,"Pembelian map untuk dokumen matching job Fitri",,,"2026-09-02 13:48:49"
+313,331,Pengeluaran,2026-09-01,Utilitas,"SAKURA MITRA INTERNATIONAL",Transfer,503000.00,"Pengisian Token Kantor dan Kelas B1",,finance/finance_1788315988_1777.jpeg,"2026-09-02 09:26:28"
+314,332,Pemasukan,2026-09-01,Lainnya,"SAKURA MITRA INTERNATIONAL",Transfer,503000.00,"Pengisian Token Kantor dan Kelas B1",,finance/finance_1788316143_3655.jpeg,"2026-09-02 09:29:03"
+315,333,Pemasukan,2026-09-01,Lainnya,"Siti Nurhatifah",Transfer,50000.00,"Pembelian Aqua untuk tamu",,finance/finance_1788316297_3515.jpeg,"2026-09-02 09:31:37"
+316,334,Pengeluaran,2026-09-01,"Keperluan Kantor",Indomart,Transfer,24500.00,"Pembelian Air minum untuk tamu",,finance/finance_1788316430_4482.jpeg,"2026-09-02 09:33:50"
+317,337,Pemasukan,2026-09-07,Lainnya,"SAKURA MITRA INTERNATIONAL",Transfer,222000.00,"Dana pembayaran Wi-Fi Ruko B1 bulan September",,finance/finance_1788927156_1906.png,"2026-09-09 11:12:36"
+318,338,Pengeluaran,2026-09-07,Utilitas,"LPK SAKURA MITRA INTERNASIONAL",Transfer,222000.00,"Pembayaran Wi-Fi Ruko B1 Bulan September 2026",,finance/finance_1788927265_2834.png,"2026-09-09 11:14:25"
+319,339,Pemasukan,2026-09-09,Modal,"Siti Nurhatifah - CREATIVA BRIDGING INTERNATIONAL",Transfer,792000.00,"Dana untuk BPJS dan Keperluan kantor",,finance/finance_1788937093_4983.png,"2026-09-09 13:58:13"
+320,340,Pengeluaran,2026-09-09,Operasional,"BPJS Ketenagakerjaan",Transfer,413859.00,"Pembayaran BPJS Ketenagakerjaan CREATIVA Bulan September",,finance/finance_1789188431_6900.jpeg,"2026-09-12 11:47:11"
+321,341,Pengeluaran,2026-09-09,Operasional,"BPJS Kesehatan",Transfer,334120.00,"Pembayaran BPJS Kesehatan CREATIVA Bulan September",,finance/finance_1789188511_5419.jpeg,"2026-09-12 11:48:31"
+322,342,Pengeluaran,2026-09-09,"Keperluan Kantor",Shopee,Transfer,25220.00,"Pembelian Blue Clean isi 20pcs",,finance/finance_1789188921_1884.jpeg,"2026-09-12 11:55:21"
+323,343,Pengeluaran,2026-09-09,"Keperluan Kantor",alfamart,Transfer,16900.00,"Batrei ABC AA isi 4",,finance/finance_1789188984_9713.jpeg,"2026-09-12 11:56:24"
+324,344,Pengeluaran,2026-09-11,"Keperluan Kantor",Alfamart,Transfer,16500.00,"Pembelian Tisue Wajah",,finance/finance_1789189350_4740.jpeg,"2026-09-12 12:02:30"
+325,345,Pemasukan,2026-09-12,Modal,"Siti Nurhatifah - Creativa Bridging International",Transfer,3500000.00,"DP untuk Media Promosi Namedia",,finance/finance_1789198572_4182.jpeg,"2026-09-12 14:36:12"
+326,346,Pengeluaran,2026-09-12,"Keperluan Kantor","Firdhan - Namedia",Transfer,3500000.00,"DP pembayaran media promosi Namedia",,finance/finance_1789198754_3513.jpeg,"2026-09-12 14:39:14"
+327,347,Pemasukan,2026-09-23,Lainnya,"Siti Nurhatifah",Transfer,4121500.00,"Keperluan Kantor Creativa September 2026",,finance/finance_1790225727_9652.jpeg,"2026-09-24 11:55:27"

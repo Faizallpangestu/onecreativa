@@ -308,13 +308,16 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
-    billing_ensure_proof_column($conn);
-    billing_ensure_meta_column($conn);
     $isMultipart = str_contains((string)($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data');
     $body = $isMultipart ? $_POST : json_decode(file_get_contents('php://input'), true);
     if (!is_array($body)) $body = [];
     
     $action = $body['action'] ?? '';
+
+    if ($action !== 'add_invoice') {
+        billing_ensure_proof_column($conn);
+        billing_ensure_meta_column($conn);
+    }
 
     if ($action === 'attach_payment_proof') {
         $paymentId = ac_id($body['payment_id'] ?? null, 'ID pembayaran');
@@ -349,30 +352,9 @@ if ($method === 'POST') {
     }
 
     if ($action === 'add_invoice') {
-        $id=ac_text($body['id']??'','Nomor invoice',50);$date=ac_date($body['tanggal']??'');$due=ac_date($body['jatuhTempo']??'');if($due<$date)ac_fail('Jatuh tempo harus setelah tanggal invoice.');
-        $name=ac_text($body['customer']??'','Customer',255);$email=ac_text($body['email']??'','Email',255,false);if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))ac_fail('Email tidak valid.');$phone=ac_text($body['phone']??'','Telepon',50,false);$description=ac_text($body['keterangan']??'','Keterangan',10000,false);
-        $amount=ac_decimal(ac_cents(is_int($body['total']??null)?(string)$body['total']:($body['total']??'')));if($amount==='0.00')ac_fail('Nominal invoice harus positif.');
-        $statusInput = $body['status'] ?? 'Unpaid';
-        $statusVal = in_array($statusInput, ['Unpaid', 'Paid', 'Partially Paid', 'Overdue', 'Belum Lunas', 'Lunas', 'Sebagian']) ? $statusInput : 'Unpaid';
-        $metaPayload = [];
-        foreach (['skema', 'program', 'lokasi', 'durasi', 'salesCode', 'subtotal', 'discount', 'items', 'installments', 'includes', 'excludes', 'notes', 'bank_name', 'account_number', 'account_holder'] as $metaKey) {
-            if (array_key_exists($metaKey, $body)) {
-                $metaPayload[$metaKey] = $body[$metaKey];
-            }
-        }
-        $metaJson = !empty($metaPayload) ? json_encode($metaPayload, JSON_UNESCAPED_UNICODE) : null;
-        $hasMetaCol = false;
-        $metaColRes = mysqli_query($conn, "SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'");
-        if ($metaColRes && mysqli_num_rows($metaColRes) > 0) $hasMetaCol = true;
-        $result=ac_atomic($conn,function()use($conn,$actor,$id,$date,$due,$name,$email,$phone,$description,$amount,$statusVal,$metaJson,$hasMetaCol){
-            ac_one($conn,'SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$actor['id']]);$old=ac_one($conn,'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE',[$id]);if($old){if($old['tanggal']!==$date||$old['jatuhTempo']!==$due||$old['customer']!==$name||$old['email']!==$email||$old['phone']!==$phone||$old['keterangan']!==$description||$old['total']!==$amount)ac_fail('Nomor invoice sudah digunakan untuk data berbeda.',409);return ['id'=>$id];}
-            if ($hasMetaCol) {
-                ac_query($conn,'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan,meta_json) VALUES(?,?,?,?,?,?,?,?,?,?)',[$id,$date,$name,$email,$phone,$amount,$statusVal,$due,$description,$metaJson]);
-            } else {
-                ac_query($conn,'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan) VALUES(?,?,?,?,?,?,?, ?,?)',[$id,$date,$name,$email,$phone,$amount,$statusVal,$due,$description]);
-            }
-            ac_audit($conn,$actor,'billing_invoice',$id,'created',['amount'=>$amount]);return ['id'=>$id];
-        });respond(200,['status'=>'success','data'=>$result]);
+        require_once __DIR__.'/../services/billing_invoice.php';
+        $result = billing_create_invoice($conn, $actor, $body);
+        respond(200, ['status' => 'success', 'data' => $result]);
     }
 
     if ($action === 'approve_payment') {

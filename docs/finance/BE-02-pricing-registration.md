@@ -1,5 +1,10 @@
 # BE-02 — Unified pricing and registration sync
 
+> BE-03 adds immutable enrollment/charge snapshots, explicit upstream occurrence
+> identity and atomic numbering. See [BE-03 contract and migration](BE-03-enrollment-charge-numbering.md).
+> The BE-02 person/web-ID registration mapping and student-global-fee issuance
+> described below are historical baseline behavior, superseded by BE-03.
+
 ## Deployment gate
 
 **NOT READY TO DEPLOY until Finance approves the catalogue and rollout.** No

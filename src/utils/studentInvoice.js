@@ -44,7 +44,9 @@ export function invoiceLookups(body) {
     ...bank, databaseId: databaseId(bank.id), nama: bank.name || '', bank: bank.bank_name,
     noRek: bank.account_number, pemilik: bank.account_holder, kode: bank.code || '', saldo: bank.balance ?? null,
   }));
-  return { students, banks, canPrepare: body.permissions?.prepare === true };
+  const enrollments = (body.data.enrollments || []).filter(row => databaseId(row.id) && databaseId(row.student_id));
+  const charges = (body.data.charges || []).filter(row => databaseId(row.id) && databaseId(row.enrollment_id));
+  return { students, banks, enrollments, charges, enrollmentSchemaReady: body.data.enrollment_schema_ready === true, canPrepare: body.permissions?.prepare === true };
 }
 
 export async function loadInvoiceLookups(api, { sync = false, signal } = {}) {
@@ -63,48 +65,49 @@ function invoiceDate(value) {
   return value;
 }
 
-export function buildStudentInvoice({ students, banks, studentId, bankId, manual, id, date, due, installments, notes = '', salesCode = '' }) {
-  if (manual) throw new Error('Siswa baru harus terdaftar di database sebelum invoice dapat diterbitkan.');
+export function chargeSchedule(charge, date) {
+  invoiceDate(date);
+  if (!charge || !Array.isArray(charge.installments) || !charge.installments.length) throw new Error('Jadwal charge approved belum tersedia. Hubungi Finance.');
+  return charge.installments.map((term, index) => {
+    if (!Number.isInteger(term.due_days) || term.due_days < 0 || term.due_days > 3660) throw new Error('Jadwal charge approved tidak valid.');
+    const deadline = new Date(date + 'T00:00:00Z'); deadline.setUTCDate(deadline.getUTCDate() + term.due_days);
+    return { id: index + 1, deskripsi: term.label, jatuhTempo: deadline.toISOString().slice(0, 10), nominal: invoiceDecimal(term.amount) };
+  });
+}
+export function buildStudentInvoice({ students, banks, enrollments = [], charges = [], studentId, enrollmentId, chargeId, bankId, manual, date, notes = '', salesCode = '' }) {
+  if (manual) throw new Error('Siswa baru harus terdaftar di database dan memiliki enrollment approved sebelum invoice dapat diterbitkan.');
   const student = students.find(row => row.databaseId === databaseId(studentId));
-  if (!student || !databaseId(studentId)) throw new Error('Pilih siswa dengan ID database resmi dari lookup Finance.');
+  if (!student) throw new Error('Pilih siswa dengan ID database resmi dari lookup Finance.');
+  const enrollment = enrollments.find(row => databaseId(row.id) === databaseId(enrollmentId));
+  if (!enrollment || databaseId(enrollment.student_id) !== student.databaseId) throw new Error('Pilih enrollment resmi milik siswa ini.');
+  if (enrollment.enrollment_status !== 'approved' || enrollment.review_reason) throw new Error('Enrollment/pricing belum approved. Hubungi Finance untuk review.');
+  const charge = charges.find(row => databaseId(row.id) === databaseId(chargeId) && databaseId(row.enrollment_id) === databaseId(enrollment.id));
+  if (!charge) throw new Error('Pilih charge yang telah diotorisasi Finance untuk enrollment ini.');
   const bank = banks.find(row => row.databaseId === databaseId(bankId));
-  if (!bank || !databaseId(bankId)) throw new Error('Pilih rekening resmi yang aktif dan lengkap. Finance/DB PIC perlu melengkapi master rekening termasuk pemilik terverifikasi.');
-  const total = invoiceDecimal(student.total_biaya);
-  if (cents(total) <= 0n) throw new Error('Total biaya resmi siswa belum tersedia atau belum positif. Hubungi Finance.');
-  if (typeof id !== 'string' || !id.trim() || id.trim().length > 50) throw new Error('Nomor invoice tidak valid.');
-  invoiceDate(date); invoiceDate(due);
-  if (due < date) throw new Error('Jatuh tempo tidak boleh mendahului tanggal invoice.');
-  const scheme = studentScheme(student.metode_pembayaran);
-  if (!scheme) throw new Error('Skema pembayaran siswa belum jelas di database. Konfirmasi dengan Finance; cicilan tidak diubah otomatis menjadi full payment.');
-  let schedule;
-  if (scheme === 'full') {
-    schedule = [{ deskripsi: 'Full Payment', jatuhTempo: due, nominal: total }];
-  } else {
-    if (!Array.isArray(installments) || installments.length < 2 || installments.length > 120) throw new Error('Lengkapi setidaknya dua termin cicilan; jadwal resmi belum tersedia dari lookup.');
-    let sum = 0n, previous = date;
-    schedule = installments.map((row, index) => {
-      const nominal = invoiceDecimal(row.nominal);
-      const deadline = invoiceDate(row.jatuhTempo);
-      if (cents(nominal) <= 0n || deadline < previous || (index === 0 && deadline !== due)) throw new Error('Nominal termin harus positif, tanggal berurutan, dan termin pertama sesuai jatuh tempo invoice.');
-      previous = deadline; sum += cents(nominal);
-      const description = String(row.deskripsi || row.keterangan || `Termin ${index + 1}`).trim();
-      if (!description || description.length > 255) throw new Error('Deskripsi termin tidak valid.');
-      return { deskripsi: description, jatuhTempo: deadline, nominal };
-    });
-    if (sum !== cents(total)) throw new Error('Jumlah seluruh termin harus tepat sama dengan total biaya resmi siswa.');
+  if (!bank) throw new Error('Pilih rekening resmi yang aktif dan lengkap. Finance/DB PIC perlu melengkapi master rekening termasuk pemilik terverifikasi.');
+  const total = invoiceDecimal(charge.amount); const scheme = studentScheme(charge.scheme);
+  if (cents(total) <= 0n || !scheme) throw new Error('Nominal/skema charge approved belum valid. Hubungi Finance.');
+  const schedule = chargeSchedule(charge, date);
+  if ((scheme === 'full' && schedule.length !== 1) || (scheme === 'cicilan' && schedule.length < 2)) throw new Error('Jumlah termin charge approved tidak sesuai skema.');
+  let sum = 0n, previous = date;
+  for (const term of schedule) {
+    if (cents(term.nominal) <= 0n || term.jatuhTempo < previous) throw new Error('Jadwal charge approved tidak konsisten.');
+    sum += cents(term.nominal); previous = term.jatuhTempo;
   }
+  if (sum !== cents(total)) throw new Error('Total termin tidak sama dengan nominal charge approved.');
   if (notes.length > 10000 || salesCode.length > 100) throw new Error('Catatan atau sales code terlalu panjang.');
   return {
-    action: 'add_invoice', id: id.trim(), student_id: Number(student.databaseId), bank_account_id: Number(bank.databaseId),
-    tanggal: date, jatuhTempo: due, total, subtotal: total, discount: { amount: '0.00' }, status: 'Unpaid',
-    keterangan: student.program || 'Biaya program siswa', skema: scheme, installments: schedule, notes, salesCode,
+    action: 'add_invoice', student_id: Number(student.databaseId), enrollment_id: Number(enrollment.id), charge_id: Number(charge.id), bank_account_id: Number(bank.databaseId),
+    tanggal: date, jatuhTempo: schedule[0].jatuhTempo, total, subtotal: total, discount: { amount: '0.00' }, status: 'Unpaid',
+    skema: scheme, installments: schedule, notes, salesCode,
   };
 }
-
-export async function checkInvoiceNumber(api, id) {
-  const { data } = await api.get('/api/billing.php');
-  if (data?.status !== 'success' || !Array.isArray(data.data?.invoices)) throw new Error('Data invoice server belum dapat diperiksa.');
-  return data.data.invoices.find(invoice => String(invoice.id) === String(id)) || null;
+export async function checkInvoiceCharge(api, payload) {
+  const { data } = await api.get('/api/billing.php', { params: { view: 'charge', student_id: payload.student_id, enrollment_id: payload.enrollment_id, charge_id: payload.charge_id } });
+  if (data?.status !== 'success' || !data.data || !Object.hasOwn(data.data, 'invoice')) throw new Error('Data charge server belum dapat diperiksa.');
+  const invoice = data.data.invoice;
+  if (invoice && (typeof invoice.id !== 'string' || !invoice.id || ['student_id', 'enrollment_id', 'charge_id'].some(key => String(invoice[key]) !== String(payload[key])))) throw new Error('Ownership hasil rekonsiliasi tidak sesuai charge.');
+  return invoice;
 }
 
 export function invoiceError(error) {
@@ -116,38 +119,29 @@ export function invoiceError(error) {
 
 export async function submitStudentInvoice(api, payload, mustCheck = false) {
   if (mustCheck) {
-    let exists;
-    try { exists = await checkInvoiceNumber(api, payload.id); }
-    catch {
-      const error = new Error('Hasil request sebelumnya belum dapat dipastikan. Retry diblokir sampai data server dapat diperiksa.');
-      error.needsReconciliation = true; throw error;
-    }
-    if (exists) {
-      const error = new Error(`Nomor ${payload.id} sudah ada di server. Periksa invoice tersebut sebelum melakukan tindakan lain; request tidak dikirim ulang.`);
-      error.needsReconciliation = true; throw error;
-    }
+    let invoice;
+    try { invoice = await checkInvoiceCharge(api, payload); }
+    catch { const error = new Error('Hasil request sebelumnya belum dapat dipastikan. Retry diblokir sampai charge server dapat diperiksa.'); error.needsReconciliation = true; throw error; }
+    if (invoice) return { ...invoice, created_now: false, reconciled: true };
   }
   try {
     const { data } = await api.post('/api/billing.php', payload);
-    if (data?.status !== 'success' || String(data.data?.id) !== payload.id) throw new Error(data?.message || 'Konfirmasi penerbitan dari server tidak valid.');
+    if (data?.status !== 'success' || !data.data?.id || ['student_id', 'enrollment_id', 'charge_id'].some(key => String(data.data[key]) !== String(payload[key]))) throw new Error(data?.message || 'Konfirmasi penerbitan dari server tidak valid.');
     return data.data;
   } catch (cause) {
     const uncertain = !cause.response || cause.response.status === 409 || cause.response.status >= 500;
     let message = invoiceError(cause);
     if (uncertain) {
       try {
-        const existing = await checkInvoiceNumber(api, payload.id);
-        message += existing ? ` Nomor ${payload.id} sudah ada di server; periksa invoice tersebut. Tidak ada penerbitan ulang otomatis.`
-          : ' Nomor belum ditemukan di server. Periksa kembali sebelum retry dengan nomor yang sama.';
-      } catch { message += ' Hasil server belum dapat diperiksa. Retry diblokir sampai pemeriksaan berhasil.'; }
+        const invoice = await checkInvoiceCharge(api, payload);
+        if (invoice) return { ...invoice, created_now: false, reconciled: true };
+        message += ' Belum ada invoice untuk charge ini. Retry eksplisit akan memeriksa charge yang sama.';
+      } catch { message += ' Hasil server belum dapat dipastikan; retry diblokir sampai charge dapat diperiksa.'; }
     }
-    const error = new Error(message);
-    error.needsReconciliation = uncertain;
-    throw error;
+    const error = new Error(message, { cause }); error.needsReconciliation = uncertain; throw error;
   }
 }
 
-// Enrich only real server rows. Invoice status alone never proves a payment or delivery.
 export function serverDeliveryRows(invoices, rows = []) {
   return rows.map(row => {
     const invoice = invoices.find(item => String(item.id) === String(row.noInv ?? row.id));

@@ -14,6 +14,15 @@ const data = { status: 'success', permissions: { prepare: true }, data: {
   students: [
     { id: 17, nis: 'NIS-901', web_id: 9001, name: 'Siswa Database', program: 'Program Resmi', total_biaya: '15000000.01', metode_pembayaran: 'Full Payment', email: '', no_wa: '' },
     { id: 18, nis: 'NIS-902', name: 'Siswa Cicilan', program: 'Program Cicilan', total_biaya: '18000000.00', metode_pembayaran: 'Cicilan' },
+  ], enrollment_schema_ready: true,
+  enrollments: [
+    { id: 71, student_id: 17, external_enrollment_id: 'enroll-first', program: 'Program Resmi', cohort: '2026-A', payment_scheme: 'full', enrollment_status: 'approved', review_reason: '' },
+    { id: 72, student_id: 18, external_enrollment_id: 'enroll-cicilan', program: 'Program Cicilan', cohort: '2026-B', payment_scheme: 'cicilan', enrollment_status: 'approved', review_reason: '' },
+    { id: 73, student_id: 17, external_enrollment_id: 'enroll-second', program: 'Program Kedua', cohort: '2027-C', payment_scheme: 'full', enrollment_status: 'approved', review_reason: '' },
+  ], charges: [
+    { id: 81, enrollment_id: 71, charge_type: 'program_fee', charge_key: 'tuition', label: 'Program fee', amount: '15000000.01', scheme: 'full', installments: [{ label: 'Full Payment', amount: '15000000.01', due_days: 7 }] },
+    { id: 82, enrollment_id: 72, charge_type: 'program_fee', charge_key: 'tuition', label: 'Program fee', amount: '18000000.00', scheme: 'cicilan', installments: [{ label: 'DP', amount: '5000000.01', due_days: 7 }, { label: 'Pelunasan', amount: '12999999.99', due_days: 37 }] },
+    { id: 83, enrollment_id: 73, charge_type: 'program_fee', charge_key: 'tuition', label: 'Program kedua', amount: '500.01', scheme: 'full', installments: [{ label: 'Full Payment', amount: '500.01', due_days: 7 }] },
   ], accounts: [{ id: 45, is_active: 1, report_class: 'cash' }],
   banks: [{ id: 3, account_id: 45, is_active: 1, name: 'Rekening Resmi', bank_name: 'Bank Uji', account_number: '000123', account_holder: 'Pemilik Terverifikasi', code: '1120' }],
 } };
@@ -30,21 +39,23 @@ axios.defaults.adapter=async config=>{
  if(config.url.endsWith('sync_students_web.php'))return response({status:'success',data:[{id:999999,web_id:999999}]});
  if(config.method==='get'&&config.url.endsWith('billing.php')){
   if(window.__mode==='offline')throw new Error('Offline');
-  return response({status:'success',data:{invoices:window.__mode==='conflict'?[{id:window.__lastId}]:[]}});
+  return response({status:'success',data:{invoice:window.__mode==='committed'?{id:'TGCJ26110001',student_id:17,enrollment_id:71,charge_id:81,status:'Unpaid'}:null}});
  }
  if(config.method==='post'&&config.url.endsWith('billing.php')){
   window.__lastId=body.id;
-  if(window.__mode==='network'||window.__mode==='offline')throw new Error('Network Error');
+  if(window.__mode==='network'||window.__mode==='offline'||window.__mode==='committed')throw new Error('Network Error');
   if(window.__mode==='mismatch'||window.__mode==='bank'||window.__mode==='conflict'){
    const error=new Error('API rejected');error.response={status:window.__mode==='mismatch'?422:409,data:{status:'error',message:window.__mode==='mismatch'?'Total tidak sama dengan biaya resmi':window.__mode==='bank'?'Data rekening resmi belum lengkap':'Nomor invoice sudah digunakan'}};throw error;
   }
-  return response({status:'success',data:{id:body.id}});
+  return response({status:'success',data:{id:'TGCJ26110001',student_id:body.student_id,enrollment_id:body.enrollment_id,charge_id:body.charge_id,created_now:true,status:'Unpaid'}});
  }
  throw new Error('Unexpected API '+config.url);
 };
 window.__reset=(mode='success',missingHolder=false)=>{
  window.__mode=mode;window.__requests=[];window.__alerts=[];window.__success=0;window.__closed=0;window.__lookup=structuredClone(original);
  if(missingHolder)delete window.__lookup.data.banks[0].account_holder;
+ if(mode==='no-enrollment')window.__lookup.data.enrollments=[];
+ if(mode==='no-approval')window.__lookup.data.charges=[];
  localStorage.setItem('saved_custom_invoices','[{"id":"POISON","total":1}]');
  root.render(React.createElement(Wizard,{key:++key,onSuccess:()=>window.__success++,onClose:()=>{window.__closed++;root.render(null)}}));
 };window.__reset();
@@ -88,7 +99,8 @@ try {
     await evaluate(`window.__reset(${JSON.stringify(mode)},${missing})`);
     await wait(`Array.from(document.querySelectorAll('select')[0]?.options||[]).some(option=>option.value==='17')`);
     await select(0, '17');
-    if (!missing) { await select(1, '3'); await wait(issueEnabled); }
+    if (!['no-enrollment','no-approval'].includes(mode)) { await select(1, '71'); await select(2, '81'); }
+    if (!missing && !['no-enrollment','no-approval'].includes(mode)) { await select(3, '3'); await wait(issueEnabled); }
   };
   const pass = label => { checks++; console.log(`PASS: ${label}`); };
   await send('Page.navigate', { url: `${server.resolvedUrls.local[0]}.be012-ui.html` }, sessionId);
@@ -118,38 +130,49 @@ try {
   pass('Student sync reloads database IDs and keeps the selected official identity');
   for (const mode of ['mismatch','bank','conflict','network','offline']) {
     await ready(mode);
-    const id = await evaluate(`document.querySelector('input[readonly]').value`);
-    await click('Terbitkan Invoice'); await wait(`Boolean(document.querySelector('[role=alert]'))`);
+    await click('Terbitkan Invoice'); await wait('Boolean(document.querySelector("[role=alert]"))');
     assert.equal(await evaluate('window.__success+window.__closed'), 0);
-    assert.equal(await evaluate(`document.querySelector('input[readonly]').value`), id);
-    if (mode === 'bank') assert.equal(await evaluate(`document.body.innerText.includes('Finance/DB PIC')`), true);
-    if (mode === 'conflict' || mode === 'offline') {
+    if (mode === 'bank') assert.equal(await evaluate('document.body.innerText.includes("Finance/DB PIC")'), true);
+    if (mode === 'offline') {
       await click('Terbitkan Invoice'); await delay(200);
-      assert.equal(await evaluate(`window.__requests.filter(row=>row.method==='post'&&row.url.endsWith('billing.php')).length`), 1);
+      assert.equal(await evaluate('window.__requests.filter(row=>row.method==="post"&&row.url.endsWith("billing.php")).length'), 1);
     }
-    pass(`API ${mode}: form retained, no false success, invoice ID retained and retry guarded`);
+    const posted = await evaluate('window.__requests.find(row=>row.method==="post"&&row.url.endsWith("billing.php")).body');
+    assert.equal(posted.id, undefined); assert.equal(posted.enrollment_id, 71); assert.equal(posted.charge_id, 81);
+    pass('API '+mode+': form retained without false success; stable charge identity retained');
   }
   await ready('success', true);
   assert.equal(await evaluate(issueEnabled), false);
-  assert.equal(await evaluate(`document.body.innerText.includes('account_holder')`), true);
-  pass('Missing official account holder blocks publishing and explains Finance dependency');
-  await ready(); await select(0, '18'); await wait(`!(${issueEnabled})`);
-  await click('+ Tambah Termin'); await click('+ Tambah Termin');
-  await evaluate(`(()=>{
-    const fill=(el,value)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));};
-    const amounts=document.querySelectorAll('input[aria-label="Nominal termin"]');fill(amounts[0],'5000000.01');fill(amounts[1],'12999999.99');
-    const dates=document.querySelectorAll('input[aria-label="Jatuh tempo termin"]');const next=new Date(dates[0].value+'T00:00:00Z');next.setUTCMonth(next.getUTCMonth()+1);fill(dates[1],next.toISOString().slice(0,10));
-  })()`);
-  await wait(issueEnabled, 'valid exact installment schedule');
+  assert.equal(await evaluate('document.body.innerText.includes("account_holder")'), true);
+  pass('Missing official account holder still blocks publishing');
+  for (const mode of ['no-enrollment','no-approval']) {
+    await ready(mode); assert.equal(await evaluate(issueEnabled), false);
+    assert.equal(await evaluate('document.body.innerText.includes("Finance/DB PIC")'), true);
+    pass(mode+' explains missing enrollment/charge approval and blocks issuance');
+  }
+  await ready(); await select(1, '73'); await select(2, '83'); await wait(issueEnabled);
+  assert.equal(await evaluate('document.body.innerText.includes("Rp 500,01")'), true);
+  assert.equal(await evaluate(`Array.from(document.querySelectorAll('td')).some(cell=>cell.textContent==='2027-C')`), true);
   await click('Terbitkan Invoice'); await wait('window.__success===1');
-  const installmentPayload = await evaluate(`window.__requests.find(row=>row.method==='post'&&row.url.endsWith('billing.php')).body`);
-  assert.equal(installmentPayload.student_id, 18); assert.equal(installmentPayload.skema, 'cicilan');
-  assert.deepEqual(installmentPayload.installments.map(row => row.nominal), ['5000000.01', '12999999.99']);
-  pass('Cicilan stays blocked until an exact valid schedule is entered and preserves decimal amounts');
+  let posted = await evaluate('window.__requests.find(row=>row.method==="post"&&row.url.endsWith("billing.php")).body');
+  assert.equal(posted.student_id, 17); assert.equal(posted.enrollment_id, 73); assert.equal(posted.total, '500.01');
+  pass('Same student selects second program/cohort with separate official charge price');
+  await ready(); await select(0, '18'); await select(1, '72'); await select(2, '82'); await wait(issueEnabled);
+  assert.equal(await evaluate(`Array.from(document.querySelectorAll('input[aria-label="Nominal termin"]')).every(el=>el.readOnly)`), true);
+  await click('Terbitkan Invoice'); await wait('window.__success===1');
+  posted = await evaluate('window.__requests.find(row=>row.method==="post"&&row.url.endsWith("billing.php")).body');
+  assert.equal(posted.student_id, 18); assert.equal(posted.skema, 'cicilan');
+  assert.deepEqual(posted.installments.map(row => row.nominal), ['5000000.01', '12999999.99']);
+  pass('Approved cicilan schedule stays read-only with exact decimal terms and no extra invoice');
+  await ready('committed'); await click('Terbitkan Invoice'); await wait('window.__success===1&&window.__closed===1');
+  assert.equal(await evaluate('window.__alerts.at(-1).text.includes("sudah tersedia di server")'), true);
+  assert.equal(await evaluate('window.__requests.filter(row=>row.method==="post"&&row.url.endsWith("billing.php")).length'), 1);
+  pass('Lost response reconciles the exact committed charge without issuing another invoice');
   await ready(); await click('Terbitkan Invoice'); await wait('window.__success===1&&window.__closed===1');
-  const issued = await evaluate(`window.__requests.find(row=>row.method==='post'&&row.url.endsWith('billing.php')).body`);
-  assert.equal(issued.student_id, 17); assert.equal(issued.bank_account_id, 3); assert.equal(issued.total, '15000000.01'); assert.equal(issued.account_holder, undefined);
-  pass('Validated mock API success alone closes the form and refreshes parent');
+  posted = await evaluate('window.__requests.find(row=>row.method==="post"&&row.url.endsWith("billing.php")).body');
+  assert.equal(posted.id, undefined); assert.equal(posted.student_id, 17); assert.equal(posted.bank_account_id, 3); assert.equal(posted.enrollment_id, 71); assert.equal(posted.charge_id, 81); assert.equal(posted.account_holder, undefined);
+  assert.equal(await evaluate('window.__alerts.at(-1).text.includes("TGCJ26110001")'), true);
+  pass('Confirmed backend number alone completes issuance and refreshes parent');
   console.log(`PASS: ${checks} headless browser integration scenarios using mock API (not backend E2E).`);
 } finally {
   socket?.close(); browser?.kill(); await server?.close();

@@ -1,5 +1,9 @@
 # BE-01: server-side invoice validation
 
+> BE-03 replaces new issuance with explicit enrollment/authorized-charge identity
+> and backend invoice numbering. See [BE-03 contract and migration](BE-03-enrollment-charge-numbering.md).
+> The original student-global-fee/client-invoice-ID contract below is historical.
+
 > BE-02 adds approved-pricing eligibility and exact approved term schedules to
 > this baseline contract. See [BE-02 pricing and registration](BE-02-pricing-registration.md)
 > for the empty-catalogue deployment gate, webhook/sync changes, and API additions.

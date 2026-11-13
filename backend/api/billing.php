@@ -97,6 +97,12 @@ function billing_remove_payment_proof($relativePath) {
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
+if ($method === 'GET' && ($_GET['view'] ?? '') === 'charge') {
+    require_once __DIR__.'/../services/enrollment_billing.php';
+    [$enrollment, $charge] = eb_charge($conn, ac_id($_GET['student_id'] ?? null), ac_id($_GET['enrollment_id'] ?? null), ac_id($_GET['charge_id'] ?? null), false);
+    $invoice = eb_existing_invoice($conn, $enrollment, $charge);
+    respond(200, ['status' => 'success', 'data' => ['invoice' => $invoice ? ['id' => $invoice['id'], 'status' => $invoice['status'], 'student_id' => (int)$enrollment['student_id'], 'enrollment_id' => (int)$enrollment['id'], 'charge_id' => (int)$charge['id']] : null]]);
+}
 
 // Dummy data seeder removed to allow empty tables
 
@@ -164,6 +170,10 @@ if ($method === 'GET') {
     }
     
     // Invoices
+    $enrollmentLinks = [];
+    if (ac_table($conn, 'enrollment_charges') && ac_table($conn, 'student_enrollments')) {
+        $enrollmentLinks = array_column(ac_rows($conn, 'SELECT c.billing_invoice_id,c.id AS charge_id,c.enrollment_id,e.student_id FROM enrollment_charges c JOIN student_enrollments e ON e.id=c.enrollment_id WHERE c.billing_invoice_id IS NOT NULL'), null, 'billing_invoice_id');
+    }
     $res = mysqli_query($conn, "SELECT * FROM billing_invoices ORDER BY created_at DESC");
     $data['invoices'] = [];
     while ($r = mysqli_fetch_assoc($res)) {
@@ -171,7 +181,7 @@ if ($method === 'GET') {
         if (!empty($r['meta_json'])) {
             $decodedMeta = json_decode((string)$r['meta_json'], true);
             if (is_array($decodedMeta)) {
-                foreach (['skema', 'program', 'lokasi', 'durasi', 'salesCode', 'subtotal', 'discount', 'items', 'installments', 'includes', 'excludes', 'notes', 'bank_name', 'account_number', 'account_holder', 'midtrans_last'] as $metaKey) {
+                foreach (['student_id', 'enrollment_id', 'charge_id', 'charge_type', 'charge_key', 'skema', 'program', 'lokasi', 'durasi', 'salesCode', 'subtotal', 'discount', 'items', 'installments', 'includes', 'excludes', 'notes', 'bank_name', 'account_number', 'account_holder', 'midtrans_last'] as $metaKey) {
                     if (array_key_exists($metaKey, $decodedMeta) && !isset($r[$metaKey])) {
                         $r[$metaKey] = $decodedMeta[$metaKey];
                     }
@@ -179,6 +189,8 @@ if ($method === 'GET') {
             }
         }
         unset($r['meta_json']);
+        $officialLink = $enrollmentLinks[$r['id']] ?? null;
+        $r['enrollment_resolution'] = $officialLink && (string)($r['student_id'] ?? '') === (string)$officialLink['student_id'] && (string)($r['enrollment_id'] ?? '') === (string)$officialLink['enrollment_id'] && (string)($r['charge_id'] ?? '') === (string)$officialLink['charge_id'] ? 'linked' : 'needs_review';
         $total = ac_cents((string)($r['total'] ?? '0'));
         $paid = $verifiedPaymentTotals[$r['id']] ?? 0;
         if ($paid > 0) {
@@ -455,6 +467,7 @@ if ($method === 'DELETE') {
     }
     $idEsc = mysqli_real_escape_string($conn, $id);
     if ($type === 'invoice') {
+        if (ac_table($conn, 'enrollment_charges') && ac_one($conn, 'SELECT id FROM enrollment_charges WHERE billing_invoice_id=?', [$id])) ac_fail('Invoice charge resmi tidak dapat dihapus atau diganti otomatis. Review Finance diperlukan.', 409);
         mysqli_query($conn, "DELETE FROM billing_invoices WHERE id = '$idEsc'");
         ac_audit($conn, $actor, 'billing_invoice', $id, 'deleted', []);
     } elseif ($type === 'terkirim') {

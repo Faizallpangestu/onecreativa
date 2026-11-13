@@ -103,7 +103,7 @@ try {
         if (!is_array($p)) ac_fail('Data pendaftar tidak valid.');
         $result = registration_process($conn, $actor, $p, 'sync');
         if ($result['student']) { if ($result['student_created']) $inserted++; else $updated++; }
-        if ($result['pricing']['status'] === 'needs_review') $reviews[] = ['student_id' => $result['student']['id'] ?? null, 'pricing_status' => 'needs_review', 'reason' => $result['pricing']['reason']];
+        if ($result['pricing']['status'] === 'needs_review') $reviews[] = ['student_id' => $result['student']['id'] ?? null, 'enrollment_id' => $result['enrollment']['id'] ?? null, 'pricing_status' => 'needs_review', 'reason' => $result['pricing']['reason']];
     }
 
     // Ambil data terbaru setelah sync

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/accounting_core.php';
 require_once __DIR__.'/student_pricing.php';
+require_once __DIR__.'/enrollment_billing.php';
 
 function billing_invoice_bank(mysqli $db, array $body): array {
     $bankId = ac_id($body['bank_account_id'] ?? null, 'ID rekening resmi');
@@ -112,46 +113,56 @@ function billing_invoice_meta(array $body, array $student, int $total, string $d
 
 function billing_create_invoice(mysqli $db, array $actor, array $body): array {
     ac_require($db, $actor, 'prepare');
-    $studentId = ac_id($body['student_id'] ?? null, 'student_id peserta_intensif');
-    if (array_key_exists('status', $body) && $body['status'] !== 'Unpaid') ac_fail('Invoice baru harus berstatus Unpaid.');
-    $id = ac_text($body['id'] ?? '', 'Nomor invoice', 50);
-    $date = ac_date($body['tanggal'] ?? null);
-    $due = ac_date($body['jatuhTempo'] ?? null);
-    if ($due < $date) ac_fail('Jatuh tempo harus setelah tanggal invoice.');
-    $clientTotal = ac_cents($body['total'] ?? null);
-    $description = ac_text($body['keterangan'] ?? '', 'Keterangan', 10000, false);
-
-    try {
-        return ac_atomic($db, function () use ($db, $actor, $body, $studentId, $id, $date, $due, $clientTotal, $description) {
-            ac_one($db, 'SELECT id FROM users WHERE id=? FOR UPDATE', [(int)$actor['id']]);
-            if (!ac_table($db, 'peserta_intensif')) ac_fail('Data siswa resmi belum tersedia.', 409);
-            $student = ac_one($db, 'SELECT * FROM peserta_intensif WHERE id=? FOR UPDATE', [$studentId]);
-            if (!$student) ac_fail('Siswa tidak ditemukan.', 404);
-            // Missing operational pricing fails closed; never invent a default price.
-            $total = ac_cents($student['total_biaya'] ?? null);
-            if ($total === 0 || $clientTotal !== $total) ac_fail('Total invoice harus sama dengan total biaya resmi siswa yang positif.');
-            // The primary key also rejects races; avoid gap locks on unused numbers.
-            if (ac_one($db, 'SELECT id FROM billing_invoices WHERE id=?', [$id])) ac_fail('Nomor invoice sudah digunakan.', 409);
-            [$pricing, $validatedBody] = sp_invoice_pricing($student, $body, $date, $due);
-            $meta = billing_invoice_meta($validatedBody, $student, $total, $date, $due);
-            $meta['pricing'] = sp_proof($pricing);
-            $meta = array_merge($meta, billing_invoice_bank($db, $body));
-            $column = ac_one($db, "SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'");
-            if (!$column) ac_fail('Penyimpanan metadata invoice belum tersedia.', 409);
-            $name = ac_text($student['nama_lengkap'] ?? '', 'Nama siswa', 255);
-            $email = ac_text($student['email'] ?? '', 'Email siswa', 255, false);
-            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) ac_fail('Email siswa tidak valid.');
-            $phone = ac_text($student['no_wa'] ?? '', 'Telepon siswa', 50, false);
-            $amount = ac_decimal($total);
-            ac_query($db, "INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan,meta_json) VALUES(?,?,?,?,?,?,'Unpaid',?,?,?)", [
-                $id, $date, $name, $email, $phone, $amount, $due, $description,
-                json_encode($meta, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-            ]);
-            ac_audit($db, $actor, 'billing_invoice', $id, 'created', ['amount' => $amount, 'student_id' => $studentId, 'amount_source' => $meta['amount_source'], 'pricing' => $meta['pricing'], 'status' => 'Unpaid']);
-            return ['id' => $id];
-        });
-    } catch (mysqli_sql_exception $error) {
-        if ($error->getCode() === 1062) ac_fail('Nomor invoice sudah digunakan.', 409);
+    try { return ac_atomic($db, fn() => billing_issue_charge($db, $actor, $body)); }
+    catch (mysqli_sql_exception $error) {
+        if (in_array($error->getCode(), [1062, 1213], true)) ac_fail('Konflik penerbitan invoice. Periksa charge server sebelum retry.', 409);
         throw $error;
     }
+}
+
+// Caller owns the transaction; registration webhook and Finance use exactly this issuance path.
+function billing_issue_charge(mysqli $db, array $actor, array $body, bool $webhook = false): array {
+    foreach (['meta_json', 'public_token'] as $column) if (!ac_one($db, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billing_invoices' AND COLUMN_NAME=?", [$column])) ac_fail('Penyimpanan metadata/token invoice belum tersedia.', 409);
+    $studentId = ac_id($body['student_id'] ?? null, 'student_id peserta_intensif');
+    $enrollmentId = ac_id($body['enrollment_id'] ?? null, 'enrollment_id');
+    $chargeId = ac_id($body['charge_id'] ?? null, 'charge_id');
+    if (array_key_exists('status', $body) && $body['status'] !== 'Unpaid') ac_fail('Invoice baru harus berstatus Unpaid.');
+    if (array_key_exists('id', $body)) ac_fail('Nomor invoice diterbitkan oleh server; jangan kirim id.');
+    $date = ac_date($body['tanggal'] ?? null); $due = ac_date($body['jatuhTempo'] ?? null);
+    if ($due < $date) ac_fail('Jatuh tempo harus setelah tanggal invoice.');
+    $student = ac_one($db, 'SELECT * FROM peserta_intensif WHERE id=? FOR UPDATE', [$studentId]);
+    if (!$student) ac_fail('Siswa tidak ditemukan.', 404);
+    [$enrollment, $charge, $rule, $policy] = eb_charge($db, $studentId, $enrollmentId, $chargeId);
+    foreach (['charge_type' => $charge['charge_type'], 'charge_key' => $charge['charge_key']] as $field => $expected) if (array_key_exists($field, $body) && $body[$field] !== $expected) ac_fail('Identitas charge tidak sesuai otorisasi.');
+    if ($webhook && !$policy['webhook_issue']) ac_fail('Charge tidak diotorisasi untuk auto-issue.', 409);
+    $total = ac_cents($charge['amount']);
+    if (!$total || ac_cents($body['total'] ?? null) !== $total) ac_fail('Total invoice harus sama dengan nominal charge approved.');
+    $schedule = sp_schedule(['status' => 'approved', 'rule' => $policy], $date);
+    $pricingStudent = array_replace($student, ['program' => sp_programs()[$rule['program']]['name'], 'total_biaya' => $policy['amount']]);
+    if (array_key_exists('skema', $body) && sp_scheme($body['skema']) !== $policy['scheme']) ac_fail('Skema tidak sesuai charge approved.');
+    $actual = array_key_exists('installments', $body) ? $body['installments'] : $schedule;
+    if (!is_array($actual) || !array_is_list($actual) || count($actual) !== count($schedule)) ac_fail('Jumlah termin tidak sesuai charge approved.');
+    foreach ($actual as $i => $term) if (!is_array($term) || ac_cents($term['nominal'] ?? null) !== ac_cents($schedule[$i]['nominal']) || ($term['jatuhTempo'] ?? null) !== $schedule[$i]['jatuhTempo']) ac_fail('Nominal/jadwal termin tidak sesuai charge approved.');
+    if ($due !== $schedule[0]['jatuhTempo']) ac_fail('Jatuh tempo tidak sesuai charge approved.');
+    $meta = billing_invoice_meta(array_replace($body, ['skema' => $policy['scheme'], 'installments' => $schedule]), $pricingStudent, $total, $date, $due);
+    $meta['items'][0]['name'] = $meta['items'][0]['deskripsi'] = $policy['label'];
+    $existing = eb_existing_invoice($db, $enrollment, $charge);
+    if ($existing) return ['id' => $existing['id'], 'student_id' => $studentId, 'enrollment_id' => $enrollmentId, 'charge_id' => $chargeId, 'created_now' => false, 'status' => $existing['status']];
+    if ($enrollment['enrollment_status'] !== 'approved' || $enrollment['review_reason'] !== '') ac_fail('Enrollment/pricing memerlukan review Finance.', 409);
+    $meta = array_merge($meta, billing_invoice_bank($db, $body), [
+        'enrollment_id' => $enrollmentId, 'charge_id' => $chargeId, 'charge_type' => $charge['charge_type'], 'charge_key' => $charge['charge_key'],
+        'amount_source' => 'enrollment_charges.approved_snapshot', 'pricing' => sp_proof(eb_decision($rule)),
+        'enrollment_pricing_hash' => $enrollment['pricing_hash'], 'charge_policy_hash' => $charge['policy_hash'], 'charge_approval' => $policy['approval'],
+    ]);
+    $name = ac_text($student['nama_lengkap'] ?? '', 'Nama siswa', 255);
+    $email = ac_text($student['email'] ?? '', 'Email siswa', 255, false);
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) ac_fail('Email siswa tidak valid.');
+    $phone = ac_text($student['no_wa'] ?? '', 'Telepon siswa', 50, false);
+    $id = eb_number($db); $amount = ac_decimal($total);
+    ac_query($db, "INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan,meta_json,public_token) VALUES(?,?,?,?,?,?,'Unpaid',?,?,?,?)", [
+        $id, $date, $name, $email, $phone, $amount, $due, $policy['label'], eb_json($meta), bin2hex(random_bytes(16)),
+    ]);
+    ac_query($db, 'UPDATE enrollment_charges SET billing_invoice_id=? WHERE id=? AND billing_invoice_id IS NULL', [$id, $chargeId]);
+    ac_audit($db, $actor, 'billing_invoice', $id, 'created', ['student_id' => $studentId, 'enrollment_id' => $enrollmentId, 'charge_id' => $chargeId, 'charge_type' => $charge['charge_type'], 'charge_key' => $charge['charge_key'], 'amount' => $amount, 'pricing' => $meta['pricing']]);
+    return ['id' => $id, 'student_id' => $studentId, 'enrollment_id' => $enrollmentId, 'charge_id' => $chargeId, 'created_now' => true, 'status' => 'Unpaid'];
 }

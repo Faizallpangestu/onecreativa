@@ -1,5 +1,18 @@
 <?php
 require_once __DIR__.'/relationships.php';
+require_once __DIR__.'/enrollment_billing.php';
+function sb_billing_owner(mysqli $db, array $source): ?int {
+ $owner=sb_invoice_owner($source);
+ if(ac_table($db,'enrollment_charges')){
+  $charge=ac_one($db,'SELECT c.id,c.enrollment_id,e.student_id FROM enrollment_charges c JOIN student_enrollments e ON e.id=c.enrollment_id WHERE c.billing_invoice_id=?',[(string)$source['id']]);
+  if($charge){
+   if($owner===null||$owner!==(int)$charge['student_id'])ac_fail('Pemilik invoice dan enrollment bertentangan.',409);
+   [$enrollment,$official]=eb_charge($db,$owner,(int)$charge['enrollment_id'],(int)$charge['id'],false);
+   eb_existing_invoice($db,$enrollment,$official);
+  }
+ }
+ return $owner;
+}
 function sb_finance(mysqli $db,array $a,string $permission='read'):void{ac_require($db,$a,$permission);}
 function sb_invoice_owner(array $source): ?int {
  $meta=[];
@@ -19,7 +32,7 @@ function sb_invoice_owner(array $source): ?int {
 function sb_bill(mysqli $db,array $link):array{
  $type=$link['billing_invoice_id']!==null?'billing_invoice':'invoice_client';$source=(string)($link['billing_invoice_id']??$link['invoice_client_id']);
  $row=$type==='billing_invoice'?ac_one($db,'SELECT * FROM billing_invoices WHERE id=?',[$source]):ac_one($db,'SELECT * FROM invoice_clients WHERE id=?',[(int)$source]);if(!$row)ac_fail('Dokumen sumber tidak ditemukan.',409);
- $owner=sb_invoice_owner($row);if($owner!==null&&$owner!==(int)$link['student_id'])ac_fail('Invoice bukan milik siswa tujuan. Review Finance diperlukan.',409);
+ $owner=$type==='billing_invoice'?sb_billing_owner($db,$row):sb_invoice_owner($row);if($owner!==null&&$owner!==(int)$link['student_id'])ac_fail('Invoice bukan milik siswa tujuan. Review Finance diperlukan.',409);
  $row=['amount'=>$row[$type==='billing_invoice'?'total':'total_biaya'],'title'=>$row[$type==='billing_invoice'?'customer':'name'],'due_date'=>$type==='billing_invoice'?($row['jatuhTempo']??null):null,'original_status'=>$type==='billing_invoice'?($row['status']??null):null];
  $doc=ac_one($db,'SELECT id,journal_entry_id,amount FROM accounting_source_documents WHERE source_type=? AND source_id=?',[$type,$source]);$cancelled=in_array(strtolower($row['original_status']??''),['cancelled','canceled','dibatalkan','batal'],true)||($doc&&ac_one($db,'SELECT id FROM journal_entries WHERE reversal_of=?',[(int)$doc['journal_entry_id']]));
  $payments=$doc?ac_rows($db,"SELECT t.id AS transaction_id,t.number,t.transaction_date,t.reference,pa.amount FROM payment_allocations pa JOIN accounting_transactions t ON t.id=pa.transaction_id JOIN journal_entries j ON j.id=t.journal_entry_id WHERE pa.source_document_id=? AND pa.is_reversed=0 AND t.payment_status='verified' AND t.journal_status='posted' AND j.status='posted' ORDER BY t.transaction_date,t.id",[(int)$doc['id']]):[];
@@ -37,7 +50,7 @@ function sb_link(mysqli $db,array $a,array $d):array{
   if($billing!==null)$billing=ac_text($billing,'Invoice',50);
   $source=$billing!==null?ac_one($db,'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE',[$billing]):ac_one($db,'SELECT * FROM invoice_clients WHERE id=? FOR UPDATE',[$client]);
   if(!$source)ac_fail('Dokumen sumber tidak ditemukan.',409);
-  $owner=sb_invoice_owner($source);
+  $owner=$billing!==null?sb_billing_owner($db,$source):sb_invoice_owner($source);
   if($owner!==null&&$owner!==$student)ac_fail('Invoice bukan milik siswa tujuan. Review Finance diperlukan.',409);
   $old=ac_one($db,'SELECT id,student_id FROM student_invoice_links WHERE billing_invoice_id=? OR invoice_client_id=? FOR UPDATE',[$billing,$client]);
   if($old&&(int)$old['student_id']!==$student)ac_fail('Invoice telah memiliki pemilik lain; koreksi memerlukan review.',409);
@@ -68,6 +81,7 @@ function sb_delete_student(mysqli $db,array $a,array $d):array{
   $id=ac_id($d['id']??$d['student_id']??null,'ID Siswa');
   $student=ac_one($db,'SELECT * FROM peserta_intensif WHERE id=? FOR UPDATE',[$id]);
   if(!$student)ac_fail('Siswa tidak ditemukan.',404);
+  if(ac_table($db,'student_enrollments')&&ac_one($db,'SELECT id FROM student_enrollments WHERE student_id=? LIMIT 1',[$id]))ac_fail('Siswa memiliki enrollment resmi. Penghapusan memerlukan proses arsip/reconciliation.',409);
   $userId=$student['user_id']?(int)$student['user_id']:null;
   if(ac_table($db,'student_payment_submissions'))ac_query($db,'DELETE FROM student_payment_submissions WHERE student_id=?',[$id]);
   if(ac_table($db,'student_invoice_links'))ac_query($db,'DELETE FROM student_invoice_links WHERE student_id=?',[$id]);

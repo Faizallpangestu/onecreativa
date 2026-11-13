@@ -8,6 +8,7 @@ require_once __DIR__.'/../services/budget_realization.php';
 require_once __DIR__.'/../services/accounting_vendor.php';
 require_once __DIR__.'/../services/accounting_journal.php';
 require_once __DIR__.'/../services/student_pricing.php';
+require_once __DIR__.'/../services/enrollment_billing.php';
 mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
 $requestId=bin2hex(random_bytes(8));header('X-Request-ID: '.$requestId);
 
@@ -119,6 +120,7 @@ try{
             $vendors = ac_table($conn,'vendors') ? ac_rows($conn,'SELECT * FROM vendors ORDER BY name') : [];
             $documents = (ac_table($conn,'accounting_source_documents') && ac_table($conn,'payment_allocations')) ? ac_rows($conn,'SELECT d.*,CAST(d.amount-COALESCE((SELECT SUM(p.amount) FROM payment_allocations p WHERE p.source_document_id=d.id AND p.is_reversed=0),0) AS CHAR) AS outstanding FROM accounting_source_documents d ORDER BY d.id DESC') : (ac_table($conn,'accounting_source_documents') ? ac_rows($conn,'SELECT d.*,CAST(d.amount AS CHAR) AS outstanding FROM accounting_source_documents d ORDER BY d.id DESC') : []);
             $data=['accounts'=>$accounts,'banks'=>$banks,'periods'=>$periods,'vendors'=>$vendors,'departments'=>$departments,'students'=>$students,'classifications'=>ac_classifications(),'documents'=>$documents];
+            $data = array_merge($data, eb_lookups($conn));
             if($permissions['configure'] && ac_table($conn,'finance_role_permissions'))$data['role_permissions']=ac_rows($conn,'SELECT * FROM finance_role_permissions ORDER BY role_name,permission');
             $data['vendor_bills']=(ac_table($conn,'vendor_bills') && ac_table($conn,'vendors')) ? ac_rows($conn,'SELECT b.*,v.name AS vendor_name FROM vendor_bills b JOIN vendors v ON v.id=b.vendor_id ORDER BY b.id DESC') : [];
             if (ac_table($conn,'journal_lines')) {

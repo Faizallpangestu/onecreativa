@@ -44,6 +44,9 @@ try {
     $conn->query('CREATE TABLE cash_bank_accounts(id INT UNSIGNED PRIMARY KEY,account_id INT UNSIGNED,bank_name VARCHAR(100),account_number VARCHAR(100),account_holder VARCHAR(255),is_active TINYINT) ENGINE=InnoDB');
     $conn->query("INSERT INTO accounts VALUES(1,1,'cash'),(2,0,'cash'),(3,1,'receivable')");
     $conn->query("INSERT INTO cash_bank_accounts VALUES(1,1,'Bank Uji','000123456','Pemilik Resmi Uji',1),(2,1,'Bank Uji','999999','Nonaktif',0),(3,2,'Bank Uji','123','COA Nonaktif',1),(4,3,'Bank Uji','456','COA Nonkas',1),(5,1,'Bank Uji','789','',1)");
+    $conn->query("ALTER TABLE accounts ADD code VARCHAR(20),ADD name VARCHAR(150),ADD normal_balance VARCHAR(10) DEFAULT 'debit'");
+    $conn->query("UPDATE accounts SET code=CONCAT('TEST-',id),name=CONCAT('Test account ',id)");
+    $conn->query("ALTER TABLE cash_bank_accounts ADD name VARCHAR(150) DEFAULT 'Rekening Uji'");
     $conn->query('CREATE TABLE student_invoice_links(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,student_id INT NOT NULL,billing_invoice_id VARCHAR(50) NULL UNIQUE,invoice_client_id INT NULL UNIQUE,linked_by INT UNSIGNED NOT NULL) ENGINE=InnoDB');
     $conn->query('CREATE TABLE invoice_clients(id INT PRIMARY KEY,name VARCHAR(255),total_biaya DECIMAL(15,2)) ENGINE=InnoDB');
     $conn->query('CREATE TABLE accounting_source_documents(id INT PRIMARY KEY,journal_entry_id INT,amount DECIMAL(15,2),source_type VARCHAR(40),source_id VARCHAR(100)) ENGINE=InnoDB');
@@ -62,6 +65,8 @@ try {
     $conn->query("INSERT INTO billing_pembayaran(noInv,jumlah,statusVerif) VALUES('OLD-2',200,'Terverifikasi')");
     $legacy = ac_rows($conn, "SELECT * FROM billing_invoices WHERE id LIKE 'OLD-%' ORDER BY id");
 
+    require_once __DIR__.'/../services/enrollment_schema.php';
+    enrollment_schema_install($conn);
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
     if (!$socket) throw new RuntimeException('Test port unavailable');
     $address = stream_socket_get_name($socket, false); fclose($socket);
@@ -92,109 +97,21 @@ try {
         foreach ($responseHeaders as $header) if (str_starts_with(strtolower($header), 'set-cookie:')) $session = explode(';', trim(substr($header, 11)))[0];
         return ['code' => (int)($match[1] ?? 0), 'json' => json_decode($raw, true), 'cookie' => $session];
     };
-    $base = ['action' => 'add_invoice', 'id' => 'INV-VALID', 'student_id' => 1, 'bank_account_id' => 1, 'tanggal' => '2026-11-13', 'jatuhTempo' => '2026-11-20', 'total' => '15000000.50', 'status' => 'Unpaid'];
+    require_once __DIR__.'/enrollment_test_helpers.php';
+    $base = enrollment_test_payload($conn);
     billing_check($send('billing.php', $base)['code'] === 401, 'Anonymous creation returns 401');
     $login = $send('login.php', ['email' => 'finance@test', 'password' => 'isolated-test-only']);
-    billing_check($login['code'] === 200 && $login['cookie'] !== '', 'Login establishes a real session');
-    $cookie = $login['cookie'];
-    $csrf = $send('session.php', null, $cookie)['json']['csrf_token'];
+    billing_check($login['code'] === 200 && $login['cookie'] !== '', 'Real authenticated Finance session');
+    $cookie = $login['cookie']; $csrf = $send('session.php', null, $cookie)['json']['csrf_token'];
     billing_check($send('billing.php', $base, $cookie)['code'] === 403, 'Missing CSRF returns 403');
-    $create = fn(array $patch) => $send('billing.php', array_replace($base, ['id' => 'INV-'.bin2hex(random_bytes(5))], $patch), $cookie, $csrf);
-    $valid = $create(['id' => 'INV-VALID', 'customer' => 'Spoofed', 'email' => 'fake@test.invalid', 'phone' => 'fake', 'program' => 'Fake program', 'meta_json' => '{"total":1}']);
-    billing_check($valid['code'] === 200 && $valid['json'] === ['status' => 'success', 'data' => ['id' => 'INV-VALID']], 'Official amount creates invoice with existing success envelope');
-    $stored = ac_one($conn, "SELECT * FROM billing_invoices WHERE id='INV-VALID'");
-    $meta = json_decode($stored['meta_json'], true);
-    billing_check($stored['status'] === 'Unpaid' && $stored['total'] === '15000000.50' && $stored['customer'] === 'Siswa Resmi' && $stored['email'] === 'student@test.invalid' && $stored['phone'] === '0812345678', 'Identity and amount come from student_id, ignoring spoofed contact data');
-    billing_check($meta['student_id'] === 1 && $meta['program'] === 'Intensif' && $meta['subtotal'] === '15000000.50' && $meta['items'][0]['harga'] === '15000000.50' && $meta['discount']['amount'] === '0.00', 'Financial metadata is rebuilt from official fee');
-    billing_check($meta['bank_account_id'] === 1 && $meta['account_number'] === '000123456' && $meta['account_holder'] === 'Pemilik Resmi Uji' && $meta['bank_name'] === 'Bank Uji', 'Bank snapshot comes exclusively from official active master with leading zeros preserved');
-    $audit = ac_one($conn, "SELECT * FROM accounting_audit_logs WHERE entity_type='billing_invoice' AND entity_id='INV-VALID'");
-    billing_check((int)$audit['actor_id'] === 1 && json_decode($audit['details_json'], true)['student_id'] === 1 && strlen($audit['hash_self']) === 64, 'Creation retains actor audit and student amount provenance');
-
-    $cases = [
-        'Amount manipulation' => ['total' => '1.00'], 'Zero amount' => ['total' => '0'],
-        'Negative amount' => ['total' => '-1'], 'Localized amount' => ['total' => '15.000.000,50'],
-        'Exponent amount' => ['total' => '1.5e7'], 'Excess precision' => ['total' => '15000000.501'],
-        'Float amount' => ['total' => 15000000.5], 'Missing amount' => ['total' => null],
-        'Paid status' => ['status' => 'Paid'], 'Partial status' => ['status' => 'Partially Paid'],
-        'Legacy paid alias' => ['status' => 'Lunas'], 'Legacy partial alias' => ['status' => 'Sebagian'],
-        'Overdue at creation' => ['status' => 'Overdue'], 'Null status' => ['status' => null],
-        'Unauthorized discount' => ['discount' => ['value' => 1, 'amount' => 1, 'type' => 'Rp']],
-        'Hidden discount value' => ['discount' => ['value' => 10, 'amount' => 0, 'type' => '%']],
-        'Missing discount amount' => ['discount' => ['value' => 0]], 'Negative discount' => ['discount' => '-1'],
-        'Inconsistent subtotal' => ['subtotal' => '16000000.50'],
-        'Inconsistent item' => ['items' => [['harga' => '15000000.50', 'jumlah' => '1']]],
-        'Conflicting item aliases' => ['items' => [['harga' => '15000000.50', 'price' => 1, 'jumlah' => '15000000.50']]],
-        'Item discount' => ['items' => [['harga' => '15000000.50', 'jumlah' => '15000000.50', 'diskon' => 1]]],
-        'Unsupported item split' => ['items' => [['price' => 1, 'amount' => 1], ['price' => '14999999.50', 'amount' => '14999999.50']]],
-        'Empty items' => ['items' => []], 'Wrong item quantity' => ['items' => [['qty' => 2, 'price' => '15000000.50', 'amount' => '15000000.50']]],
-        'Inconsistent installments' => ['installments' => [['nominal' => 1, 'jatuhTempo' => '2026-11-20']]],
-        'Empty installments' => ['installments' => []], 'Zero installment' => ['installments' => [['nominal' => 0, 'jatuhTempo' => '2026-11-20']]],
-        'Wrong first due date' => ['installments' => [['nominal' => '15000000.50', 'jatuhTempo' => '2026-11-21']]],
-        'Invalid installment date' => ['installments' => [['nominal' => '15000000.50', 'jatuhTempo' => '2026-02-30']]],
-        'Wrong scheme' => ['skema' => 'cicilan'], 'Due date before invoice' => ['jatuhTempo' => '2026-11-12'],
-        'Missing student_id' => ['student_id' => null], 'Web ID is not student identity' => ['student_id' => null, 'web_id' => 1],
-        'Manual flag cannot bypass student validation' => ['student_id' => null, 'invoice_type' => 'manual'],
-        'Malformed metadata' => ['includes' => ['bad' => 'value']],
-        'Missing official bank ID' => ['bank_account_id' => null], 'Unknown bank ID' => ['bank_account_id' => 999],
-        'Inactive bank' => ['bank_account_id' => 2], 'Tampered bank number' => ['account_number' => 'attacker-account'],
-        'Tampered bank holder' => ['account_holder' => 'Attacker'], 'Tampered bank name' => ['bank_name' => 'Other Bank'],
-    ];
-    $before = ac_one($conn, 'SELECT COUNT(*) AS n FROM billing_invoices')['n'];
-    $auditBefore = ac_one($conn, "SELECT COUNT(*) AS n FROM accounting_audit_logs WHERE entity_type='billing_invoice'")['n'];
-    foreach ($cases as $label => $patch) {
-        $response = $create($patch);
-        billing_check($response['code'] === 422 && $response['json']['status'] === 'error' && is_string($response['json']['message']), "$label returns 422");
-    }
-    billing_check($create(['student_id' => 999])['code'] === 404, 'Unknown student returns 404');
-    billing_check($create(['student_id' => 2])['code'] === 422, 'Duplicate names/emails never select another student fee');
-    billing_check($create(['id' => 'INV-VALID'])['code'] === 409, 'Duplicate invoice number including identical replay returns 409');
-    foreach ([null, '0', '-1'] as $fee) {
-        ac_query($conn, 'UPDATE peserta_intensif SET total_biaya=? WHERE id=1', [$fee]);
-        billing_check($create([])['code'] === 422, 'Unavailable/nonpositive official fee is rejected: '.var_export($fee, true));
-    }
-    $conn->query('UPDATE peserta_intensif SET total_biaya=15000000.50 WHERE id=1');
-    billing_check(ac_one($conn, 'SELECT COUNT(*) AS n FROM billing_invoices')['n'] === $before && ac_one($conn, "SELECT COUNT(*) AS n FROM accounting_audit_logs WHERE entity_type='billing_invoice'")['n'] === $auditBefore, 'Rejected requests persist neither invoices nor creation audits');
-
-    $schedule = [['nominal' => '5000000.25', 'jatuhTempo' => '2026-11-20', 'status' => 'Paid', 'terbayar' => 5000000], ['nominal' => '10000000.25', 'jatuhTempo' => '2026-12-20']];
-    $conn->query("UPDATE peserta_intensif SET metode_pembayaran='Angsuran' WHERE id=1");
-    $plan = $create(['id' => 'INV-PLAN', 'skema' => 'cicilan', 'subtotal' => '15000000.50', 'discount' => ['value' => 0, 'amount' => 0], 'items' => [['harga' => '15000000.50', 'jumlah' => '15000000.50', 'diskon' => 0]], 'installments' => $schedule]);
-    billing_check($plan['code'] === 200, 'Valid decimal installments and wizard item format accepted');
-    $planMeta = json_decode(ac_one($conn, "SELECT meta_json FROM billing_invoices WHERE id='INV-PLAN'")['meta_json'], true);
-    billing_check(!isset($planMeta['installments'][0]['status']) && !isset($planMeta['installments'][0]['terbayar']), 'Unvalidated installment payment metadata is discarded');
-    $conn->query("UPDATE peserta_intensif SET metode_pembayaran='Full Payment' WHERE id=1");
-    billing_check($create(['items' => [['name' => 'Legacy', 'qty' => 1, 'price' => '15000000.50', 'amount' => '15000000.50']]])['code'] === 200, 'Legacy item shape accepted with official amount and student_id');
-    $descending = $schedule; $descending[1]['jatuhTempo'] = '2026-11-19';
-    billing_check($create(['installments' => $descending])['code'] === 422, 'Out-of-order installment dates rejected');
-    $sensei = $send('login.php', ['email' => 'sensei@test', 'password' => 'isolated-test-only'])['cookie'];
-    $senseiCsrf = $send('session.php', null, $sensei)['json']['csrf_token'];
-    billing_check($send('billing.php', $base, $sensei, $senseiCsrf)['code'] === 403, 'User without prepare permission returns 403');
-    $conn->query("INSERT INTO finance_role_permissions VALUES('finance','prepare',0)");
-    billing_check($create([])['code'] === 403, 'Configured permission denial overrides finance role defaults');
-    $conn->query("DELETE FROM finance_role_permissions WHERE role_name='finance'");
-    $financeAdmin = $send('login.php', ['email' => 'finance-admin@test', 'password' => 'isolated-test-only'])['cookie'];
-    $financeAdminCsrf = $send('session.php', null, $financeAdmin)['json']['csrf_token'];
-    billing_check($send('billing.php', array_replace($base, ['id' => 'INV-ADMIN']), $financeAdmin, $financeAdminCsrf)['code'] === 200, 'Existing finance_admin alias retains creation permission');
-
-    $conn->query('ALTER TABLE peserta_intensif CHANGE total_biaya unavailable_fee DECIMAL(15,2)');
-    billing_check($create([])['code'] === 422, 'Missing official fee column fails closed without default pricing');
-    $conn->query('ALTER TABLE peserta_intensif CHANGE unavailable_fee total_biaya DECIMAL(15,2)');
-    $conn->query('ALTER TABLE billing_invoices CHANGE meta_json unavailable_meta LONGTEXT');
-    billing_check($create([])['code'] === 409, 'Missing metadata storage fails closed without runtime migration');
-    $conn->query('ALTER TABLE billing_invoices CHANGE unavailable_meta meta_json LONGTEXT');
-    $conn->query('RENAME TABLE accounting_audit_logs TO unavailable_audit');
-    billing_check($create(['id' => 'INV-ROLLBACK'])['code'] === 500 && !ac_one($conn, "SELECT id FROM billing_invoices WHERE id='INV-ROLLBACK'"), 'Audit failure rolls back invoice insert');
-    $conn->query('RENAME TABLE unavailable_audit TO accounting_audit_logs');
-
-    $read = $send('billing.php', null, $cookie);
-    billing_check($read['code'] === 200 && $read['json']['status'] === 'success', 'Existing billing GET response still works');
-    $old = array_column($read['json']['data']['invoices'], null, 'id');
-    billing_check($old['OLD-0']['status'] === 'Paid' && $old['OLD-1']['status'] === 'Paid' && $old['OLD-2']['status'] === 'Partially Paid' && $old['OLD-2']['terbayar'] === '200.00' && $old['OLD-2']['sisa'] === '800.00', 'Legacy Paid/Lunas and verified partial payment balances retain behavior');
-    billing_check(ac_rows($conn, "SELECT * FROM billing_invoices WHERE id LIKE 'OLD-%' ORDER BY id") === $legacy, 'Existing invoice rows and legacy metadata remain unchanged');
     require __DIR__.'/billing_integration_checks.php';
     billing_integration_checks($conn, $testName, $base, $send, $cookie, $csrf);
     require __DIR__.'/pricing_registration_checks.php';
     pricing_registration_checks($conn, $testName, $pricingFile, $registrationFile, $base, $send, $cookie, $csrf);
-    echo "PASS: $checks billing invoice integration checks.\n";
+    require __DIR__.'/enrollment_billing_checks.php';
+    enrollment_billing_checks($conn, $testName, $pricingFile, $registrationFile, $base, $send, $cookie, $csrf);
+    billing_check(ac_rows($conn, "SELECT * FROM billing_invoices WHERE id LIKE 'OLD-%' ORDER BY id") === $legacy, 'All legacy invoice rows and metadata remain byte-for-byte unchanged');
+    echo "PASS: $checks billing/enrollment integration checks.\n";
 } finally {
     if (is_resource($server)) { proc_terminate($server); proc_close($server); }
     putenv('CREATIVA_RAB_TEST_DB');

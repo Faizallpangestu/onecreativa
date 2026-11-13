@@ -24,6 +24,48 @@ function sp_scheme($value): ?string {
 }
 function sp_scheme_label(?string $scheme): ?string { return ['full' => 'Full Payment', 'cicilan' => 'Cicilan'][$scheme] ?? null; }
 
+function sp_terms($terms, string $scheme, int $total): array {
+    if (!is_array($terms) || !array_is_list($terms) || count($terms) < ($scheme === 'full' ? 1 : 2) || count($terms) > 120 || ($scheme === 'full' && count($terms) !== 1)) ac_fail('Jumlah termin rule tidak valid.');
+    $sum = 0; $previous = -1;
+    foreach ($terms as &$term) {
+        $amount = ac_cents($term['amount'] ?? null);
+        if (!$amount || !is_int($term['due_days'] ?? null) || $term['due_days'] < $previous || $term['due_days'] < 0 || $term['due_days'] > 3660) ac_fail('Nominal/jadwal termin rule tidak valid.');
+        $term['label'] = ac_text($term['label'] ?? null, 'Label termin', 255);
+        $term['amount'] = ac_decimal($amount); $sum = ac_add($sum, $amount); $previous = $term['due_days'];
+    }
+    unset($term);
+    if ($sum !== $total) ac_fail('Total termin rule tidak sama dengan harga approved.');
+    return $terms;
+}
+function sp_charge_policies(array $rule): array {
+    $charges = $rule['charges'] ?? [];
+    if (!is_array($charges) || !array_is_list($charges) || count($charges) > 120) ac_fail('Charge policies tidak valid.');
+    $seen = []; $automatic = 0;
+    foreach ($charges as &$charge) {
+        if (!is_array($charge) || !in_array($charge['type'] ?? '', ['program_fee', 'registration_fee', 'additional_fee'], true) || !preg_match('/^[a-zA-Z0-9_-]{1,100}$/D', $charge['key'] ?? '')) ac_fail('Identitas charge policy tidak valid.');
+        if (($charge['approval']['status'] ?? '') !== 'approved') ac_fail('Charge memerlukan approval tersendiri.');
+        foreach (['reference', 'approved_by'] as $field) ac_text($charge['approval'][$field] ?? null, 'Approval charge', 255);
+        ac_date($charge['approval']['approved_on'] ?? null);
+        if (!in_array($charge['scheme'] ?? '', ['full', 'cicilan'], true)) ac_fail('Skema charge tidak valid.');
+        $charge['label'] = ac_text($charge['label'] ?? null, 'Label charge', 255);
+        $total = ac_cents($charge['amount'] ?? null);
+        if (!$total || ac_cents($charge['discount'] ?? null) !== 0) ac_fail('Nominal/diskon charge tidak valid.');
+        $charge['amount'] = ac_decimal($total);
+        $charge['installments'] = sp_terms($charge['installments'] ?? null, $charge['scheme'], $total);
+        if ($charge['type'] === 'program_fee' && ($charge['amount'] !== $rule['amount'] || $charge['scheme'] !== $rule['scheme'] || $charge['installments'] !== $rule['installments'])) ac_fail('Program fee harus sesuai rule program approved.');
+        $key = $charge['type'].':'.$charge['key'];
+        if (isset($seen[$key])) ac_fail('Charge policy duplikat.');
+        $seen[$key] = true;
+        if (!is_bool($charge['webhook_issue'] ?? null)) ac_fail('Otorisasi auto-issue charge diperlukan.');
+        if (isset($charge['bank_account_id'])) $charge['bank_account_id'] = ac_id($charge['bank_account_id'], 'Rekening policy');
+        if ($charge['webhook_issue'] && !isset($charge['bank_account_id'])) ac_fail('Rekening resmi auto-issue belum ditetapkan.');
+        if ($charge['webhook_issue']) $automatic++;
+    }
+    unset($charge);
+    if ($automatic > 1) ac_fail('Auto-issue webhook ambigu; satu initial charge harus ditetapkan eksplisit.');
+    return $charges;
+}
+
 function sp_catalog(): array {
     $file = defined('STUDENT_PRICING_RULES_FILE') ? STUDENT_PRICING_RULES_FILE : __DIR__.'/../config/student_pricing.json';
     if (!is_file($file)) ac_fail('Konfigurasi pricing belum tersedia. Review Finance diperlukan.', 409);
@@ -41,18 +83,8 @@ function sp_catalog(): array {
             if (!isset(sp_programs()[$rule['program'] ?? '']) || !in_array($rule['scheme'] ?? '', ['full', 'cicilan'], true)) ac_fail('Program/skema rule tidak valid.');
             $total = ac_cents($rule['amount'] ?? null);
             if (!$total || ac_cents($rule['discount'] ?? null) !== 0) ac_fail('Nominal/diskon rule tidak didukung.');
-            $terms = $rule['installments'] ?? null;
-            if (!is_array($terms) || !array_is_list($terms) || count($terms) < ($rule['scheme'] === 'full' ? 1 : 2) || count($terms) > 120 || ($rule['scheme'] === 'full' && count($terms) !== 1)) ac_fail('Jumlah termin rule tidak valid.');
-            $sum = 0; $previous = -1;
-            foreach ($terms as &$term) {
-                $amount = ac_cents($term['amount'] ?? null);
-                if (!$amount || !is_int($term['due_days'] ?? null) || $term['due_days'] < $previous || $term['due_days'] < 0 || $term['due_days'] > 3660) ac_fail('Nominal/jadwal termin rule tidak valid.');
-                $term['label'] = ac_text($term['label'] ?? null, 'Label termin', 255);
-                $term['amount'] = ac_decimal($amount); $sum = ac_add($sum, $amount); $previous = $term['due_days'];
-            }
-            unset($term);
-            if ($sum !== $total) ac_fail('Total termin rule tidak sama dengan harga approved.');
-            $rule['amount'] = ac_decimal($total); $rule['installments'] = $terms;
+            $rule['amount'] = ac_decimal($total); $rule['installments'] = sp_terms($rule['installments'] ?? null, $rule['scheme'], $total);
+            $rule['charges'] = sp_charge_policies($rule);
             $key = $rule['program'].':'.$rule['scheme'];
             if (isset($rules[$key])) ac_fail('Rule aktif program/skema bertentangan.');
             $rule['hash'] = hash('sha256', json_encode($rule, JSON_THROW_ON_ERROR));

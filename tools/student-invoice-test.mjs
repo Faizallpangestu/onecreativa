@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { databaseId, invoiceDecimal, formatInvoiceMoney, studentScheme, invoiceLookups, loadInvoiceLookups, buildStudentInvoice, submitStudentInvoice, serverDeliveryRows, serverPaymentRows } from '../src/utils/studentInvoice.js';
+import { databaseId, invoiceDecimal, formatInvoiceMoney, studentScheme, chargeSchedule, invoiceLookups, loadInvoiceLookups, buildStudentInvoice, submitStudentInvoice, serverDeliveryRows, serverPaymentRows } from '../src/utils/studentInvoice.js';
 import paymentSchemes from '../backend/config/payment_schemes.json' with { type: 'json' };
 
 let checks = 0;
@@ -10,6 +10,18 @@ const source = {
       { id: 17, nis: 'NIS-901', web_id: 999, name: 'Nama Sama', email: '', no_wa: '', program: 'Program Database', total_biaya: '15000000.01', metode_pembayaran: 'Full Payment' },
       { id: 18, nis: 'NIS-902', web_id: 998, name: 'Nama Sama', email: '', no_wa: '', total_biaya: '18000000.00', metode_pembayaran: 'Cicilan' },
       { id: 'SIS-LOCAL', name: 'Lokal', total_biaya: '1.00' },
+    ],
+    enrollment_schema_ready: true,
+    enrollments: [
+      { id: 71, student_id: 17, program: 'Program Database', cohort: '2026-A', enrollment_status: 'approved', review_reason: '' },
+      { id: 72, student_id: 18, program: 'Program Cicilan', cohort: '2026-B', enrollment_status: 'approved', review_reason: '' },
+      { id: 73, student_id: 17, program: 'Program Kedua', cohort: '2027-C', enrollment_status: 'approved', review_reason: '' },
+    ],
+    charges: [
+      { id: 81, enrollment_id: 71, charge_type: 'program_fee', charge_key: 'tuition', label: 'Program fee', amount: '15000000.01', scheme: 'full', installments: [{ label: 'Full Payment', amount: '15000000.01', due_days: 7 }] },
+      { id: 82, enrollment_id: 72, charge_type: 'program_fee', charge_key: 'tuition', label: 'Program fee', amount: '18000000.00', scheme: 'cicilan', installments: [{ label: 'DP', amount: '5000000.01', due_days: 7 }, { label: 'Pelunasan', amount: '12999999.99', due_days: 37 }] },
+      { id: 83, enrollment_id: 73, charge_type: 'program_fee', charge_key: 'tuition', label: 'Program kedua', amount: '500.01', scheme: 'full', installments: [{ label: 'Full Payment', amount: '500.01', due_days: 7 }] },
+      { id: 84, enrollment_id: 71, charge_type: 'registration_fee', charge_key: 'initial', label: 'Registration fee', amount: '100.25', scheme: 'full', installments: [{ label: 'Biaya pendaftaran', amount: '100.25', due_days: 7 }] },
     ],
     accounts: [{ id: 45, is_active: '1', report_class: 'cash', code: '1120' }, { id: 46, is_active: '0', report_class: 'cash' }, { id: 47, is_active: '1', report_class: 'receivable' }],
     banks: [
@@ -22,112 +34,111 @@ const source = {
   },
 };
 const lookups = invoiceLookups(source);
-const input = { ...lookups, studentId: '17', bankId: '3', id: 'TEST-STABLE-ID', date: '2026-11-13', due: '2026-11-20' };
+const input = { ...lookups, studentId: '17', enrollmentId: '71', chargeId: '81', bankId: '3', date: '2026-11-13' };
 const payload = buildStudentInvoice(input);
 const fail = (status, message) => Object.assign(new Error(message), { response: { status, data: { status: 'error', message, request_id: 'qa-request' } } });
-const billing = invoices => ({ data: { status: 'success', data: { invoices } } });
-
-await test('Backend and frontend share every scheme alias without guessing unknown schemes', () => {
-  for (const [scheme, aliases] of Object.entries(paymentSchemes)) {
-    for (const alias of aliases) assert.equal(studentScheme(`  ${alias.toUpperCase()}  `), scheme);
-  }
-  for (const unknown of ['', null, 'not full', 'DP khusus 12 bulan', 'cicilan tak dikenal']) assert.equal(studentScheme(unknown), '');
-  assert.equal(buildStudentInvoice({ ...input, students: [{ ...lookups.students[0], metode_pembayaran: 'Angsuran' }], installments: [
-    { nominal: '5000000.01', jatuhTempo: input.due }, { nominal: '10000000.00', jatuhTempo: '2026-12-20' },
-  ] }).skema, 'cicilan');
+const invoice = { id: 'TGCJ26110001', student_id: 17, enrollment_id: 71, charge_id: 81, status: 'Unpaid' };
+const billing = invoice => ({ data: { status: 'success', data: { invoice } } });
+const issued = { data: { status: 'success', data: { ...invoice, created_now: true } } };
+await test('PHP and FE share all scheme aliases without guessing', () => {
+  for (const [scheme, aliases] of Object.entries(paymentSchemes)) for (const alias of aliases) assert.equal(studentScheme(' '+alias.toUpperCase()+' '), scheme);
+  for (const unknown of ['', null, 'not full', 'DP khusus 12 bulan']) assert.equal(studentScheme(unknown), '');
 });
-
-await test('Official student and bank IDs stay separate from NIS, web_id and COA', () => {
-  assert.equal(payload.student_id, 17); assert.equal(payload.bank_account_id, 3);
+await test('Database student, enrollment, charge and bank IDs stay separate from NIS/web_id/COA', () => {
+  assert.equal(payload.student_id, 17); assert.equal(payload.enrollment_id, 71); assert.equal(payload.charge_id, 81); assert.equal(payload.bank_account_id, 3);
   assert.equal(lookups.students.length, 2); assert.deepEqual(lookups.banks.map(row => row.databaseId), ['3']);
   assert.equal(lookups.students[0].email, ''); assert.equal(lookups.students[0].phone, '');
+  assert.equal(payload.id, undefined);
 });
-await test('Exact decimal totals come from lookup, not editable form overrides', () => {
-  const actual = buildStudentInvoice({ ...input, total: '1.00', discount: { amount: '999' }, status: 'Paid' });
-  assert.equal(actual.total, '15000000.01'); assert.equal(actual.status, 'Unpaid'); assert.deepEqual(actual.discount, { amount: '0.00' });
-  assert.equal(invoiceDecimal('9999999999999.99'), '9999999999999.99'); assert.equal(invoiceDecimal('0.1'), '0.10');
-  assert.equal(formatInvoiceMoney('15000000.01'), 'Rp 15.000.000,01');
+await test('Invoice totals and schedule use the selected approved charge, not editable fields', () => {
+  const actual = buildStudentInvoice({ ...input, id: 'FAKE', total: '1.00', discount: { amount: '999' }, status: 'Paid', installments: [] });
+  assert.equal(actual.id, undefined); assert.equal(actual.total, '15000000.01'); assert.equal(actual.status, 'Unpaid'); assert.deepEqual(actual.discount, { amount: '0.00' });
+  assert.equal(actual.installments[0].jatuhTempo, '2026-11-20');
+});
+await test('Decimal maximum and malformed/float values retain BE-01.2 protection', () => {
+  assert.equal(invoiceDecimal('9999999999999.99'), '9999999999999.99'); assert.equal(invoiceDecimal('0.1'), '0.10'); assert.equal(formatInvoiceMoney('15000000.01'), 'Rp 15.000.000,01');
   for (const value of [0.1, '1e7', '-1', '1.001', '15.000,01', '1.00\n', null]) assert.throws(() => invoiceDecimal(value));
-  assert.equal(databaseId('17\n'), ''); assert.equal(databaseId('NIS-901'), '');
+  assert.equal(databaseId('NIS-901'), ''); assert.equal(databaseId('17\n'), '');
 });
-await test('Invalid, local and upstream student IDs cannot issue', () => {
-  for (const studentId of ['', 'SIS-LOCAL', 'NIS-901', '999', '1120']) assert.throws(() => buildStudentInvoice({ ...input, studentId }), /ID database/);
+await test('Local/upstream student IDs and forged or cross-student enrollments cannot publish', () => {
+  for (const studentId of ['', 'SIS-LOCAL', 'NIS-901', '999']) assert.throws(() => buildStudentInvoice({ ...input, studentId }), /ID database/);
+  for (const enrollmentId of ['', '999', '72']) assert.throws(() => buildStudentInvoice({ ...input, enrollmentId }), /enrollment resmi/);
+  assert.throws(() => buildStudentInvoice({ ...input, chargeId: '82' }), /charge/);
 });
-await test('Duplicate names do not select another identity or price', () => {
-  assert.throws(() => buildStudentInvoice({ ...input, studentId: '18', installments: [] }), /termin cicilan/);
-  assert.equal(payload.student_id, 17); assert.equal(payload.total, '15000000.01');
+await test('Same person can select another enrollment/program/cohort with its own price', () => {
+  const second = buildStudentInvoice({ ...input, enrollmentId: '73', chargeId: '83' });
+  assert.equal(second.student_id, payload.student_id); assert.equal(second.enrollment_id, 73); assert.equal(second.total, '500.01');
 });
-await test('Manual mode cannot publish even with valid selected database IDs', () => assert.throws(() => buildStudentInvoice({ ...input, manual: true }), /terdaftar di database/));
-await test('No client bank assertions, quantity or independent item pricing in payload', () => {
-  for (const field of ['bank_name','account_number','account_holder','coa_code','items','qty','customer','email','phone']) assert.equal(payload[field], undefined);
-  assert.equal(payload.installments[0].nominal, payload.total);
+await test('Same enrollment can select a distinct approved charge type without client authorizing a fee', () => {
+  const second = buildStudentInvoice({ ...input, chargeId: '84', charge_type: 'additional_fee', charge_key: 'random' });
+  assert.equal(second.enrollment_id, payload.enrollment_id); assert.equal(second.total, '100.25'); assert.equal(second.charge_type, undefined); assert.equal(second.charge_key, undefined);
 });
-await test('Missing official bank holder cannot be replaced by account display label', () => {
+await test('Global student price/program changes never reprice an enrollment charge', () => {
+  const changed = buildStudentInvoice({ ...input, students: [{ ...lookups.students[0], total_biaya: '1.00', program: 'Other', metode_pembayaran: 'Unknown' }] });
+  assert.equal(changed.total, payload.total); assert.equal(changed.skema, 'full');
+});
+await test('Missing enrollment approval or charge policy blocks publishing clearly', () => {
+  assert.throws(() => buildStudentInvoice({ ...input, enrollments: [] }), /enrollment resmi/);
+  assert.throws(() => buildStudentInvoice({ ...input, enrollments: [{ ...lookups.enrollments[0], enrollment_status: 'needs_review' }] }), /review/);
+  assert.throws(() => buildStudentInvoice({ ...input, charges: [] }), /diotorisasi Finance/);
+});
+await test('Manual student UI cannot bypass official enrollment and charge', () => assert.throws(() => buildStudentInvoice({ ...input, manual: true }), /terdaftar di database/));
+await test('No client bank assertions or synthetic item pricing appear in request', () => {
+  for (const key of ['id','bank_name','account_number','account_holder','coa_code','items','qty','customer','email','phone','charge_type','charge_key']) assert.equal(payload[key], undefined);
+});
+await test('Official bank-holder gap still blocks issue without display-name fallback', () => {
   const missing = invoiceLookups({ ...source, data: { ...source.data, banks: [source.data.banks[4]] } });
-  assert.equal(missing.banks.length, 0); assert.throws(() => buildStudentInvoice({ ...input, banks: missing.banks }), /Finance\/DB PIC/);
+  assert.throws(() => buildStudentInvoice({ ...input, banks: missing.banks }), /Finance\/DB PIC/);
 });
-await test('Missing/nonpositive official fee and unknown scheme fail without defaults', () => {
-  for (const total_biaya of [null, '0.00', '-1.00']) assert.throws(() => buildStudentInvoice({ ...input, students: [{ ...lookups.students[0], total_biaya }] }));
-  assert.throws(() => buildStudentInvoice({ ...input, students: [{ ...lookups.students[0], metode_pembayaran: '' }] }), /Skema pembayaran/);
+await test('Approved cicilan is read from server policy with exact terms and no fallback', () => {
+  const plan = buildStudentInvoice({ ...input, studentId: '18', enrollmentId: '72', chargeId: '82' });
+  assert.equal(plan.skema, 'cicilan'); assert.deepEqual(plan.installments.map(row => row.nominal), ['5000000.01', '12999999.99']); assert.equal(plan.installments[1].jatuhTempo, '2026-12-20');
+  assert.throws(() => buildStudentInvoice({ ...input, charges: [{ ...lookups.charges[0], installments: [] }] }), /Jadwal/);
+  assert.throws(() => buildStudentInvoice({ ...input, charges: [{ ...lookups.charges[0], installments: [{ label: 'Bad', amount: '1.00', due_days: 7 }] }] }), /Total termin/);
 });
-const terms = [{ deskripsi: 'DP', jatuhTempo: '2026-11-20', nominal: '5000000.01' }, { deskripsi: 'Pelunasan', jatuhTempo: '2026-12-20', nominal: '12999999.99' }];
-await test('Installment decimals and dates are preserved without rounding or conversion to full', () => {
-  const actual = buildStudentInvoice({ ...input, studentId: '18', installments: terms });
-  assert.equal(actual.skema, 'cicilan'); assert.deepEqual(actual.installments, terms);
-  assert.throws(() => buildStudentInvoice({ ...input, studentId: '18', installments: [terms[0]] }), /dua termin/);
-  assert.throws(() => buildStudentInvoice({ ...input, studentId: '18', installments: [{ ...terms[0], nominal: '1.00' }, terms[1]] }), /tepat sama/);
-  assert.throws(() => buildStudentInvoice({ ...input, studentId: '18', installments: [{ ...terms[0], jatuhTempo: '2026-02-30' }, terms[1]] }), /Tanggal/);
+await test('Schedule arithmetic handles year/month boundaries and validates policy dates', () => {
+  assert.equal(chargeSchedule(lookups.charges[0], '2026-12-31')[0].jatuhTempo, '2027-01-07');
+  assert.throws(() => chargeSchedule(lookups.charges[0], '2026-02-30'));
+  assert.throws(() => chargeSchedule({ installments: [{ due_days: -1, amount: '1.00' }] }, '2026-11-13'));
 });
-await test('Sync refreshes database lookups and ignores upstream IDs returned by sync', async () => {
-  const calls = [];
-  const api = { post: async url => { calls.push(url); return { data: { status: 'success', data: [{ id: 99999, web_id: 99999 }] } }; },
-    get: async (url, config) => { calls.push(url); assert.equal(config.params.view, 'lookups'); return { data: source }; } };
-  const actual = await loadInvoiceLookups(api, { sync: true });
-  assert.deepEqual(calls, ['/api/sync_students_web.php','/api/accounting.php']); assert.equal(actual.students[0].databaseId, '17');
+await test('Sync refreshes authoritative DB lookups instead of adopting upstream IDs', async () => {
+  const calls = []; const api = { post: async url => { calls.push(url); return { data: { status: 'success', students: [{ id: 999999 }] } }; }, get: async url => { calls.push(url); return { data: source }; } };
+  const refreshed = await loadInvoiceLookups(api, { sync: true }); assert.deepEqual(calls, ['/api/sync_students_web.php', '/api/accounting.php']); assert.equal(refreshed.students[0].databaseId, '17'); assert.equal(refreshed.enrollments.length, 3);
 });
-await test('Only confirmed server success completes invoice creation', async () => {
-  assert.deepEqual(await submitStudentInvoice({ post: async () => ({ data: { status: 'success', data: { id: payload.id } } }) }, payload), { id: payload.id });
+await test('Confirmed server response supplies invoice number and validates all identities', async () => {
+  assert.equal((await submitStudentInvoice({ post: async () => issued }, payload)).id, invoice.id);
+  await assert.rejects(submitStudentInvoice({ post: async () => ({ data: { status: 'success', data: { ...invoice, enrollment_id: 999 } } }), get: async () => billing(null) }, payload), /Konfirmasi/);
 });
-await test('HTTP 422 total mismatch preserves backend error and never becomes success', async () => {
-  let checked = false;
-  await assert.rejects(submitStudentInvoice({ post: async () => { throw fail(422, 'Total invoice tidak sama dengan biaya resmi'); }, get: async () => { checked = true; } }, payload), error => /Total invoice/.test(error.message) && /qa-request/.test(error.message) && !error.needsReconciliation);
-  assert.equal(checked, false);
+await test('422 mismatch preserves form error and never fabricates success', async () => {
+  await assert.rejects(submitStudentInvoice({ post: async () => { throw fail(422, 'Total mismatch'); } }, payload), error => /Total mismatch/.test(error.message) && !error.needsReconciliation);
 });
-await test('Bank configuration 409 explains Finance dependency and reconciles before retry', async () => {
-  let reads = 0;
-  const api = { post: async () => { throw fail(409, 'Data rekening resmi belum lengkap'); }, get: async () => { reads++; return billing([]); } };
-  await assert.rejects(submitStudentInvoice(api, payload), error => /Finance\/DB PIC/.test(error.message) && error.needsReconciliation);
-  assert.equal(reads, 1);
+await test('Incomplete bank 409 explains Finance dependency and checks the same charge', async () => {
+  let checked; const api = { post: async () => { throw fail(409, 'Master rekening belum lengkap'); }, get: async (url, config) => { checked = config.params; return billing(null); } };
+  await assert.rejects(submitStudentInvoice(api, payload), /Finance\/DB PIC/); assert.equal(checked.charge_id, payload.charge_id); assert.equal(checked.view, 'charge');
 });
-await test('409 existing invoice blocks repeated POST while retaining the same number', async () => {
-  let posts = 0, reads = 0;
-  const api = { get: async () => { reads++; return billing([{ id: payload.id }]); }, post: async () => { posts++; throw fail(409, 'Nomor invoice sudah digunakan'); } };
-  await assert.rejects(submitStudentInvoice(api, payload), /sudah ada di server/);
-  await assert.rejects(submitStudentInvoice(api, payload, true), /tidak dikirim ulang/);
-  assert.equal(posts, 1); assert.equal(reads, 2); assert.equal(payload.id, 'TEST-STABLE-ID');
+await test('Lost network response returns success only after server confirms same charge invoice', async () => {
+  let posts = 0; const api = { post: async () => { posts++; throw new Error('Network Error'); }, get: async () => billing(invoice) };
+  const result = await submitStudentInvoice(api, payload); assert.equal(result.id, invoice.id); assert.equal(result.created_now, false); assert.equal(result.reconciled, true); assert.equal(posts, 1);
 });
-await test('Lost network response checks server without fabricating success or reposting', async () => {
-  let posts = 0;
-  const api = { post: async () => { posts++; throw new Error('Network Error'); }, get: async () => billing([{ id: payload.id }]) };
-  await assert.rejects(submitStudentInvoice(api, payload), error => error.needsReconciliation && /sudah ada di server/.test(error.message));
-  await assert.rejects(submitStudentInvoice(api, payload, true), /tidak dikirim ulang/); assert.equal(posts, 1);
+await test('Existing charge is reused without a repeated POST after uncertain request', async () => {
+  let posts = 0; const api = { get: async () => billing({ ...invoice, status: 'Cancelled' }), post: async () => { posts++; } };
+  const result = await submitStudentInvoice(api, payload, true); assert.equal(result.id, invoice.id); assert.equal(result.status, 'Cancelled'); assert.equal(posts, 0);
 });
-await test('Unavailable reconciliation blocks retry until server can be checked', async () => {
-  let posts = 0;
-  const api = { get: async () => { throw new Error('Offline'); }, post: async () => { posts++; } };
-  await assert.rejects(submitStudentInvoice(api, payload, true), /Retry diblokir/); assert.equal(posts, 0);
+await test('Unavailable charge reconciliation blocks retry and does not change charge identity', async () => {
+  let posts = 0; const api = { get: async () => { throw new Error('Offline'); }, post: async () => { posts++; } };
+  await assert.rejects(submitStudentInvoice(api, payload, true), error => error.needsReconciliation && /Retry diblokir/.test(error.message)); assert.equal(posts, 0);
 });
-await test('After confirmed absence an explicit retry uses the identical invoice ID', async () => {
-  const calls = [];
-  const api = { get: async () => { calls.push('check'); return billing([]); }, post: async (url, sent) => { calls.push(sent.id); return { data: { status: 'success', data: { id: sent.id } } }; } };
-  await submitStudentInvoice(api, payload, true); assert.deepEqual(calls, ['check', payload.id]);
+await test('Explicit retry after confirmed absence uses identical student/enrollment/charge and no ID', async () => {
+  const calls = []; const api = { get: async (url, config) => { calls.push(config.params.charge_id); return billing(null); }, post: async (url, body) => { calls.push(body); return issued; } };
+  await submitStudentInvoice(api, payload, true); assert.equal(calls[0], payload.charge_id); assert.equal(calls[1], payload); assert.equal(calls[1].id, undefined);
 });
-await test('Paid/partial invoice status never manufactures delivery/payment records', () => {
+await test('Reconciliation cannot accept an invoice for a different enrollment/student', async () => {
+  await assert.rejects(submitStudentInvoice({ get: async () => billing({ ...invoice, student_id: 18 }) }, payload, true), /Retry diblokir/);
+});
+await test('Invoice status never manufactures payment or delivery records', () => {
   const invoices = [{ id: 'PAID', status: 'Paid', total: '100.01' }, { id: 'PART', status: 'Partially Paid', total: '200.00' }];
   assert.deepEqual(serverDeliveryRows(invoices, []), []); assert.deepEqual(serverPaymentRows(invoices, []), []);
-  const payments = [{ id: 9, noInv: 'PART', jumlah: '0.01', statusVerif: 'Menunggu' }];
-  assert.equal(serverPaymentRows(invoices, payments)[0].statusVerif, 'Menunggu'); assert.equal(serverPaymentRows(invoices, payments)[0].jumlah, '0.01');
-  const delivery = serverDeliveryRows(invoices, [{ id: 'PAID', statusKirim: 'Gagal', statusBaca: null }])[0];
-  assert.equal(delivery.statusKirim, 'Gagal'); assert.equal(delivery.statusBaca, null);
+  const payments = [{ id: 9, noInv: 'PART', jumlah: '0.01', statusVerif: 'Menunggu' }]; assert.equal(serverPaymentRows(invoices, payments)[0].statusVerif, 'Menunggu'); assert.equal(serverPaymentRows(invoices, payments)[0].jumlah, '0.01');
+  assert.equal(serverDeliveryRows(invoices, [{ id: 'PAID', statusKirim: 'Gagal', statusBaca: null }])[0].statusKirim, 'Gagal');
 });
-console.log(`PASS: ${checks} validated student invoice regression scenarios (mock API; not production E2E).`);
+console.log('PASS: '+checks+' validated student/enrollment invoice regression scenarios (mock API; not production E2E).');

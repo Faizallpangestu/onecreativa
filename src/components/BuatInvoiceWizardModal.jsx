@@ -7,7 +7,6 @@ import {
   FileText,
   Search,
   Plus,
-  Trash2,
   X,
   Printer,
   Download,
@@ -33,7 +32,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { loadInvoiceLookups, invoiceDecimal, formatInvoiceMoney, studentScheme, buildStudentInvoice, submitStudentInvoice, invoiceError } from "../utils/studentInvoice";
+import { loadInvoiceLookups, invoiceDecimal, formatInvoiceMoney, studentScheme, chargeSchedule, buildStudentInvoice, submitStudentInvoice, invoiceError } from "../utils/studentInvoice";
 import {
   generateInvoicePDF,
   formatInvoiceDateShort,
@@ -62,7 +61,6 @@ const DEFAULT_EXCLUSIONS_LIST = [
 ];
 
 const DEFAULT_TERMS_LIST = [
-  "Biaya ujian SSW selain program SSW kaigo, pengolahan makanan, pertanian, perikanan, dan restoran dikenakan biaya tambahan Rp 500.000.",
   "Invoice bersifat confidential (rahasia)"
 ];
 
@@ -74,20 +72,20 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
   const needsReconciliation = useRef(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [invoiceNumber] = useState(() => `TGCJ${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(Math.floor(1000 + Math.random() * 9000))}`);
+  const invoiceNumber = 'Diberikan server saat terbit';
   const [salesCode, setSalesCode] = useState('');
   const [tanggalInvoice, setTanggalInvoice] = useState(() => new Date().toISOString().slice(0, 10));
-  const [jatuhTempo, setJatuhTempo] = useState(() => { const date = new Date(); date.setDate(date.getDate() + 2); return date.toISOString().slice(0, 10); });
   const [lookups, setLookups] = useState({ students: [], banks: [], canPrepare: false });
   const [lookupLoading, setLookupLoading] = useState(true);
   const [lookupError, setLookupError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState('');
+  const [selectedChargeId, setSelectedChargeId] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [isManualStudent, setIsManualStudent] = useState(false);
   const [manualStudent, setManualStudent] = useState({ nama: '', nis: '', phone: '', email: '', alamat: '', program: '', metodePembayaran: '', batch: '' });
   const [isSyncingPeserta, setIsSyncingPeserta] = useState(false);
-  const [installmentDraft, setInstallmentDraft] = useState([]);
   const [catatanOpsional, setCatatanOpsional] = useState('');
 
   const refreshLookups = useCallback(async (signal, sync = false) => {
@@ -107,20 +105,23 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
 
   const liveStudents = lookups.students;
   const selectedStudent = liveStudents.find(row => row.databaseId === selectedStudentId);
-  const activeStudent = (isManualStudent ? manualStudent : selectedStudent) || { nama: '', nis: '', phone: '', email: '', alamat: '', program: '', metodePembayaran: '', batch: '' };
-  const programInfo = { program: isManualStudent ? '' : (selectedStudent?.program || ''), lokasi: isManualStudent ? '' : (selectedStudent?.kota || ''), durasi: '' };
-  let officialTotal = null;
-  try { if (!isManualStudent && selectedStudent) officialTotal = invoiceDecimal(selectedStudent.total_biaya); } catch { /* Show validation below; never invent a fee. */ }
-  const skemaPembayaran = isManualStudent ? '' : studentScheme(selectedStudent?.metode_pembayaran);
+  const availableEnrollments = (lookups.enrollments || []).filter(row => String(row.student_id) === selectedStudentId);
+  const selectedEnrollment = availableEnrollments.find(row => String(row.id) === selectedEnrollmentId);
+  const availableCharges = (lookups.charges || []).filter(row => String(row.enrollment_id) === selectedEnrollmentId);
+  const selectedCharge = availableCharges.find(row => String(row.id) === selectedChargeId);
+  const activeStudent = isManualStudent ? manualStudent : { ...selectedStudent, program: selectedEnrollment?.program || '', batch: selectedEnrollment?.cohort || '', metodePembayaran: selectedEnrollment?.payment_scheme === 'full' ? 'Full Payment' : selectedEnrollment?.payment_scheme === 'cicilan' ? 'Cicilan' : '' };
+  const programInfo = { program: isManualStudent ? '' : (selectedEnrollment?.program || ''), lokasi: isManualStudent ? '' : (selectedStudent?.kota || ''), durasi: '' };
+  let officialTotal = null, pembayaranList = [];
+  try { if (!isManualStudent && selectedCharge) { officialTotal = invoiceDecimal(selectedCharge.amount); pembayaranList = chargeSchedule(selectedCharge, tanggalInvoice); } } catch { /* Explain missing approved policy below. */ }
+  const skemaPembayaran = isManualStudent ? '' : studentScheme(selectedCharge?.scheme);
+  const jatuhTempo = pembayaranList[0]?.jatuhTempo || '';
   const totalTagihan = officialTotal, subtotal = officialTotal, totalDiskon = '0.00';
-  const items = officialTotal ? [{ id: 1, deskripsi: programInfo.program || 'Biaya program siswa', subdeskripsi: programInfo.lokasi, harga: officialTotal, diskon: '0.00', jumlah: officialTotal }] : [];
-  const pembayaranList = skemaPembayaran === 'full' && officialTotal
-    ? [{ id: 1, deskripsi: 'Full Payment', jatuhTempo, nominal: officialTotal }] : installmentDraft;
+  const items = officialTotal ? [{ id: 1, deskripsi: selectedCharge.label, subdeskripsi: programInfo.program, harga: officialTotal, diskon: '0.00', jumlah: officialTotal }] : [];
   const bankAccounts = lookups.banks;
   const selectedAccount = bankAccounts.find(row => row.databaseId === selectedAccountId)
     || { bank: '', nama: 'Belum ada rekening dipilih', noRek: '', pemilik: '', kode: '', saldo: null };
 
-  const selectStudent = student => { setSelectedStudentId(student?.databaseId || ''); setInstallmentDraft([]); setSubmitError(''); };
+  const selectStudent = student => { if (submitting.current || needsReconciliation.current) return; setSelectedStudentId(student?.databaseId || ''); setSelectedEnrollmentId(''); setSelectedChargeId(''); setSubmitError(''); };
   const handleSyncPesertaFromWeb = async () => {
     setIsSyncingPeserta(true);
     try {
@@ -129,22 +130,19 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
     } catch (error) { setLookupError(invoiceError(error)); }
     finally { setIsSyncingPeserta(false); }
   };
-  const handlePembayaranChange = (id, field, value) => setInstallmentDraft(rows => rows.map(row => row.id === id ? { ...row, [field]: value } : row));
-  const handleAddPembayaran = () => setInstallmentDraft(rows => [...rows, { id: Math.max(0, ...rows.map(row => row.id)) + 1, deskripsi: `Termin ${rows.length + 1}`, jatuhTempo: rows.length === 0 ? jatuhTempo : '', nominal: '' }]);
-  const handleRemovePembayaran = id => setInstallmentDraft(rows => rows.filter(row => row.id !== id));
   let payload, validationMessage = '';
   try {
     if (!lookups.canPrepare) throw new Error('Anda tidak memiliki permission untuk menerbitkan invoice.');
-    payload = buildStudentInvoice({ students: liveStudents, banks: bankAccounts, studentId: selectedStudentId, bankId: selectedAccountId,
-      manual: isManualStudent, id: invoiceNumber, date: tanggalInvoice, due: jatuhTempo, installments: pembayaranList, notes: catatanOpsional, salesCode });
+    payload = buildStudentInvoice({ ...lookups, students: liveStudents, banks: bankAccounts, enrollmentId: selectedEnrollmentId, chargeId: selectedChargeId, studentId: selectedStudentId, bankId: selectedAccountId,
+      manual: isManualStudent, date: tanggalInvoice, notes: catatanOpsional, salesCode });
   } catch (error) { validationMessage = error.message; }
   const handleTerbitkanInvoice = async () => {
     if (submitting.current || !payload || lookupLoading || lookupError) return;
     submitting.current = true; setBusy(true); setSubmitError('');
     try {
-      await submitStudentInvoice(axios, payload, needsReconciliation.current);
+      const issued = await submitStudentInvoice(axios, payload, needsReconciliation.current);
       needsReconciliation.current = false;
-      await Swal.fire({ icon: 'success', title: 'Invoice Tersimpan di Server', text: `Invoice ${invoiceNumber} berhasil dibuat. Pengiriman dan pembayaran mengikuti record server.` });
+      await Swal.fire({ icon: 'success', title: 'Invoice Tersimpan di Server', text: `Invoice ${issued.id} ${issued.created_now ? "berhasil dibuat" : "sudah tersedia di server"}. Status: ${issued.status}. Pengiriman dan pembayaran mengikuti record server.` });
       onSuccess?.(); onClose();
     } catch (error) {
       needsReconciliation.current = Boolean(error.needsReconciliation);
@@ -154,7 +152,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
   const handleSaveDraft = () => Swal.fire({ icon: 'info', title: 'Penyimpanan Draft Belum Tersedia', text: 'Belum ada penyimpanan draft backend. Isian hanya bertahan selama form terbuka dan belum menjadi invoice resmi. Jangan tutup form jika masih diperlukan.' });
   const handleDownloadPDF = () => {
     if (!payload) { setSubmitError(validationMessage); return; }
-    generateInvoicePDF({ ...payload, status: 'Draft', customer: activeStudent.nama, email: activeStudent.email, phone: activeStudent.phone,
+    generateInvoicePDF({ ...payload, id: 'PRATINJAU', status: 'Draft', customer: activeStudent.nama, email: activeStudent.email, phone: activeStudent.phone,
       program: programInfo.program, lokasi: programInfo.lokasi, items, installments: payload.installments,
       includes: DEFAULT_INCLUSIONS_LIST, excludes: DEFAULT_EXCLUSIONS_LIST,
       bank_name: selectedAccount.bank, account_number: selectedAccount.noRek, account_holder: selectedAccount.pemilik,
@@ -281,7 +279,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                       <input
                         type="date"
                         value={tanggalInvoice}
-                        onChange={e => setTanggalInvoice(e.target.value)}
+                        readOnly={busy || needsReconciliation.current} onChange={e => setTanggalInvoice(e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       />
                     </div>
@@ -294,7 +292,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                       <input
                         type="date"
                         value={jatuhTempo}
-                        onChange={e => setJatuhTempo(e.target.value)}
+                        readOnly
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       />
                     </div>
@@ -315,7 +313,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                     <button
                       type="button"
                       onClick={handleSyncPesertaFromWeb}
-                      disabled={isSyncingPeserta}
+                      disabled={isSyncingPeserta || busy || needsReconciliation.current}
                       className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
                       title="Tarik data pendaftar terbaru dari creativabridging.com"
                     >
@@ -324,7 +322,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsManualStudent(!isManualStudent)}
+                      disabled={busy || needsReconciliation.current} onClick={() => setIsManualStudent(!isManualStudent)}
                       className="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold transition flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -345,7 +343,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                           aria-label="Siswa database"
                           value={selectedStudentId}
                           onChange={e => selectStudent(liveStudents.find(row => row.databaseId === e.target.value))}
-                          disabled={liveStudents.length === 0}
+                          disabled={liveStudents.length === 0 || busy || needsReconciliation.current}
                           className="w-full bg-white border border-slate-300 hover:border-blue-400 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer appearance-none pr-10 transition disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
                           {liveStudents.length === 0 ? (
@@ -499,6 +497,21 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <label className="font-semibold text-slate-700">Enrollment resmi
+                    <select aria-label="Enrollment database" value={selectedEnrollmentId} disabled={isManualStudent || busy || needsReconciliation.current} onChange={e => { setSelectedEnrollmentId(e.target.value); setSelectedChargeId(''); setSubmitError(''); }} className="mt-1 w-full bg-white border border-slate-300 rounded-xl px-3 py-2">
+                      <option value="">Pilih enrollment siswa</option>
+                      {availableEnrollments.map(row => <option key={row.id} value={row.id}>{row.program || row.program_id || 'Program perlu review'} ? {row.cohort || row.external_enrollment_id} ({row.enrollment_status}{row.review_reason ? ', perlu review' : ''})</option>)}
+                    </select>
+                  </label>
+                  <label className="font-semibold text-slate-700">Charge approved
+                    <select aria-label="Charge approved" value={selectedChargeId} disabled={isManualStudent || busy || needsReconciliation.current} onChange={e => { setSelectedChargeId(e.target.value); setSubmitError(''); }} className="mt-1 w-full bg-white border border-slate-300 rounded-xl px-3 py-2">
+                      <option value="">Pilih charge terotorisasi</option>
+                      {availableCharges.map(row => <option key={row.id} value={row.id}>{row.label} ? {row.charge_key}{row.billing_invoice_id ? ' (sudah terbit: ' + row.billing_invoice_id + ')' : ''}</option>)}
+                    </select>
+                  </label>
+                </div>
+                {!isManualStudent && (!selectedEnrollment || !availableCharges.length) && <p className="text-xs text-amber-800">Pilih enrollment yang tepat. Enrollment dan charge memerlukan identitas serta approval Finance; harga siswa lama tidak digunakan sebagai pengganti. Jika daftar kosong, hubungi Finance/DB PIC.</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div><label className="block text-slate-500 mb-1">Program Resmi Siswa</label><input readOnly value={programInfo.program || 'Belum tersedia'} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold" /></div>
                   <div><label className="block text-slate-500 mb-1">Lokasi Database</label><input readOnly value={programInfo.lokasi || 'Belum tersedia'} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2" /></div>
                 </div>
@@ -507,7 +520,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
                     <tbody>{items.map(item => <tr key={item.id}><td className="p-3 font-bold">{item.deskripsi}</td><td className="p-3 text-right">{formatRp(item.harga)}</td><td className="p-3 text-right">{formatRp(item.diskon)}</td><td className="p-3 text-right font-bold">{formatRp(item.jumlah)}</td></tr>)}</tbody>
                   </table>
                 </div>
-                <p className="text-xs text-slate-500">Biaya berasal dari total_biaya siswa di database dan tidak dapat diubah melalui invoice.</p>
+                <p className="text-xs text-slate-500">Biaya berasal dari snapshot charge approved untuk enrollment yang dipilih. Nominal dan diskon tidak dapat diubah melalui invoice.</p>
               </div>
 
               {/* ROW DENGAN 2 CARD KEMBAR: SKEMA PEMBAYARAN & REKENING TUJUAN */}
@@ -524,15 +537,13 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess }) {
 
                   <div className="space-y-3 text-xs">
                     <p className="font-bold">{skemaPembayaran === 'cicilan' ? 'Cicilan' : skemaPembayaran === 'full' ? 'Full Payment' : 'Skema belum tersedia di database'}</p>
-                    {skemaPembayaran === 'cicilan' && <p className="text-amber-800">Lookup belum menyediakan jadwal termin. Masukkan jadwal yang dikonfirmasi Finance; total harus tepat sama dengan biaya resmi. Jadwal tidak diubah menjadi full payment.</p>}
-                    <div className="overflow-x-auto border border-slate-200 rounded-xl"><table className="w-full text-[11px]"><thead className="bg-slate-50"><tr><th className="p-2">Deskripsi</th><th className="p-2">Jatuh Tempo</th><th className="p-2">Nominal</th><th className="p-2">Aksi</th></tr></thead>
+                    <p className="text-slate-500">Termin mengikuti snapshot approved. Termin dalam satu invoice tidak membuat invoice terpisah.</p>
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl"><table className="w-full text-[11px]"><thead className="bg-slate-50"><tr><th className="p-2">Deskripsi</th><th className="p-2">Jatuh Tempo</th><th className="p-2">Nominal</th></tr></thead>
                       <tbody>{pembayaranList.map(p => <tr key={p.id}>
-                        <td className="p-2"><input aria-label="Deskripsi termin" readOnly={skemaPembayaran === 'full'} value={p.deskripsi} onChange={e => handlePembayaranChange(p.id, 'deskripsi', e.target.value)} className="w-full bg-transparent" /></td>
-                        <td className="p-2"><input aria-label="Jatuh tempo termin" type="date" readOnly={skemaPembayaran === 'full'} value={p.jatuhTempo} onChange={e => handlePembayaranChange(p.id, 'jatuhTempo', e.target.value)} className="w-full bg-transparent" /></td>
-                        <td className="p-2"><input aria-label="Nominal termin" type="text" inputMode="decimal" readOnly={skemaPembayaran === 'full'} value={p.nominal} onChange={e => handlePembayaranChange(p.id, 'nominal', e.target.value)} className="w-28 text-right bg-transparent font-mono" placeholder="0.00" /></td>
-                        <td className="p-2"><button type="button" aria-label="Hapus termin" disabled={skemaPembayaran === 'full'} onClick={() => handleRemovePembayaran(p.id)} className="text-slate-400 hover:text-rose-600 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button></td>
+                        <td className="p-2"><input aria-label="Deskripsi termin" readOnly value={p.deskripsi} className="w-full bg-transparent" /></td>
+                        <td className="p-2"><input aria-label="Jatuh tempo termin" type="date" readOnly value={p.jatuhTempo} className="w-full bg-transparent" /></td>
+                        <td className="p-2"><input aria-label="Nominal termin" readOnly value={p.nominal} className="w-28 text-right bg-transparent font-mono" /></td>
                       </tr>)}</tbody></table></div>
-                    {skemaPembayaran === 'cicilan' && <button type="button" onClick={handleAddPembayaran} className="font-bold text-blue-600">+ Tambah Termin</button>}
                   </div>
                 </div>
 

@@ -200,7 +200,7 @@ try {
         $metodeLabel = $skema === 'cicilan' ? 'Cicilan' : 'Full Payment';
 
         // Biaya Program Resmi Creativa
-        $programAmount = $skema === 'cicilan' ? 18000000.00 : 15000000.00;
+        $programAmount = 15000000.00;
         if (stripos($program, 'kaigo') !== false || stripos($program, 'talang') !== false) {
             $programAmount = 17760000.00;
         } elseif (stripos($program, 'sotsugyousei') !== false) {
@@ -260,13 +260,14 @@ try {
         $itemSubtitle = "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - {$lokasiLabel}";
         $installments = [];
         if ($skema === 'cicilan') {
-            if (abs($programAmount - 18000000.00) < 1) {
-                $presetCicilan = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
+            if (abs($programAmount - 15000000.00) < 1 || abs($programAmount - 18000000.00) < 1 || $programAmount <= 0) {
+                $programAmount = 15000000.00;
+                $presetCicilan = [5000000, 3000000, 2500000, 1500000, 1500000, 1500000];
                 foreach ($presetCicilan as $cIdx => $cAmt) {
                     $installments[] = [
                         'id' => $cIdx + 1,
-                        'deskripsi' => $cIdx === 0 ? 'DP Pendaftaran' : 'Cicilan ' . ($cIdx + 1),
-                        'keterangan' => $cIdx === 0 ? 'DP PENDAFTARAN' : 'CICILAN KE-' . ($cIdx + 1),
+                        'deskripsi' => 'Cicilan ' . ($cIdx + 1),
+                        'keterangan' => 'CICILAN ' . ($cIdx + 1),
                         'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
                         'nominal' => $cAmt,
                     ];

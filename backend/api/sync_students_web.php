@@ -8,15 +8,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/api_session_guard.php';
+require_once __DIR__ . '/../services/rpa_automation.php';
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'GET') {
         http_response_code(405);
         echo json_encode(['status' => 'error', 'message' => 'Metode permintaan tidak didukung.']);
         exit;
     }
 
-    api_session_guard($conn, 'prepare');
+    $secretHeader = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['secret'] ?? ''));
+    if ($secretHeader === '' || !hash_equals(rpa_get_secret(), $secretHeader)) {
+        api_session_guard($conn, 'prepare');
+    }
 
     $fetchJson = function (string $url) {
         $ch = curl_init($url);
@@ -96,6 +100,9 @@ try {
 
     $inserted = 0;
     $updated = 0;
+    $createdInvoices = 0;
+    rpa_ensure_billing_columns($conn);
+    rpa_ensure_automation_logs_table($conn);
 
     foreach ($remoteData as $p) {
         if (!is_array($p)) continue;
@@ -178,6 +185,128 @@ try {
             $insertStmt->close();
             $inserted++;
         }
+
+        // ── Auto-Generate Invoice di billing_invoices jika belum ada ──
+        $studentNis = !empty($existingNis) ? $existingNis : $nis;
+        $checkInvStmt = $conn->prepare("SELECT id FROM billing_invoices WHERE (id = ? OR (email != '' AND email = ?) OR customer = ?) LIMIT 1");
+        $checkInvStmt->bind_param("sss", $studentNis, $email, $name);
+        $checkInvStmt->execute();
+        $invFound = $checkInvStmt->get_result()->fetch_assoc();
+        $checkInvStmt->close();
+
+        if (!$invFound) {
+            $isCicilan = (stripos($metodePembayaran, 'cicil') !== false || stripos($metodePembayaran, 'dp') !== false || stripos($program, 'intensif') !== false);
+            $finalTotal = $totalBiaya > 0 ? (float)$totalBiaya : 15000000.00;
+            $metodeLabel = $isCicilan ? 'Cicilan' : 'Full Payment';
+            $keterangan = "{$program} ({$metodeLabel})";
+
+            $installments = [];
+            if ($isCicilan) {
+                $presetCicilan = [5000000, 3000000, 2500000, 1500000, 1500000, 1500000];
+                foreach ($presetCicilan as $cIdx => $cAmt) {
+                    $installments[] = [
+                        'id' => $cIdx + 1,
+                        'deskripsi' => 'Cicilan ' . ($cIdx + 1),
+                        'keterangan' => 'CICILAN ' . ($cIdx + 1),
+                        'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
+                        'nominal' => (float)$cAmt,
+                    ];
+                }
+            } else {
+                $installments[] = [
+                    'id' => 1,
+                    'deskripsi' => 'FULL PAYMENT',
+                    'keterangan' => 'FULL PAYMENT',
+                    'jatuhTempo' => date('Y-m-d', strtotime('+2 days')),
+                    'nominal' => (float)$finalTotal,
+                ];
+            }
+
+            // Generate Invoice ID resmi: TGCJ + YYMM + 4 digit
+            $prefix = 'TGCJ' . date('ym');
+            $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 1");
+            $nextSeq = 1;
+            if ($numRes && $row = mysqli_fetch_assoc($numRes)) {
+                $tail = substr((string)$row['id'], strlen($prefix));
+                if (ctype_digit($tail)) {
+                    $nextSeq = (int)$tail + 1;
+                }
+            }
+            $invoiceId = $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+            $token = bin2hex(random_bytes(16));
+            $today = date('Y-m-d');
+            $firstDue = $installments[0]['jatuhTempo'] ?? date('Y-m-d', strtotime('+2 days'));
+
+            $metaArray = [
+                'skema' => $isCicilan ? 'cicilan' : 'full',
+                'program' => $program,
+                'lokasi' => $kota ?: 'Cianjur',
+                'durasi' => '7 Bulan',
+                'subtotal' => (float)$finalTotal,
+                'items' => [[
+                    'id' => 1,
+                    'deskripsi' => "{$program} ({$metodeLabel})",
+                    'subdeskripsi' => "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - " . ($kota ?: 'Cianjur'),
+                    'harga' => (float)$finalTotal,
+                    'diskon' => 0,
+                    'jumlah' => (float)$finalTotal,
+                ]],
+                'installments' => $installments,
+                'includes' => [
+                    'Biaya Pelatihan Bahasa Jepang & Skill',
+                    'Buku Modul dan Materi Pelatihan',
+                    'Bimbingan Wawancara & Matching Perusahaan',
+                    'Sertifikat Pelatihan Resmi LPK'
+                ],
+                'excludes' => [
+                    'Biaya Utilitas (Air, Listrik, Internet & IPL Asrama)',
+                    'Biaya Makan',
+                    'Keperluan Pribadi Lainnya'
+                ],
+                'bank_name' => 'BCA',
+                'account_number' => '1832-918-428',
+                'account_holder' => 'CREATIVA BRIDGING INTERN',
+                'source' => 'rpa-web-sync',
+                'web_id' => $rawId,
+            ];
+            $metaJson = json_encode($metaArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            $insStmt = $conn->prepare("INSERT INTO billing_invoices (id, tanggal, customer, email, phone, total, status, jatuhTempo, keterangan, public_token, meta_json, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?, ?, ?, ?, NOW())");
+            $insStmt->bind_param("sssssdssss", $invoiceId, $today, $name, $email, $phone, $finalTotal, $firstDue, $keterangan, $token, $metaJson);
+            $insStmt->execute();
+            $insStmt->close();
+
+            $penerima = ($phone && $phone !== '-') ? $phone : ($email ?: '-');
+            $kanal = ($phone && $phone !== '-') ? 'WhatsApp' : 'Email';
+            $terkirimStmt = $conn->prepare("INSERT INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, ?, ?, 'Terkirim', 'Pending', NOW())");
+            $terkirimStmt->bind_param("sssss", $invoiceId, $today, $name, $kanal, $penerima);
+            $terkirimStmt->execute();
+            $terkirimStmt->close();
+
+            $urls = rpa_build_public_urls($invoiceId, $token);
+            rpa_record_log(
+                $conn,
+                $invoiceId,
+                'rpa_phase1_registration',
+                'Web Sync',
+                'Success',
+                $penerima,
+                [
+                    'notes' => "Invoice otomatis berhasil dibuat untuk {$name} ({$metodeLabel}): Rp " . number_format($finalTotal, 0, ',', '.'),
+                    'web_id' => $rawId,
+                    'name' => $name,
+                    'program' => $program,
+                    'metode' => $metodeLabel,
+                    'invoice_id' => $invoiceId,
+                    'total' => $finalTotal,
+                    'token' => $token,
+                    'status_url' => $urls['status_url']
+                ],
+                ''
+            );
+
+            $createdInvoices++;
+        }
     }
 
     // Ambil data terbaru setelah sync
@@ -190,10 +319,11 @@ try {
 
     echo json_encode([
         'status' => 'success',
-        'message' => "Data siswa, program, dan skema pembayaran berhasil disinkronkan. $inserted siswa ditambahkan dan $updated siswa diperbarui.",
+        'message' => "Data siswa dan invoice berhasil disinkronkan. $inserted siswa ditambahkan, $updated siswa diperbarui, dan $createdInvoices invoice otomatis dibuat.",
         'total' => count($allStudents),
         'inserted' => $inserted,
         'updated' => $updated,
+        'created_invoices' => $createdInvoices,
         'students' => $allStudents
     ], JSON_UNESCAPED_UNICODE);
 

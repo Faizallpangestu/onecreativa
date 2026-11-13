@@ -374,7 +374,7 @@ function computeOfficialCicilanDates(anchorDateStr, count = 6) {
   const baseDate = baseParts
     ? new Date(baseParts.year, baseParts.monthIdx, baseParts.day)
     : new Date();
-  const amounts = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
+  const amounts = [5000000, 3000000, 2500000, 1500000, 1500000, 1500000];
   return Array.from({ length: count }, (_, idx) => {
     const d = new Date(baseDate.getTime());
     d.setMonth(d.getMonth() + idx);
@@ -382,7 +382,7 @@ function computeOfficialCicilanDates(anchorDateStr, count = 6) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     return {
-      description: idx === 0 ? "DP PENDAFTARAN" : `CICILAN KE-${idx + 1}`,
+      description: `Cicilan ${idx + 1}`,
       date: `${yyyy}-${mm}-${dd}`,
       amount: amounts[idx] ?? 0,
     };
@@ -5210,6 +5210,33 @@ export default function InvoicePenagihan() {
   };
 
   const [showBuatRoot, setShowBuatRoot] = useState(false);
+  const [syncingWeb, setSyncingWeb] = useState(false);
+
+  const handleSyncWebsite = async () => {
+    setSyncingWeb(true);
+    try {
+      const res = await axios.post('/api/sync_students_web.php');
+      const msg = res.data?.message || 'Data pendaftar web berhasil disinkronkan!';
+      Swal.fire({
+        icon: 'success',
+        title: 'Sinkronisasi Berhasil!',
+        text: msg,
+        timer: 3500,
+        confirmButtonColor: '#2563eb',
+      });
+      await fetchData();
+    } catch (err) {
+      console.error('Sync error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Sinkronisasi Gagal',
+        text: err?.response?.data?.message || 'Gagal mengambil data dari website creativabridging.com.',
+        confirmButtonColor: '#2563eb',
+      });
+    } finally {
+      setSyncingWeb(false);
+    }
+  };
 
   if (loading || loadError) return <Layout><div className="rounded-xl bg-white p-6"><p role={loadError ? 'alert' : 'status'}>{loadError || 'Memuat billing…'}</p>{loadError && <button onClick={fetchData}>Coba lagi</button>}</div></Layout>;
 
@@ -5242,6 +5269,15 @@ export default function InvoicePenagihan() {
             <p className="text-xs text-slate-500 mt-0.5">Kelola data tagihan siswa, status pembayaran, dan riwayat invoice secara terpadu.</p>
           </div>
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleSyncWebsite}
+              disabled={syncingWeb}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs active:scale-95 cursor-pointer"
+              title="Tarik data pendaftar terbaru dari website creativabridging.com dan buat invoice otomatis"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncingWeb ? 'animate-spin' : ''}`} />
+              <span>{syncingWeb ? 'Menyinkronkan…' : 'Tarik Data Web (RPA)'}</span>
+            </button>
             <button
               onClick={() => setShowBuatRoot(true)}
               className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs active:scale-95 cursor-pointer"

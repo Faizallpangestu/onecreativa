@@ -160,7 +160,7 @@ function buildInvoiceProgramPreset(programName, skema = "full", overrideTotal = 
     subdeskripsi: isCicilan
       ? "Biaya Pendidikan Bahasa Jepang & Pelatihan Skill - Cianjur (Skema Cicilan)"
       : "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - Cianjur",
-    harga: customAmt > 0 ? customAmt : (isCicilan ? 18000000 : 15000000),
+    harga: customAmt > 0 ? customAmt : 15000000,
   };
 }
 
@@ -705,8 +705,8 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
       setPembayaranList([
         { id: 1, deskripsi: "Full Payment", jatuhTempo: jatuhTempo, nominal: totalTagihan }
       ]);
-    } else if (totalTagihan === 18000000) {
-      const amounts = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
+    } else if (totalTagihan === 15000000 || totalTagihan === 18000000 || totalTagihan === 0) {
+      const amounts = [5000000, 3000000, 2500000, 1500000, 1500000, 1500000];
       const baseDate = new Date(jatuhTempo || Date.now());
       setPembayaranList(
         amounts.map((amt, i) => {
@@ -714,7 +714,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
           d.setMonth(d.getMonth() + i);
           return {
             id: i + 1,
-            deskripsi: i === 0 ? "Cicilan 1 (DP)" : i === amounts.length - 1 ? `Cicilan ${i + 1} (Pelunasan)` : `Cicilan ${i + 1}`,
+            deskripsi: `Cicilan ${i + 1}`,
             jatuhTempo: d.toISOString().split("T")[0],
             nominal: amt,
           };

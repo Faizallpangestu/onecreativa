@@ -49,11 +49,12 @@ $ErrorActionPreference = "Continue"
 if (-not (Test-Path $n8nMarker) -or -not (Test-Path $n8nBin)) {
   Write-Host "[2/2] Memasang n8n lokal ke $n8nDir (sekali saja, mohon tunggu 1-3 menit)..." -ForegroundColor Cyan
   New-Item -ItemType Directory -Force -Path $n8nDir | Out-Null
-  '{"name":"creativa-n8n-local","version":"1.0.0","private":true}' | Set-Content (Join-Path $n8nDir "package.json") -Encoding UTF8
+  [System.IO.File]::WriteAllText((Join-Path $n8nDir "package.json"), '{"name":"creativa-n8n-local","version":"1.0.0","private":true}', [System.Text.UTF8Encoding]::new($false))
   & npm install --prefix $n8nDir n8n --no-audit --no-fund --loglevel=error
   if ($LASTEXITCODE -eq 0 -and (Test-Path $n8nBin)) {
     Set-Content -Path $n8nMarker -Value (Get-Date -Format o) -Encoding UTF8
-  } else {
+  }
+  else {
     Write-Warning "Instalasi n8n gagal dengan kode $LASTEXITCODE. Coba jalankan ulang script ini."
     exit 1
   }

@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/rpa_automation.php';
+require_once __DIR__ . '/../services/registration_sync.php';
 
 $EXPECTED_SECRET = rpa_get_secret();
 
@@ -154,7 +155,6 @@ try {
     $currentYear = date('y');
     $currentMonth = date('m');
     $todayDate = date('Y-m-d');
-    $baseDueDate = date('Y-m-d', strtotime('+2 days'));
     $deliveryModePending = !empty($body['defer_delivery_log']);
 
     $officialIncludes = [
@@ -180,136 +180,50 @@ try {
     $updatedStudents = 0;
     $createdInvoices = 0;
 
+    $pricingReviews = 0;
+    $webhookActor = ['id' => 0, 'role' => 'integration', 'name' => 'Registration webhook'];
     foreach ($studentsToProcess as $p) {
-        $name = trim($p['nama'] ?? $p['nama_lengkap'] ?? '');
-        if (!$name) continue;
-
-        $rawWebId = (int)($p['id'] ?? $p['web_id'] ?? 0);
-        $phone = trim($p['phone'] ?? $p['no_wa'] ?? $p['kontak'] ?? '');
-        $email = trim($p['email'] ?? '');
-        $noKtp = trim($p['noKtp'] ?? $p['no_ktp'] ?? $p['nik'] ?? '');
-        $program = trim($p['program'] ?? $p['programMinat'] ?? 'Intensif Offline');
-        $rawStatus = trim($p['status'] ?? 'Menunggu Pembayaran');
-        $status = ($rawStatus === 'Pending' || $rawStatus === 'Pembayaran') ? 'Menunggu Pembayaran' : ($rawStatus ?: 'Aktif');
-        $kota = trim($p['kotaDomisili'] ?? $p['kota'] ?? 'Cianjur');
-        $lokasi = trim($p['lokasiTinggal'] ?? '');
-        $alamat = trim($p['alamat'] ?? ($kota . ($lokasi ? ', ' . $lokasi : ', Jawa Barat')));
-        $batch = !empty($p['batch']) ? $p['batch'] : 'Batch 2';
-        $metodeRaw = trim((string)($p['metodePembayaran'] ?? $p['metode_pembayaran'] ?? $p['tipe_pembayaran'] ?? $p['skema'] ?? 'Full Payment'));
-        $skema = (stripos($metodeRaw, 'cicil') !== false || stripos($metodeRaw, 'dp') !== false) ? 'cicilan' : 'full';
-        $metodeLabel = $skema === 'cicilan' ? 'Cicilan' : 'Full Payment';
-
-        // Biaya Program Resmi Creativa
-        $programAmount = $skema === 'cicilan' ? 18000000.00 : 15000000.00;
-        if (stripos($program, 'kaigo') !== false || stripos($program, 'talang') !== false) {
-            $programAmount = 17760000.00;
-        } elseif (stripos($program, 'sotsugyousei') !== false) {
-            $programAmount = 7500000.00;
-        } elseif (stripos($program, 'reguler') !== false) {
-            $programAmount = 5000000.00;
+        if (!is_array($p)) ac_fail('Data pendaftar tidak valid.');
+        $outcome = registration_process($conn, $webhookActor, $p, 'webhook', function (array $context) use ($conn, $webhookActor, $currentYear, $currentMonth, $todayDate, $deliveryModePending, $officialIncludes, $officialExcludes, $p) {
+        $student = $context['student'];
+        $studentId = (int)$student['id'];
+        $rawWebId = $student['web_id'] ?? null;
+        $name = $student['nama_lengkap']; $email = $student['email']; $phone = $student['no_wa']; $nis = $student['nis'] ?? '';
+        $program = $student['program']; $kota = $student['kota'] ?? '';
+        [$existingInv, $invoiceConflict] = registration_invoice($conn, $student, $context['registration_key']);
+        if ($invoiceConflict !== '') $context['pricing'] = array_replace($context['pricing'], ['status' => 'needs_review', 'reason' => $invoiceConflict]);
+        if (!$existingInv && $context['pricing']['status'] !== 'approved') return $context;
+        $pricing = $context['pricing'];
+        $skema = $pricing['scheme'] ?? sp_scheme($student['metode_pembayaran'] ?? '');
+        $metodeLabel = sp_scheme_label($skema) ?? ($student['metode_pembayaran'] ?? '');
+        $programAmount = $existingInv ? ac_decimal(ac_cents($existingInv['total'])) : $pricing['amount'];
+        $existingMeta = $existingInv ? (json_decode($existingInv['meta_json'] ?? '', true) ?: []) : [];
+        $installments = $existingInv ? ($existingMeta['installments'] ?? []) : sp_schedule($pricing, $todayDate);
+        $dueDate = $existingInv ? $existingInv['jatuhTempo'] : $installments[0]['jatuhTempo'];
+        $dueNowNominal = $installments[0]['nominal'] ?? null;
+        if ($existingInv && $dueNowNominal !== null) {
+            try { $dueNowNominal = ac_decimal(ac_cents($dueNowNominal)); }
+            catch (AccountingException $error) {
+                $dueNowNominal = null;
+                $context['pricing'] = array_replace($context['pricing'], ['status' => 'needs_review', 'reason' => 'legacy_installment_requires_review']);
+            }
         }
-        if (!empty($p['nominal']) && is_numeric($p['nominal'])) {
-            $programAmount = (float)$p['nominal'];
-        } elseif (!empty($p['total_biaya']) && is_numeric($p['total_biaya']) && (float)$p['total_biaya'] > 0) {
-            $programAmount = (float)$p['total_biaya'];
-        }
-
-        // Generate NIS resmi LPK: TGCJ + Tahun(2 digit) + Bulan(2 digit) + ID urut
-        $nis = !empty($p['nis']) ? $p['nis'] : ('TGCJ' . $currentYear . $currentMonth . str_pad($rawWebId ?: rand(100, 999), 3, '0', STR_PAD_LEFT));
-
-        // ── A. Validasi & Cek Duplikat Peserta di peserta_intensif ──
-        $existing = null;
-        $stmt = $conn->prepare("SELECT id, nis, nama_lengkap, no_wa, email FROM peserta_intensif WHERE email = ? OR (nama_lengkap = ? AND no_wa = ?) OR (no_ktp != '' AND no_ktp = ?) LIMIT 1");
-        $stmt->bind_param("ssss", $email, $name, $phone, $noKtp);
-        $stmt->execute();
-        $existing = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-
-        $studentId = null;
-        if ($existing) {
-            $studentId = (int)$existing['id'];
-            $nis = !empty($existing['nis']) ? $existing['nis'] : $nis;
-            $updateStmt = $conn->prepare("UPDATE peserta_intensif SET no_wa=?, email=?, no_ktp=?, program=?, metode_pembayaran=?, total_biaya=?, status=?, kota=?, alamat=?, nis=?, web_id=?, source='creativabridging.com' WHERE id=?");
-            $updateStmt->bind_param("sssssdssssii", $phone, $email, $noKtp, $program, $metodeLabel, $programAmount, $status, $kota, $alamat, $nis, $rawWebId, $studentId);
-            $updateStmt->execute();
-            $updateStmt->close();
-            $updatedStudents++;
-        } else {
-            $insertStmt = $conn->prepare("INSERT INTO peserta_intensif (nama_lengkap, no_wa, email, no_ktp, program, metode_pembayaran, total_biaya, status, kota, provinsi, negara, alamat, nis, batch, level, web_id, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Jawa Barat', 'Indonesia', ?, ?, ?, 'N5', ?, 'creativabridging.com')");
-            $insertStmt->bind_param("ssssssdsssssi", $name, $phone, $email, $noKtp, $program, $metodeLabel, $programAmount, $status, $kota, $alamat, $nis, $batch, $rawWebId);
-            $insertStmt->execute();
-            $studentId = $conn->insert_id;
-            $insertStmt->close();
-            $createdStudents++;
-        }
-
-        // ── B. Cek & Auto-Generate Invoice Tagihan (billing_invoices) ──
-        // Cek apakah invoice untuk pendaftar + program ini sudah pernah dibuat (idempotency)
-        $existingInv = null;
-        $progKeyword = stripos($program, 'kaigo') !== false ? 'Kaigo' : (stripos($program, 'matching') !== false ? 'Matching' : (stripos($program, 'sotsug') !== false ? 'Sotsug' : 'Intensif'));
-        $likeProg = '%' . $progKeyword . '%';
-        $invStmt = $conn->prepare("SELECT id, total, status, jatuhTempo, public_token, meta_json FROM billing_invoices WHERE (id = ? OR (email != '' AND email = ? AND keterangan LIKE ?) OR (customer = ? AND keterangan LIKE ?)) LIMIT 1");
-        $invStmt->bind_param("sssss", $nis, $email, $likeProg, $name, $likeProg);
-        $invStmt->execute();
-        $existingInv = $invStmt->get_result()->fetch_assoc();
-        $invStmt->close();
-
-        // Susun item & termin cicilan resmi sesuai program & metode pembayaran
-        $lokasiLabel = trim((string)($kota ?: 'Cianjur'));
+        $lokasiLabel = $kota;
         $itemTitle = "{$program} ({$metodeLabel})";
         $itemSubtitle = "Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - {$lokasiLabel}";
-        $installments = [];
-        if ($skema === 'cicilan') {
-            if (abs($programAmount - 18000000.00) < 1) {
-                $presetCicilan = [5000000, 4000000, 3000000, 2000000, 2000000, 2000000];
-                foreach ($presetCicilan as $cIdx => $cAmt) {
-                    $installments[] = [
-                        'id' => $cIdx + 1,
-                        'deskripsi' => $cIdx === 0 ? 'DP Pendaftaran' : 'Cicilan ' . ($cIdx + 1),
-                        'keterangan' => $cIdx === 0 ? 'DP PENDAFTARAN' : 'CICILAN KE-' . ($cIdx + 1),
-                        'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
-                        'nominal' => $cAmt,
-                    ];
-                }
-            } else {
-                $dp = (int)round($programAmount * 0.4);
-                $c2 = (int)round($programAmount * 0.3);
-                $c3 = max(0, (int)round($programAmount) - $dp - $c2);
-                foreach ([[ 'DP PENDAFTARAN', $dp ], [ 'CICILAN KE-2', $c2 ], [ 'CICILAN KE-3', $c3 ]] as $cIdx => $pair) {
-                    $installments[] = [
-                        'id' => $cIdx + 1,
-                        'deskripsi' => $pair[0],
-                        'keterangan' => $pair[0],
-                        'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
-                        'nominal' => $pair[1],
-                    ];
-                }
-            }
-        } else {
-            $installments[] = [
-                'id' => 1,
-                'deskripsi' => 'FULL PAYMENT',
-                'keterangan' => 'FULL PAYMENT',
-                'jatuhTempo' => $baseDueDate,
-                'nominal' => (float)$programAmount,
-            ];
-        }
-
-        $dueDate = $installments[0]['jatuhTempo'] ?? $baseDueDate;
-        $dueNowNominal = (float)($installments[0]['nominal'] ?? $programAmount);
         $metaArray = [
             'skema' => $skema,
             'program' => $program,
             'lokasi' => $lokasiLabel,
             'durasi' => '7 Bulan',
-            'subtotal' => (float)$programAmount,
+            'subtotal' => $programAmount,
             'items' => [[
                 'id' => 1,
                 'deskripsi' => $itemTitle,
                 'subdeskripsi' => $itemSubtitle,
-                'harga' => (float)$programAmount,
+                'harga' => $programAmount,
                 'diskon' => 0,
-                'jumlah' => (float)$programAmount,
+                'jumlah' => $programAmount,
             ]],
             'installments' => $installments,
             'includes' => $officialIncludes,
@@ -318,6 +232,9 @@ try {
             'account_number' => '1832-918-428',
             'account_holder' => 'CREATIVA BRIDGING INTERN',
             'source' => 'rpa-phase1-webhook',
+            'student_id' => $studentId,
+            'registration_key' => $context['registration_key'],
+            'pricing' => $pricing['status'] === 'approved' ? sp_proof($pricing) : null,
             'web_id' => $rawWebId,
             'screening' => $p['screening'] ?? null,
         ];
@@ -331,23 +248,10 @@ try {
         if ($existingInv) {
             $invoiceId = $existingInv['id'];
             $invoiceStatus = $existingInv['status'];
-            $programAmount = (float)$existingInv['total'];
+            $programAmount = ac_decimal(ac_cents($existingInv['total']));
             $dueDate = !empty($existingInv['jatuhTempo']) ? $existingInv['jatuhTempo'] : $dueDate;
             $publicToken = trim((string)($existingInv['public_token'] ?? ''));
-            if ($publicToken === '') {
-                $publicToken = bin2hex(random_bytes(16));
-                $tokStmt = $conn->prepare("UPDATE billing_invoices SET public_token = ? WHERE id = ?");
-                $tokStmt->bind_param("ss", $publicToken, $invoiceId);
-                $tokStmt->execute();
-                $tokStmt->close();
-            }
-            if (!empty($existingInv['meta_json'])) {
-                $decodedExistingMeta = json_decode((string)$existingInv['meta_json'], true);
-                if (is_array($decodedExistingMeta) && !empty($decodedExistingMeta['installments'])) {
-                    $installments = $decodedExistingMeta['installments'];
-                    $dueNowNominal = (float)($installments[0]['nominal'] ?? $programAmount);
-                }
-            }
+            // Existing invoices, including paid invoices and their tokens, stay unchanged.
             // Cek apakah antrean pengiriman bot masih berstatus 'Menunggu Bot' atau belum ada log terkirim
             $delivStmt = $conn->prepare("SELECT statusKirim FROM billing_terkirim WHERE id = ? ORDER BY created_at DESC LIMIT 1");
             if ($delivStmt) {
@@ -374,10 +278,10 @@ try {
             $keterangan = "{$program} ({$metodeLabel})";
 
             $createInvStmt = $conn->prepare("INSERT INTO billing_invoices (id, tanggal, customer, email, phone, total, status, jatuhTempo, keterangan, public_token, meta_json, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?, ?, ?, ?, NOW())");
-            $createInvStmt->bind_param("sssssdssss", $invoiceId, $todayDate, $name, $email, $phone, $programAmount, $dueDate, $keterangan, $publicToken, $metaJson);
+            $createInvStmt->bind_param("ssssssssss", $invoiceId, $todayDate, $name, $email, $phone, $programAmount, $dueDate, $keterangan, $publicToken, $metaJson);
             $createInvStmt->execute();
             $createInvStmt->close();
-            $createdInvoices++;
+            ac_audit($conn, $webhookActor, 'billing_invoice', $invoiceId, 'created', ['student_id' => $studentId, 'amount' => $programAmount, 'pricing' => sp_proof($pricing), 'registration_key' => $context['registration_key']]);
             $invoiceCreatedNow = true;
 
             // ── C. Auto-Log ke Riwayat Pengiriman (billing_terkirim) ──
@@ -403,8 +307,8 @@ try {
 
         // ── D. Format Pesan WhatsApp & Email Otomatis untuk n8n & Fallback ──
         $cleanPhone = rpa_format_wa_phone($phone);
-        $formattedTotal = "Rp " . number_format($programAmount, 0, ',', '.');
-        $formattedDueNow = "Rp " . number_format($dueNowNominal, 0, ',', '.');
+        $formattedTotal = sp_format_rupiah($programAmount);
+        $formattedDueNow = $dueNowNominal !== null ? sp_format_rupiah($dueNowNominal) : 'Perlu review Finance';
         $plainWaMessage =
             "Halo *{$name}*,\n\n" .
             "Terima kasih telah mendaftar di *LPK Creativa Bridging International*.\n" .
@@ -441,7 +345,7 @@ try {
             . "<p style='font-size:12px;color:#64748b;'>Cantumkan Nomor Invoice pada berita transfer dan kirim bukti transfer ke finance@creativabridging.com atau WA +62 815-2222-672.</p>"
             . "</div>";
 
-        $results[] = [
+        $context['api_result'] = [
             'student_id' => $studentId,
             'nis' => $nis,
             'nama' => $name,
@@ -473,7 +377,24 @@ try {
             'whatsapp_message' => $plainWaMessage,
             'email_subject' => $emailSubject,
             'email_html' => $emailHtml,
+            'pricing_status' => $context['pricing']['status'],
+            'pricing_reason' => $context['pricing']['reason'],
         ];
+        $context['invoice'] = $existingInv;
+        return $context;
+        });
+        if ($outcome['student']) { if ($outcome['student_created']) $createdStudents++; else $updatedStudents++; }
+        if ($outcome['pricing']['status'] === 'needs_review') $pricingReviews++;
+        $result = $outcome['api_result'] ?? [
+            'student_id' => $outcome['student']['id'] ?? null,
+            'nis' => $outcome['student']['nis'] ?? '',
+            'nama' => $outcome['student']['nama_lengkap'] ?? ($p['nama'] ?? $p['name'] ?? ''),
+            'invoice_id' => null, 'invoice_created_now' => false, 'needs_delivery' => false,
+            'nominal' => null, 'due_now_nominal' => null, 'installments' => [],
+            'pricing_status' => 'needs_review', 'pricing_reason' => $outcome['pricing']['reason'],
+        ];
+        if ($result['invoice_created_now']) $createdInvoices++;
+        $results[] = $result;
     }
 
     echo json_encode([
@@ -483,13 +404,14 @@ try {
             'processed' => count($results),
             'students_created' => $createdStudents,
             'students_updated' => $updatedStudents,
-            'invoices_created' => $createdInvoices
+            'invoices_created' => $createdInvoices,
+            'pricing_needs_review' => $pricingReviews
         ],
         'data' => $results
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 } catch (Throwable $e) {
-    http_response_code(500);
+    http_response_code($e instanceof AccountingException ? $e->getCode() : 500);
     echo json_encode([
         'status' => 'error',
         'message' => 'Terjadi kesalahan sistem saat memproses webhook: ' . $e->getMessage()

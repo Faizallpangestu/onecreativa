@@ -14,10 +14,17 @@ if (in_array($endpoint, ['face_clock.php','settings.php'], true)) {
  require __DIR__.'/../api/'.$endpoint;
  exit;
 }
-if (!in_array($endpoint, ['student_billing.php','billing.php','lpk_matching.php','attendance.php','leaves.php','positions.php','employees.php','employee_stats.php','profile.php','upload_photo.php','reimbursements.php','dashboard_stats.php','lms_meetings.php','lms_tasks.php','lms_submissions.php','lms_attendance.php','sensei_dashboard_stats.php','lms_dashboard_stats.php','lms_grades.php','accounting.php','session.php','login.php', 'logout.php', 'budgets.php', 'finance.php', 'salaries.php', 'salary_slips.php', 'payroll.php', 'save_payroll.php', 'publish_payroll.php', 'dashboard_karyawan.php'], true)) { http_response_code(404); exit; }
+if (!in_array($endpoint, ['webhook_registration.php','sync_students_web.php','student_billing.php','billing.php','lpk_matching.php','attendance.php','leaves.php','positions.php','employees.php','employee_stats.php','profile.php','upload_photo.php','reimbursements.php','dashboard_stats.php','lms_meetings.php','lms_tasks.php','lms_submissions.php','lms_attendance.php','sensei_dashboard_stats.php','lms_dashboard_stats.php','lms_grades.php','accounting.php','session.php','login.php', 'logout.php', 'budgets.php', 'finance.php', 'salaries.php', 'salary_slips.php', 'payroll.php', 'save_payroll.php', 'publish_payroll.php', 'dashboard_karyawan.php'], true)) { http_response_code(404); exit; }
 define('CREATIVA_TEST_ROUTER',true);
 require_once __DIR__ . '/../config/database.php';
 $conn->select_db($database);
+foreach (['CREATIVA_PRICING_TEST_FILE' => ['STUDENT_PRICING_RULES_FILE', '_pricing.json'], 'CREATIVA_REGISTRATION_TEST_FILE' => ['CREATIVA_REGISTRATION_SYNC_FIXTURE', '_registration.json']] as $env => [$constant, $suffix]) {
+ $file=getenv($env);
+ if($file){
+  if(basename($file)!==$database.$suffix||realpath(dirname($file))!==realpath(sys_get_temp_dir())||!is_file($file)){http_response_code(404);exit;}
+  define($constant,$file);
+ }
+}
 if (getenv('CREATIVA_BILLING_TEST_LOCK_TIMEOUT') === '1' && in_array($endpoint, ['billing.php','student_billing.php'], true)) {
  $conn->query('SET SESSION innodb_lock_wait_timeout=1');
 }

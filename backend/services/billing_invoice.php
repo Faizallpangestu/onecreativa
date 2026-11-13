@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/accounting_core.php';
+require_once __DIR__.'/student_pricing.php';
 
 function billing_invoice_bank(mysqli $db, array $body): array {
     $bankId = ac_id($body['bank_account_id'] ?? null, 'ID rekening resmi');
@@ -131,7 +132,9 @@ function billing_create_invoice(mysqli $db, array $actor, array $body): array {
             if ($total === 0 || $clientTotal !== $total) ac_fail('Total invoice harus sama dengan total biaya resmi siswa yang positif.');
             // The primary key also rejects races; avoid gap locks on unused numbers.
             if (ac_one($db, 'SELECT id FROM billing_invoices WHERE id=?', [$id])) ac_fail('Nomor invoice sudah digunakan.', 409);
-            $meta = billing_invoice_meta($body, $student, $total, $date, $due);
+            [$pricing, $validatedBody] = sp_invoice_pricing($student, $body, $date, $due);
+            $meta = billing_invoice_meta($validatedBody, $student, $total, $date, $due);
+            $meta['pricing'] = sp_proof($pricing);
             $meta = array_merge($meta, billing_invoice_bank($db, $body));
             $column = ac_one($db, "SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'");
             if (!$column) ac_fail('Penyimpanan metadata invoice belum tersedia.', 409);
@@ -144,7 +147,7 @@ function billing_create_invoice(mysqli $db, array $actor, array $body): array {
                 $id, $date, $name, $email, $phone, $amount, $due, $description,
                 json_encode($meta, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
             ]);
-            ac_audit($db, $actor, 'billing_invoice', $id, 'created', ['amount' => $amount, 'student_id' => $studentId, 'amount_source' => $meta['amount_source'], 'status' => 'Unpaid']);
+            ac_audit($db, $actor, 'billing_invoice', $id, 'created', ['amount' => $amount, 'student_id' => $studentId, 'amount_source' => $meta['amount_source'], 'pricing' => $meta['pricing'], 'status' => 'Unpaid']);
             return ['id' => $id];
         });
     } catch (mysqli_sql_exception $error) {

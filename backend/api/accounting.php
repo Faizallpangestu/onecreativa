@@ -7,6 +7,7 @@ require_once __DIR__.'/../services/accounting_reports.php';
 require_once __DIR__.'/../services/budget_realization.php';
 require_once __DIR__.'/../services/accounting_vendor.php';
 require_once __DIR__.'/../services/accounting_journal.php';
+require_once __DIR__.'/../services/student_pricing.php';
 mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
 $requestId=bin2hex(random_bytes(8));header('X-Request-ID: '.$requestId);
 
@@ -92,6 +93,12 @@ try{
 
                 $students = ac_rows($conn, "SELECT id, $selName, $selBatch, $selPhone, $selEmail, $selLevel, $selNis, $selAffiliator, $selAlamat, $selKota, $selProv, $selPos, $selNegara, $selProgram, $selMetode, $selTotalBiaya, $selStatus FROM peserta_intensif ORDER BY id DESC");
             }
+            foreach ($students as &$studentPricingRow) {
+                $decision = sp_evaluate($studentPricingRow['program'] ?? '', $studentPricingRow['metode_pembayaran'] ?? '', [$studentPricingRow['total_biaya'] ?? null]);
+                $studentPricingRow['pricing_status'] = $decision['status'];
+                $studentPricingRow['pricing_reason'] = $decision['reason'];
+            }
+            unset($studentPricingRow);
             $accounts = [];
             if (ac_table($conn, 'accounts')) {
                 $hasJl = ac_table($conn, 'journal_lines') && ac_table($conn, 'journal_entries');

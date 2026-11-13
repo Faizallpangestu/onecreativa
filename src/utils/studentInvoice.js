@@ -1,3 +1,5 @@
+import paymentSchemes from '../../backend/config/payment_schemes.json' with { type: 'json' };
+
 export function databaseId(value) {
   return (typeof value === 'string' || Number.isSafeInteger(value)) && String(value).trim() === String(value) && /^[1-9]\d{0,9}$/.test(String(value)) ? String(value) : '';
 }
@@ -20,9 +22,9 @@ export function formatInvoiceMoney(value) {
 }
 
 export function studentScheme(value) {
-  if (/cicil|installment|\bdp\b/i.test(value || '')) return 'cicilan';
-  if (/full|lunas|tunai|cash/i.test(value || '')) return 'full';
-  return '';
+  if (typeof value !== 'string') return '';
+  const key = value.trim().toLowerCase().replace(/\s+/g, ' ');
+  return Object.entries(paymentSchemes).find(([, aliases]) => aliases.includes(key))?.[0] || '';
 }
 
 export function invoiceLookups(body) {

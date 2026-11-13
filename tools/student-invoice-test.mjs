@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { databaseId, invoiceDecimal, formatInvoiceMoney, invoiceLookups, loadInvoiceLookups, buildStudentInvoice, submitStudentInvoice, serverDeliveryRows, serverPaymentRows } from '../src/utils/studentInvoice.js';
+import { databaseId, invoiceDecimal, formatInvoiceMoney, studentScheme, invoiceLookups, loadInvoiceLookups, buildStudentInvoice, submitStudentInvoice, serverDeliveryRows, serverPaymentRows } from '../src/utils/studentInvoice.js';
+import paymentSchemes from '../backend/config/payment_schemes.json' with { type: 'json' };
 
 let checks = 0;
 async function test(name, run) { await run(); checks++; console.log(`PASS: ${name}`); }
@@ -25,6 +26,16 @@ const input = { ...lookups, studentId: '17', bankId: '3', id: 'TEST-STABLE-ID', 
 const payload = buildStudentInvoice(input);
 const fail = (status, message) => Object.assign(new Error(message), { response: { status, data: { status: 'error', message, request_id: 'qa-request' } } });
 const billing = invoices => ({ data: { status: 'success', data: { invoices } } });
+
+await test('Backend and frontend share every scheme alias without guessing unknown schemes', () => {
+  for (const [scheme, aliases] of Object.entries(paymentSchemes)) {
+    for (const alias of aliases) assert.equal(studentScheme(`  ${alias.toUpperCase()}  `), scheme);
+  }
+  for (const unknown of ['', null, 'not full', 'DP khusus 12 bulan', 'cicilan tak dikenal']) assert.equal(studentScheme(unknown), '');
+  assert.equal(buildStudentInvoice({ ...input, students: [{ ...lookups.students[0], metode_pembayaran: 'Angsuran' }], installments: [
+    { nominal: '5000000.01', jatuhTempo: input.due }, { nominal: '10000000.00', jatuhTempo: '2026-12-20' },
+  ] }).skema, 'cicilan');
+});
 
 await test('Official student and bank IDs stay separate from NIS, web_id and COA', () => {
   assert.equal(payload.student_id, 17); assert.equal(payload.bank_account_id, 3);

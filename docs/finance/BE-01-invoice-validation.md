@@ -1,5 +1,10 @@
 # BE-01: server-side invoice validation
 
+> BE-02 adds approved-pricing eligibility and exact approved term schedules to
+> this baseline contract. See [BE-02 pricing and registration](BE-02-pricing-registration.md)
+> for the empty-catalogue deployment gate, webhook/sync changes, and API additions.
+> Statements below describing the webhook as unchanged refer to the BE-01 baseline.
+
 ## Scope and existing flows
 
 - `POST /api/billing.php`, action `add_invoice`, is called by

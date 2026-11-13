@@ -53,7 +53,8 @@ try{
  release_check(count(ac_rows($db,'SELECT id FROM accounting_audit_logs'))>=7,'Relationships and learning mutations have atomic actor audit');
  // Billing uses the same posting/allocation engine as Finance; receipts alone never reduce AR.
  install_accounting_schema($db);$finance=['id'=>6,'role'=>'finance','name'=>'Finance'];ac_master_mutate($db,$admin,['action'=>'period','month'=>substr($today,0,7),'status'=>'open','reason'=>'Periode pengujian sintetis']);
- ac_query($db,"INSERT INTO billing_invoices(id,tanggal,customer,total,jatuhTempo) VALUES('INV-RELEASE',?,'Siswa A','1000.25',?)",[$today,$today]);
+ if(!ac_one($db,"SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'"))$db->query('ALTER TABLE billing_invoices ADD meta_json LONGTEXT NULL');
+ ac_query($db,"INSERT INTO billing_invoices(id,tanggal,customer,total,jatuhTempo,meta_json) VALUES('INV-RELEASE',?,'Siswa A','1000.25',?,'{\"student_id\":1}')",[$today,$today]);
  $link=sb_link($db,$finance,['student_id'=>1,'billing_invoice_id'=>'INV-RELEASE']);release_check(sb_link($db,$finance,['student_id'=>1,'billing_invoice_id'=>'INV-RELEASE'])['id']===$link['id'],'Invoice link retry is idempotent');
  release_reject(fn()=>sb_link($db,$finance,['student_id'=>2,'billing_invoice_id'=>'INV-RELEASE']),409,'Invoice ownership cannot silently change');release_reject(fn()=>sb_link($db,$student,['student_id'=>1,'billing_invoice_id'=>'INV-RELEASE']),403,'Learner cannot link Finance invoices');
  $ownerLink=ac_one($db,'SELECT * FROM student_invoice_links WHERE id=?',[$link['id']]);release_check(sb_bill($db,$ownerLink)['outstanding']==='1000.25','Unrecognized invoice displays actual outstanding');

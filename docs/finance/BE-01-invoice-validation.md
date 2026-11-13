@@ -42,6 +42,7 @@ Minimal JSON request:
   "action": "add_invoice",
   "id": "TGCJ26110001",
   "student_id": 123,
+  "bank_account_id": 7,
   "tanggal": "2026-11-13",
   "jatuhTempo": "2026-11-20",
   "total": "15000000.00",
@@ -51,6 +52,9 @@ Minimal JSON request:
 ```
 
 - `student_id` is required and resolves only to `peserta_intensif.id`.
+- `bank_account_id` is required and resolves only to an active official
+  `cash_bank_accounts.id` backed by an active cash/bank COA. See BE-01.1 below
+  for the required official holder data and configuration dependency.
 - `total` is a required client assertion, compared exactly in integer cents to
   the locked student's stored `total_biaya`. The stored server amount must be
   available and positive. A mismatch returns 422. No price default is generated.
@@ -81,7 +85,7 @@ Minimal JSON request:
   arithmetic and dates, not commercial installment eligibility or pricing rules.
 - `skema`, if supplied, must be `full` for one installment or `cicilan` for more.
 - Other retained presentation metadata is bounded text (`durasi`, `salesCode`,
-  `notes`, `bank_name`, `account_number`, `account_holder`) or bounded text lists
+  `notes`) or bounded text lists
   (`includes`, `excludes`). These fields do not authorize a fee, discount, payment,
   or new commercial entitlement. Raw client `meta_json` is never stored.
 
@@ -109,7 +113,7 @@ Errors retain `{"status":"error","message":"..."}` and the existing
 | 401 | No active login session |
 | 403 | Missing permission or invalid CSRF token |
 | 404 | Student ID does not exist |
-| 409 | Duplicate invoice number, missing official student table, or missing metadata storage |
+| 409 | Duplicate invoice number, lock timeout, unavailable official configuration, or ownership conflict |
 | 500 | Unexpected database/audit failure; transaction is rolled back |
 
 An identical invoice-number replay now returns 409 instead of the former
@@ -131,6 +135,68 @@ uncertain network result and reconcile with server data on 409 before issuing
 another request; do not silently generate a new number and risk duplicate debt.
 
 ## Verification and BE-02 follow-up
+
+### BE-01.1 integration hardening
+
+`sb_link` is the only application writer of `student_invoice_links`. It now
+locks the selected source document and validates the owner persisted in its
+`student_id` column (when available) and/or `meta_json.student_id`. Conflicting,
+malformed, or cross-student ownership returns 409. The target must still be a
+registered student with an active student account, and `prepare` permission,
+CSRF protection, transaction boundaries, and actor audit remain required.
+Request fields cannot establish invoice ownership.
+
+An unlinked legacy billing invoice or `invoice_client` without a known owner
+returns 409. Names and email addresses are never used to infer the owner.
+Existing legacy relationships can be read and retried for the same student;
+they cannot be reassigned. A persisted relationship that contradicts a known
+invoice owner also fails on reads and payment-source validation through
+`sb_bill`. Finance must review and establish ownership using verified source
+records through a separately reviewed data correction; no automatic backfill,
+new override endpoint, or migration is included here.
+
+MySQL 1205 inside `ac_atomic` now triggers a **full transaction rollback** and
+an `AccountingException` with HTTP 409 and the existing error envelope. This
+also applies to linking transactions and other callers of the shared helper.
+There is no automatic retry. Reconcile the result before retrying with the same
+invoice number; creating a new number can still create a separate debt.
+
+For new billing invoices, select `bank_account_id` from the existing server
+bank lookup (`accounting.php?view=lookups`, `banks[].id`). It must refer to an
+active `cash_bank_accounts` record backed by an active COA with
+`report_class='cash'`. The server snapshots `bank_name`, `account_number`, and
+`account_holder` from this record. Optional client copies of those fields are
+assertions only and must match exactly after trimming; a mismatch returns 422.
+Omit them to use official data. Unknown/inactive bank IDs return 422. Missing
+master tables or incomplete official data return 409. Bank IDs in localStorage
+or COA codes are not interchangeable with the official bank record ID.
+
+**Deployment dependency:** the existing checked-in `cash_bank_accounts` schema
+has bank name and account number, but no verified `account_holder` field. Its
+`name` field is an account display label, not verified proof of the legal
+holder. Creation therefore fails safely with 409 on that schema even if the
+client supplies a holder. A reviewed official holder data source must be
+provisioned before enabling new invoice creation; this implementation expects
+`cash_bank_accounts.account_holder`. No default holder, hardcoded account,
+master-data edit, production configuration change, or migration is introduced.
+The regression fixture provides synthetic holder data only in its temporary
+database, and explicitly tests the missing-column behavior.
+
+BE-01.1 verification: `php backend/tests/billing_invoice_test.php` passes **103
+checks**, including the original cases, actual HTTP ownership/bank validation,
+and real MySQL 1205 with separate connections. Timeouts are induced both before
+invoice insertion and during audit after invoice/link insertion. Each returns
+409, leaves no partial invoice/link/audit, and succeeds on retry after release.
+The isolated test router uses a one-second session lock timeout only when the
+billing runner's test flag is set; production connection settings are unchanged.
+`billing_integration_checks.php` contains the additional regressions, and the
+relationship suite's synthetic invoice now includes its verified owner.
+Its PHP syntax was checked; the full relationship suite was not executed on
+the temporary instance because it requires a complete development schema to
+clone, whereas this instance contains only the isolated billing fixtures.
+
+The earlier 63-check result below is the original BE-01 baseline. The unrelated
+accounting COA `1100` fixture issue remains outside this hardening change.
 
 Run `php backend/tests/billing_invoice_test.php` with local development/test
 configuration (`localhost`/`127.0.0.1`/`::1`, database name ending `_dev` or

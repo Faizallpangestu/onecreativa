@@ -1,6 +1,31 @@
 <?php
 require_once __DIR__.'/accounting_core.php';
 
+function billing_invoice_bank(mysqli $db, array $body): array {
+    $bankId = ac_id($body['bank_account_id'] ?? null, 'ID rekening resmi');
+    if (!ac_table($db, 'cash_bank_accounts') || !ac_table($db, 'accounts')) {
+        ac_fail('Master rekening resmi belum tersedia.', 409);
+    }
+    $bank = ac_one($db, 'SELECT * FROM cash_bank_accounts WHERE id=? FOR UPDATE', [$bankId]);
+    if (!$bank || (int)($bank['is_active'] ?? 0) !== 1) ac_fail('Rekening resmi tidak tersedia atau nonaktif.');
+    $account = ac_one($db, 'SELECT * FROM accounts WHERE id=? FOR UPDATE', [(int)$bank['account_id']]);
+    if (!$account || (int)($account['is_active'] ?? 0) !== 1 || ($account['report_class'] ?? '') !== 'cash') {
+        ac_fail('Rekening harus terhubung ke COA kas/bank yang aktif.', 409);
+    }
+    $meta = ['bank_account_id' => $bankId];
+    foreach (['bank_name' => 100, 'account_number' => 100, 'account_holder' => 255] as $key => $max) {
+        // The display label `name` is not proof of the legal account holder.
+        if (!is_string($bank[$key] ?? null) || trim($bank[$key]) === '') {
+            ac_fail('Data rekening resmi belum lengkap (bank, nomor, dan pemilik terverifikasi diperlukan).', 409);
+        }
+        $meta[$key] = ac_text($bank[$key], $key, $max);
+        if (array_key_exists($key, $body) && ac_text($body[$key], $key, $max) !== $meta[$key]) {
+            ac_fail('Metadata rekening harus sama dengan master rekening resmi.');
+        }
+    }
+    return $meta;
+}
+
 // BE-01 has one authoritative fee, not an item pricing catalog.
 function billing_invoice_meta(array $body, array $student, int $total, string $date, string $due): array {
     $amount = ac_decimal($total);
@@ -73,7 +98,7 @@ function billing_invoice_meta(array $body, array $student, int $total, string $d
         ]],
         'installments' => $installments,
     ];
-    foreach (['durasi' => 100, 'salesCode' => 100, 'notes' => 10000, 'bank_name' => 255, 'account_number' => 100, 'account_holder' => 255] as $key => $max) {
+    foreach (['durasi' => 100, 'salesCode' => 100, 'notes' => 10000] as $key => $max) {
         if (array_key_exists($key, $body)) $meta[$key] = ac_text($body[$key], $key, $max, false);
     }
     foreach (['includes', 'excludes'] as $key) {
@@ -107,6 +132,7 @@ function billing_create_invoice(mysqli $db, array $actor, array $body): array {
             // The primary key also rejects races; avoid gap locks on unused numbers.
             if (ac_one($db, 'SELECT id FROM billing_invoices WHERE id=?', [$id])) ac_fail('Nomor invoice sudah digunakan.', 409);
             $meta = billing_invoice_meta($body, $student, $total, $date, $due);
+            $meta = array_merge($meta, billing_invoice_bank($db, $body));
             $column = ac_one($db, "SHOW COLUMNS FROM billing_invoices LIKE 'meta_json'");
             if (!$column) ac_fail('Penyimpanan metadata invoice belum tersedia.', 409);
             $name = ac_text($student['nama_lengkap'] ?? '', 'Nama siswa', 255);

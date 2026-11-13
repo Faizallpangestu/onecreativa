@@ -1,16 +1,56 @@
 <?php
 require_once __DIR__.'/relationships.php';
 function sb_finance(mysqli $db,array $a,string $permission='read'):void{ac_require($db,$a,$permission);}
+function sb_invoice_owner(array $source): ?int {
+ $meta=[];
+ if(!empty($source['meta_json'])){
+  $meta=json_decode($source['meta_json'],true);
+  if(!is_array($meta)||json_last_error()!==JSON_ERROR_NONE)ac_fail('Metadata pemilik invoice perlu direview Finance.',409);
+ }
+ $owner=null;
+ foreach([$source,$meta]as $record){
+  if(!array_key_exists('student_id',$record)||$record['student_id']===null)continue;
+  try{$id=ac_id($record['student_id'],'Pemilik invoice');}catch(AccountingException $e){ac_fail('Identitas pemilik invoice belum valid. Review Finance diperlukan.',409);}
+  if($owner!==null&&$owner!==$id)ac_fail('Identitas pemilik invoice bertentangan. Review Finance diperlukan.',409);
+  $owner=$id;
+ }
+ return $owner;
+}
 function sb_bill(mysqli $db,array $link):array{
  $type=$link['billing_invoice_id']!==null?'billing_invoice':'invoice_client';$source=(string)($link['billing_invoice_id']??$link['invoice_client_id']);
- $row=$type==='billing_invoice'?ac_one($db,'SELECT id,total AS amount,customer AS title,jatuhTempo AS due_date,status AS original_status FROM billing_invoices WHERE id=?',[$source]):ac_one($db,'SELECT id,total_biaya AS amount,name AS title,NULL AS due_date,NULL AS original_status FROM invoice_clients WHERE id=?',[(int)$source]);if(!$row)ac_fail('Dokumen sumber tidak ditemukan.',409);
+ $row=$type==='billing_invoice'?ac_one($db,'SELECT * FROM billing_invoices WHERE id=?',[$source]):ac_one($db,'SELECT * FROM invoice_clients WHERE id=?',[(int)$source]);if(!$row)ac_fail('Dokumen sumber tidak ditemukan.',409);
+ $owner=sb_invoice_owner($row);if($owner!==null&&$owner!==(int)$link['student_id'])ac_fail('Invoice bukan milik siswa tujuan. Review Finance diperlukan.',409);
+ $row=['amount'=>$row[$type==='billing_invoice'?'total':'total_biaya'],'title'=>$row[$type==='billing_invoice'?'customer':'name'],'due_date'=>$type==='billing_invoice'?($row['jatuhTempo']??null):null,'original_status'=>$type==='billing_invoice'?($row['status']??null):null];
  $doc=ac_one($db,'SELECT id,journal_entry_id,amount FROM accounting_source_documents WHERE source_type=? AND source_id=?',[$type,$source]);$cancelled=in_array(strtolower($row['original_status']??''),['cancelled','canceled','dibatalkan','batal'],true)||($doc&&ac_one($db,'SELECT id FROM journal_entries WHERE reversal_of=?',[(int)$doc['journal_entry_id']]));
  $payments=$doc?ac_rows($db,"SELECT t.id AS transaction_id,t.number,t.transaction_date,t.reference,pa.amount FROM payment_allocations pa JOIN accounting_transactions t ON t.id=pa.transaction_id JOIN journal_entries j ON j.id=t.journal_entry_id WHERE pa.source_document_id=? AND pa.is_reversed=0 AND t.payment_status='verified' AND t.journal_status='posted' AND j.status='posted' ORDER BY t.transaction_date,t.id",[(int)$doc['id']]):[];
  $total=ac_cents($row['amount']);if($doc&&ac_cents($doc['amount'])!==$total)ac_fail('Nominal dokumen sumber berubah setelah pengakuan. Rekonsiliasi Finance diperlukan.',409);$paid=0;foreach($payments as $payment)$paid=ac_add($paid,ac_cents($payment['amount']));$total=ac_cents($row['amount']);if($paid>$total)ac_fail('Saldo invoice perlu direkonsiliasi Finance.',409);
  return ['id'=>(int)$link['id'],'student_id'=>(int)$link['student_id'],'source_type'=>$type,'source_id'=>$source,'title'=>$row['title'],'due_date'=>$row['due_date'],'amount'=>ac_decimal($total),'paid'=>ac_decimal($paid),'outstanding'=>ac_decimal($cancelled?0:$total-$paid),'cancelled'=>(bool)$cancelled,'recognized'=>(bool)$doc,'status'=>$cancelled?'cancelled':($total===$paid?'paid':($paid?'partial':'unpaid')),'payments'=>$payments];
 }
 function sb_link(mysqli $db,array $a,array $d):array{
- sb_finance($db,$a,'prepare');return ac_atomic($db,function()use($db,$a,$d){ac_one($db,'SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$a['id']]);$student=ac_id($d['student_id']??null);if(!ac_one($db,"SELECT p.id FROM peserta_intensif p JOIN users u ON u.id=p.user_id JOIN roles r ON r.id=u.role_id WHERE p.id=? AND u.is_active=1 AND r.name='peserta_intensif'",[$student]))ac_fail('Siswa belum terhubung ke akun aktif.');$billing=$d['billing_invoice_id']??null;$client=isset($d['invoice_client_id'])?ac_id($d['invoice_client_id']):null;if(($billing!==null)+($client!==null)!==1)ac_fail('Pilih satu jenis dokumen invoice.');if($billing!==null)$billing=ac_text($billing,'Invoice',50);$link=['student_id'=>$student,'billing_invoice_id'=>$billing,'invoice_client_id'=>$client];sb_bill($db,$link+['id'=>0]);$old=ac_one($db,'SELECT id,student_id FROM student_invoice_links WHERE billing_invoice_id=? OR invoice_client_id=? FOR UPDATE',[$billing,$client]);if($old){if((int)$old['student_id']!==$student)ac_fail('Invoice telah memiliki pemilik lain; koreksi memerlukan review.',409);return ['id'=>(int)$old['id']];}ac_query($db,'INSERT INTO student_invoice_links(student_id,billing_invoice_id,invoice_client_id,linked_by) VALUES(?,?,?,?)',[$student,$billing,$client,(int)$a['id']]);$id=$db->insert_id;rs_audit($db,$a,'student_invoice_link',$id,'created',['student_id'=>$student,'source_type'=>$billing!==null?'billing_invoice':'invoice_client']);return ['id'=>$id];});
+ sb_finance($db,$a,'prepare');
+ return ac_atomic($db,function()use($db,$a,$d){
+  ac_one($db,'SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$a['id']]);
+  $student=ac_id($d['student_id']??null);
+  if(!ac_one($db,"SELECT p.id FROM peserta_intensif p JOIN users u ON u.id=p.user_id JOIN roles r ON r.id=u.role_id WHERE p.id=? AND u.is_active=1 AND r.name='peserta_intensif' FOR UPDATE",[$student]))ac_fail('Siswa belum terhubung ke akun aktif.');
+  $billing=$d['billing_invoice_id']??null;$client=isset($d['invoice_client_id'])?ac_id($d['invoice_client_id']):null;
+  if(($billing!==null)+($client!==null)!==1)ac_fail('Pilih satu jenis dokumen invoice.');
+  if($billing!==null)$billing=ac_text($billing,'Invoice',50);
+  $source=$billing!==null?ac_one($db,'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE',[$billing]):ac_one($db,'SELECT * FROM invoice_clients WHERE id=? FOR UPDATE',[$client]);
+  if(!$source)ac_fail('Dokumen sumber tidak ditemukan.',409);
+  $owner=sb_invoice_owner($source);
+  if($owner!==null&&$owner!==$student)ac_fail('Invoice bukan milik siswa tujuan. Review Finance diperlukan.',409);
+  $old=ac_one($db,'SELECT id,student_id FROM student_invoice_links WHERE billing_invoice_id=? OR invoice_client_id=? FOR UPDATE',[$billing,$client]);
+  if($old&&(int)$old['student_id']!==$student)ac_fail('Invoice telah memiliki pemilik lain; koreksi memerlukan review.',409);
+  // Preserve existing legacy links; requests cannot assign an unknown owner.
+  if($owner===null&&!$old)ac_fail('Pemilik invoice legacy belum terverifikasi. Review Finance diperlukan sebelum linking.',409);
+  $link=['student_id'=>$student,'billing_invoice_id'=>$billing,'invoice_client_id'=>$client];
+  sb_bill($db,$link+['id'=>0]);
+  if($old)return ['id'=>$old['id']];
+  ac_query($db,'INSERT INTO student_invoice_links(student_id,billing_invoice_id,invoice_client_id,linked_by) VALUES(?,?,?,?)',[$student,$billing,$client,(int)$a['id']]);
+  $id=$db->insert_id;
+  rs_audit($db,$a,'student_invoice_link',$id,'created',['student_id'=>$student,'source_type'=>$billing!==null?'billing_invoice':'invoice_client']);
+  return ['id'=>$id];
+ });
 }
 function sb_submit(mysqli $db,array $a,array $d):array{
  if($a['role']!=='peserta_intensif')ac_fail('Bukti pembayaran hanya dari akun siswa.',403);$student=rs_student($db,$a);

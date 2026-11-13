@@ -33,10 +33,23 @@ try {
     $conn->query('CREATE TABLE billing_terkirim(id VARCHAR(50),created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
     $conn->query('CREATE TABLE accounting_audit_logs(id BIGINT AUTO_INCREMENT PRIMARY KEY,entity_type VARCHAR(50),entity_id VARCHAR(100),action VARCHAR(50),actor_id INT,actor_name VARCHAR(255),details_json LONGTEXT,ip_address VARCHAR(50),hash_prev VARCHAR(64),hash_self VARCHAR(64),created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
     $conn->query('CREATE TABLE finance_role_permissions(role_name VARCHAR(50),permission VARCHAR(50),allowed TINYINT,PRIMARY KEY(role_name,permission)) ENGINE=InnoDB');
-    $conn->query("INSERT INTO roles VALUES(1,'finance'),(2,'sensei'),(3,'finance_admin')");
-    $conn->query("INSERT INTO users(id,email,role_id) VALUES(1,'finance@test',1),(2,'sensei@test',2),(3,'finance-admin@test',3)");
+    $conn->query('CREATE TABLE accounts(id INT UNSIGNED PRIMARY KEY,is_active TINYINT,report_class VARCHAR(40)) ENGINE=InnoDB');
+    // Synthetic official holder data. Existing installations without this field must fail closed.
+    $conn->query('CREATE TABLE cash_bank_accounts(id INT UNSIGNED PRIMARY KEY,account_id INT UNSIGNED,bank_name VARCHAR(100),account_number VARCHAR(100),account_holder VARCHAR(255),is_active TINYINT) ENGINE=InnoDB');
+    $conn->query("INSERT INTO accounts VALUES(1,1,'cash'),(2,0,'cash'),(3,1,'receivable')");
+    $conn->query("INSERT INTO cash_bank_accounts VALUES(1,1,'Bank Uji','000123456','Pemilik Resmi Uji',1),(2,1,'Bank Uji','999999','Nonaktif',0),(3,2,'Bank Uji','123','COA Nonaktif',1),(4,3,'Bank Uji','456','COA Nonkas',1),(5,1,'Bank Uji','789','',1)");
+    $conn->query('CREATE TABLE student_invoice_links(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,student_id INT NOT NULL,billing_invoice_id VARCHAR(50) NULL UNIQUE,invoice_client_id INT NULL UNIQUE,linked_by INT UNSIGNED NOT NULL) ENGINE=InnoDB');
+    $conn->query('CREATE TABLE invoice_clients(id INT PRIMARY KEY,name VARCHAR(255),total_biaya DECIMAL(15,2)) ENGINE=InnoDB');
+    $conn->query('CREATE TABLE accounting_source_documents(id INT PRIMARY KEY,journal_entry_id INT,amount DECIMAL(15,2),source_type VARCHAR(40),source_id VARCHAR(100)) ENGINE=InnoDB');
+    foreach (['lms_classes','lms_teaching_assignments','lms_class_enrollments','lms_meeting_assignments','lms_grade_publications','matching_student_links','matching_candidate_history','student_payment_submissions'] as $table) {
+        $conn->query("CREATE TABLE `$table`(id INT PRIMARY KEY) ENGINE=InnoDB");
+    }
+    $conn->query("INSERT INTO roles VALUES(1,'finance'),(2,'sensei'),(3,'finance_admin'),(4,'peserta_intensif')");
+    $conn->query("INSERT INTO users(id,email,role_id) VALUES(1,'finance@test',1),(2,'sensei@test',2),(3,'finance-admin@test',3),(4,'student1@test',4),(5,'student2@test',4)");
     ac_query($conn, 'UPDATE users SET password_hash=?', [password_hash('isolated-test-only', PASSWORD_DEFAULT)]);
     $conn->query("INSERT INTO peserta_intensif VALUES(1,'Siswa Resmi','student@test.invalid','0812345678',15000000.50,'Intensif','Cianjur','NIS-1','manual','Aktif'),(2,'Siswa Resmi','student@test.invalid','0899999999',18000000,'Intensif','Cianjur','NIS-2','manual','Aktif')");
+    $conn->query('ALTER TABLE peserta_intensif ADD user_id INT NULL');
+    $conn->query('UPDATE peserta_intensif SET user_id=id+3');
     foreach (['Paid', 'Lunas', 'Unpaid'] as $index => $status) {
         ac_query($conn, 'INSERT INTO billing_invoices(id,tanggal,customer,email,phone,total,status,jatuhTempo,keterangan,meta_json,public_token) VALUES(?,?,?,?,?,?,?,?,?,?,?)', ['OLD-'.$index, '2026-01-01', 'Legacy', '', '', '1000.00', $status, '2026-01-10', 'Legacy', '{"discount":{"amount":100},"items":[{"price":1100}]}', str_repeat((string)($index + 1), 32)]);
     }
@@ -48,6 +61,7 @@ try {
     $address = stream_socket_get_name($socket, false); fclose($socket);
     $port = (int)substr($address, strrpos($address, ':') + 1);
     putenv('CREATIVA_RAB_TEST_DB='.$testName);
+    putenv('CREATIVA_BILLING_TEST_LOCK_TIMEOUT=1');
     $log = tempnam(sys_get_temp_dir(), 'billing-http-');
     $server = proc_open([PHP_BINARY, '-d', 'session.save_path="'.str_replace('\\', '/', sys_get_temp_dir()).'"', '-S', '127.0.0.1:'.$port, __DIR__.'/budget_test_router.php'], [['pipe','r'],['file',$log,'a'],['file',$log,'a']], $pipes, dirname(__DIR__, 2));
     if (!is_resource($server)) throw new RuntimeException('Cannot start isolated HTTP tests');
@@ -69,7 +83,7 @@ try {
         foreach ($responseHeaders as $header) if (str_starts_with(strtolower($header), 'set-cookie:')) $session = explode(';', trim(substr($header, 11)))[0];
         return ['code' => (int)($match[1] ?? 0), 'json' => json_decode($raw, true), 'cookie' => $session];
     };
-    $base = ['action' => 'add_invoice', 'id' => 'INV-VALID', 'student_id' => 1, 'tanggal' => '2026-11-13', 'jatuhTempo' => '2026-11-20', 'total' => '15000000.50', 'status' => 'Unpaid'];
+    $base = ['action' => 'add_invoice', 'id' => 'INV-VALID', 'student_id' => 1, 'bank_account_id' => 1, 'tanggal' => '2026-11-13', 'jatuhTempo' => '2026-11-20', 'total' => '15000000.50', 'status' => 'Unpaid'];
     billing_check($send('billing.php', $base)['code'] === 401, 'Anonymous creation returns 401');
     $login = $send('login.php', ['email' => 'finance@test', 'password' => 'isolated-test-only']);
     billing_check($login['code'] === 200 && $login['cookie'] !== '', 'Login establishes a real session');
@@ -83,6 +97,7 @@ try {
     $meta = json_decode($stored['meta_json'], true);
     billing_check($stored['status'] === 'Unpaid' && $stored['total'] === '15000000.50' && $stored['customer'] === 'Siswa Resmi' && $stored['email'] === 'student@test.invalid' && $stored['phone'] === '0812345678', 'Identity and amount come from student_id, ignoring spoofed contact data');
     billing_check($meta['student_id'] === 1 && $meta['program'] === 'Intensif' && $meta['subtotal'] === '15000000.50' && $meta['items'][0]['harga'] === '15000000.50' && $meta['discount']['amount'] === '0.00', 'Financial metadata is rebuilt from official fee');
+    billing_check($meta['bank_account_id'] === 1 && $meta['account_number'] === '000123456' && $meta['account_holder'] === 'Pemilik Resmi Uji' && $meta['bank_name'] === 'Bank Uji', 'Bank snapshot comes exclusively from official active master with leading zeros preserved');
     $audit = ac_one($conn, "SELECT * FROM accounting_audit_logs WHERE entity_type='billing_invoice' AND entity_id='INV-VALID'");
     billing_check((int)$audit['actor_id'] === 1 && json_decode($audit['details_json'], true)['student_id'] === 1 && strlen($audit['hash_self']) === 64, 'Creation retains actor audit and student amount provenance');
 
@@ -111,6 +126,9 @@ try {
         'Missing student_id' => ['student_id' => null], 'Web ID is not student identity' => ['student_id' => null, 'web_id' => 1],
         'Manual flag cannot bypass student validation' => ['student_id' => null, 'invoice_type' => 'manual'],
         'Malformed metadata' => ['includes' => ['bad' => 'value']],
+        'Missing official bank ID' => ['bank_account_id' => null], 'Unknown bank ID' => ['bank_account_id' => 999],
+        'Inactive bank' => ['bank_account_id' => 2], 'Tampered bank number' => ['account_number' => 'attacker-account'],
+        'Tampered bank holder' => ['account_holder' => 'Attacker'], 'Tampered bank name' => ['bank_name' => 'Other Bank'],
     ];
     $before = ac_one($conn, 'SELECT COUNT(*) AS n FROM billing_invoices')['n'];
     $auditBefore = ac_one($conn, "SELECT COUNT(*) AS n FROM accounting_audit_logs WHERE entity_type='billing_invoice'")['n'];
@@ -161,10 +179,13 @@ try {
     $old = array_column($read['json']['data']['invoices'], null, 'id');
     billing_check($old['OLD-0']['status'] === 'Paid' && $old['OLD-1']['status'] === 'Paid' && $old['OLD-2']['status'] === 'Partially Paid' && $old['OLD-2']['terbayar'] === '200.00' && $old['OLD-2']['sisa'] === '800.00', 'Legacy Paid/Lunas and verified partial payment balances retain behavior');
     billing_check(ac_rows($conn, "SELECT * FROM billing_invoices WHERE id LIKE 'OLD-%' ORDER BY id") === $legacy, 'Existing invoice rows and legacy metadata remain unchanged');
+    require __DIR__.'/billing_integration_checks.php';
+    billing_integration_checks($conn, $testName, $base, $send, $cookie, $csrf);
     echo "PASS: $checks billing invoice integration checks.\n";
 } finally {
     if (is_resource($server)) { proc_terminate($server); proc_close($server); }
     putenv('CREATIVA_RAB_TEST_DB');
+    putenv('CREATIVA_BILLING_TEST_LOCK_TIMEOUT');
     if ($log && is_file($log)) unlink($log);
     $conn->select_db($original);
     $conn->query("DROP DATABASE `$testName`");

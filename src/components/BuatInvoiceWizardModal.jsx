@@ -964,7 +964,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
   const handleDownloadPDF = () => {
     const accountHolderName =
       String(selectedAccount.noRek || "").includes("1832-918-428") &&
-      String(selectedAccount.pemilik || "").trim().toUpperCase() === "PT LPK CREATIVA"
+        String(selectedAccount.pemilik || "").trim().toUpperCase() === "PT LPK CREATIVA"
         ? "CREATIVA BRIDGING INTERN"
         : (selectedAccount.pemilik || "CREATIVA BRIDGING INTERN");
 
@@ -1244,8 +1244,8 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
                               <td colSpan={3} className="px-3 py-2">
                                 <span
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${(activeStudent.metodePembayaran || "").toLowerCase().includes("cicil")
-                                      ? "bg-amber-50 text-amber-800 border-amber-200"
-                                      : "bg-blue-50 text-blue-800 border-blue-200"
+                                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                                    : "bg-blue-50 text-blue-800 border-blue-200"
                                     }`}
                                 >
                                   {activeStudent.metodePembayaran || (skemaPembayaran === "cicilan" ? "Cicilan" : "Full Payment")}
@@ -1665,9 +1665,9 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
                       <div className="flex items-center gap-3">
                         {/* Dynamic Bank Badge Logo */}
                         <div className={`w-12 h-7 rounded-md flex items-center justify-center shadow-2xs font-black text-xs italic tracking-wider text-white ${selectedAccount.bank.toLowerCase().includes("mandiri") ? "bg-amber-600" :
-                            selectedAccount.bank.toLowerCase().includes("bni") ? "bg-teal-600" :
-                              selectedAccount.bank.toLowerCase().includes("bri") ? "bg-blue-800" :
-                                "bg-blue-700"
+                          selectedAccount.bank.toLowerCase().includes("bni") ? "bg-teal-600" :
+                            selectedAccount.bank.toLowerCase().includes("bri") ? "bg-blue-800" :
+                              "bg-blue-700"
                           }`}>
                           {selectedAccount.bank.toUpperCase().slice(0, 4)}
                         </div>
@@ -2068,7 +2068,7 @@ export default function BuatInvoiceWizardModal({ onClose, onSuccess, dataSiswa =
                           <p>
                             Bank {selectedAccount.bank || "BCA"} No. Rekening {selectedAccount.noRek || "1832-918-428"} atas nama{" "}
                             {String(selectedAccount.noRek || "").includes("1832-918-428") &&
-                            String(selectedAccount.pemilik || "").trim().toUpperCase() === "PT LPK CREATIVA"
+                              String(selectedAccount.pemilik || "").trim().toUpperCase() === "PT LPK CREATIVA"
                               ? "CREATIVA BRIDGING INTERN"
                               : (selectedAccount.pemilik || "CREATIVA BRIDGING INTERN")}
                           </p>

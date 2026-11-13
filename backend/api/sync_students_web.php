@@ -103,6 +103,7 @@ try {
     $createdInvoices = 0;
     rpa_ensure_billing_columns($conn);
     rpa_ensure_automation_logs_table($conn);
+    rpa_ensure_processed_table($conn);
 
     foreach ($remoteData as $p) {
         if (!is_array($p)) continue;
@@ -186,15 +187,34 @@ try {
             $inserted++;
         }
 
-        // ── Auto-Generate Invoice di billing_invoices jika belum ada ──
+        // ── Auto-Generate Invoice di billing_invoices HANYA UNTUK PENDAFTAR TERBARU ──
+        // Jika web_id sudah pernah diproses oleh robot (baik invoicenya masih ada atau telah dihapus admin),
+        // JANGAN PERNAH dibuat ulang (mencegah data yang sudah dihapus muncul kembali)!
+        $procStmt = $conn->prepare("SELECT web_id FROM rpa_processed_registrations WHERE web_id = ? LIMIT 1");
+        $procStmt->bind_param("i", $rawId);
+        $procStmt->execute();
+        $alreadyProcessed = (bool)$procStmt->get_result()->fetch_assoc();
+        $procStmt->close();
+
+        if ($alreadyProcessed) {
+            continue;
+        }
+
+        $createdAt = trim((string)($p['created_at'] ?? ''));
+        $createdTime = $createdAt !== '' ? strtotime($createdAt) : 0;
+        $todayStart = strtotime('2026-11-13 00:00:00');
+        // Hanya proses pendaftar baru sesi hari ini (web_id >= 100 atau didaftarkan hari ini)
+        $isNewApplicant = ($rawId >= 100) || ($createdTime >= $todayStart);
+
         $studentNis = !empty($existingNis) ? $existingNis : $nis;
-        $checkInvStmt = $conn->prepare("SELECT id FROM billing_invoices WHERE (id = ? OR (email != '' AND email = ?) OR customer = ?) LIMIT 1");
-        $checkInvStmt->bind_param("sss", $studentNis, $email, $name);
+        $webIdPattern = '%"web_id":' . $rawId . '%';
+        $checkInvStmt = $conn->prepare("SELECT id FROM billing_invoices WHERE (meta_json LIKE ? OR id = ?) LIMIT 1");
+        $checkInvStmt->bind_param("ss", $webIdPattern, $studentNis);
         $checkInvStmt->execute();
         $invFound = $checkInvStmt->get_result()->fetch_assoc();
         $checkInvStmt->close();
 
-        if (!$invFound) {
+        if (!$invFound && $isNewApplicant) {
             $isCicilan = (stripos($metodePembayaran, 'cicil') !== false || stripos($metodePembayaran, 'dp') !== false || stripos($program, 'intensif') !== false);
             $finalTotal = $totalBiaya > 0 ? (float)$totalBiaya : 15000000.00;
             $metodeLabel = $isCicilan ? 'Cicilan' : 'Full Payment';
@@ -284,26 +304,29 @@ try {
             $terkirimStmt->close();
 
             $urls = rpa_build_public_urls($invoiceId, $token);
-            rpa_record_log(
+
+            // Kirim notifikasi WA & Email otomatis dengan tenggat waktu 2x24 jam
+            rpa_send_invoice_notifications(
                 $conn,
                 $invoiceId,
-                'rpa_phase1_registration',
-                'Web Sync',
-                'Success',
-                $penerima,
-                [
-                    'notes' => "Invoice otomatis berhasil dibuat untuk {$name} ({$metodeLabel}): Rp " . number_format($finalTotal, 0, ',', '.'),
-                    'web_id' => $rawId,
-                    'name' => $name,
-                    'program' => $program,
-                    'metode' => $metodeLabel,
-                    'invoice_id' => $invoiceId,
-                    'total' => $finalTotal,
-                    'token' => $token,
-                    'status_url' => $urls['status_url']
-                ],
-                ''
+                $name,
+                $email,
+                $phone,
+                $program,
+                $finalTotal,
+                $installments,
+                $firstDue,
+                $urls['status_url'],
+                $urls['invoice_url']
             );
+
+            // Tandai web_id ini sudah diproses agar TIDAK PERNAH dibuat ulang jika admin menghapusnya
+            $recProc = $conn->prepare("INSERT INTO rpa_processed_registrations (web_id, invoice_id, customer, created_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE invoice_id=VALUES(invoice_id)");
+            if ($recProc) {
+                $recProc->bind_param("iss", $rawId, $invoiceId, $name);
+                $recProc->execute();
+                $recProc->close();
+            }
 
             $createdInvoices++;
         }

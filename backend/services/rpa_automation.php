@@ -127,6 +127,19 @@ if (!function_exists('rpa_ensure_automation_logs_table')) {
     }
 }
 
+if (!function_exists('rpa_ensure_processed_table')) {
+    function rpa_ensure_processed_table(mysqli $conn): void {
+        @mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `rpa_processed_registrations` (
+            `web_id` INT NOT NULL PRIMARY KEY,
+            `invoice_id` VARCHAR(64) NOT NULL,
+            `customer` VARCHAR(255) NOT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `deleted_at` DATETIME NULL,
+            INDEX `idx_rpa_proc_inv` (`invoice_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+}
+
 if (!function_exists('rpa_ensure_invoice_token')) {
     function rpa_ensure_invoice_token(mysqli $conn, string $invoiceId): string {
         rpa_ensure_billing_columns($conn);
@@ -460,6 +473,161 @@ if (!function_exists('rpa_trigger_receipt_automation')) {
             'urls' => $urls,
             'rpa_dispatched' => $rpaDispatched,
             'payload' => $receiptPayload,
+        ];
+    }
+}
+
+if (!function_exists('rpa_send_invoice_notifications')) {
+    function rpa_send_invoice_notifications(
+        mysqli $conn,
+        string $invoiceId,
+        string $name,
+        string $email,
+        string $phone,
+        string $program,
+        float $total,
+        array $installments,
+        string $dueDate,
+        string $statusUrl,
+        string $invoiceUrl
+    ): array {
+        $waPhone = rpa_format_wa_phone($phone);
+        $dueDateTime = date('d F Y, H:i', strtotime($dueDate)) . ' WIB';
+
+        // 1. Susun Pesan WhatsApp
+        $instText = "";
+        foreach ($installments as $inst) {
+            $instText .= "\n  • " . ($inst['deskripsi'] ?? 'Cicilan') . ": *Rp " . number_format((float)($inst['nominal'] ?? 0), 0, ',', '.') . "*";
+            if (!empty($inst['jatuhTempo'])) {
+                $instText .= " (Jatuh tempo: " . date('d/m/Y', strtotime($inst['jatuhTempo'])) . ")";
+            }
+        }
+
+        $waMsg = "Halo Sdr/i *{$name}*,\n\n"
+            . "Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n"
+            . "Pendaftaran Anda untuk program *{$program}* telah kami terima.\n\n"
+            . "📋 *Rincian Tagihan & Termin Pembayaran:*\n"
+            . "• No. Invoice: *{$invoiceId}*\n"
+            . "• Total Biaya: *Rp " . number_format($total, 0, ',', '.') . "*\n"
+            . "• Rincian Cicilan:{$instText}\n\n"
+            . "⏰ *Tenggat Waktu Pembayaran Cicilan 1:*\n"
+            . "👉 *2x24 Jam* (Maksimal: {$dueDateTime})\n\n"
+            . "💳 *Rekening Pembayaran Resmi LPK:*\n"
+            . "• Bank: *BCA*\n"
+            . "• No. Rekening: *1832-918-428*\n"
+            . "• Atas Nama: *PT CREATIVA BRIDGING INTERN*\n\n"
+            . "📄 *Lihat & Unduh Invoice Resmi (PDF):*\n"
+            . "{$statusUrl}\n\n"
+            . "Setelah transfer, Anda dapat langsung mengunggah bukti bayar melalui link portal di atas atau membalas pesan ini.\n\n"
+            . "Salam hangat,\n"
+            . "_Tim Keuangan & Admisi LPK Creativa Bridging International_";
+
+        // 2. Susun Email HTML
+        $instRows = "";
+        foreach ($installments as $idx => $inst) {
+            $nom = number_format((float)($inst['nominal'] ?? 0), 0, ',', '.');
+            $jt = !empty($inst['jatuhTempo']) ? date('d/m/Y', strtotime($inst['jatuhTempo'])) : '-';
+            $bg = $idx === 0 ? "#eff6ff" : ($idx % 2 === 0 ? "#ffffff" : "#f8fafc");
+            $highlight = $idx === 0 ? " <span style='background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:bold;'>2x24 Jam</span>" : "";
+            $instRows .= "<tr style='background:{$bg};border-bottom:1px solid #e2e8f0;'>"
+                . "<td style='padding:10px 14px;font-weight:600;color:#1e293b;'>" . htmlspecialchars($inst['deskripsi'] ?? 'Cicilan') . "{$highlight}</td>"
+                . "<td style='padding:10px 14px;color:#475569;'>" . htmlspecialchars($jt) . "</td>"
+                . "<td style='padding:10px 14px;text-align:right;font-weight:bold;color:#1e293b;'>Rp {$nom}</td>"
+                . "</tr>";
+        }
+
+        $emailSubject = "[LPK Creativa] Invoice Tagihan Pendaftaran {$program} - {$invoiceId}";
+        $emailHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body style='font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,sans-serif;background:#f1f5f9;margin:0;padding:24px;color:#1e293b;'>"
+            . "<div style='max-width:620px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);border:1px solid #e2e8f0;'>"
+            . "<div style='background:#1e3a8a;color:#ffffff;padding:24px;text-align:center;'>"
+            . "<h1 style='margin:0;font-size:20px;letter-spacing:0.5px;'>LPK CREATIVA BRIDGING INTERNATIONAL</h1>"
+            . "<p style='margin:4px 0 0;font-size:13px;opacity:0.9;'>Invoice Tagihan Pendaftaran Siswa Baru</p>"
+            . "</div>"
+            . "<div style='padding:24px;'>"
+            . "<p style='margin-top:0;font-size:15px;line-height:1.5;'>Halo <strong>" . htmlspecialchars($name) . "</strong>,</p>"
+            . "<p style='font-size:14px;line-height:1.6;color:#475569;'>Terima kasih telah mendaftar di program <strong>" . htmlspecialchars($program) . "</strong>. Invoice pendaftaran Anda telah berhasil dibuat oleh sistem otomasi kami dengan rincian sebagai berikut:</p>"
+            . "<div style='background:#f8fafc;border-left:4px solid #2563eb;padding:12px 16px;margin:16px 0;border-radius:4px;'>"
+            . "<p style='margin:3px 0;font-size:13px;'><strong>No. Invoice:</strong> " . htmlspecialchars($invoiceId) . "</p>"
+            . "<p style='margin:3px 0;font-size:13px;'><strong>Total Biaya:</strong> Rp " . number_format($total, 0, ',', '.') . "</p>"
+            . "<p style='margin:3px 0;font-size:13px;color:#b91c1c;'><strong>Tenggat Waktu Cicilan 1:</strong> 2x24 Jam (" . htmlspecialchars($dueDateTime) . ")</p>"
+            . "</div>"
+            . "<h3 style='font-size:14px;color:#0f172a;margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.5px;'>Rincian Termin Cicilan</h3>"
+            . "<table style='width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;'>"
+            . "<thead><tr style='background:#f1f5f9;color:#475569;text-align:left;border-bottom:2px solid #cbd5e1;'>"
+            . "<th style='padding:8px 14px;'>Termin</th><th style='padding:8px 14px;'>Jatuh Tempo</th><th style='padding:8px 14px;text-align:right;'>Nominal</th></tr></thead>"
+            . "<tbody>{$instRows}</tbody></table>"
+            . "<div style='background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:20px 0;text-align:center;'>"
+            . "<p style='margin:0 0 6px;font-size:13px;color:#1e40af;font-weight:600;'>REKENING PEMBAYARAN RESMI</p>"
+            . "<p style='margin:0;font-size:18px;font-weight:bold;color:#1e3a8a;'>Bank BCA: 1832-918-428</p>"
+            . "<p style='margin:4px 0 0;font-size:12px;color:#3b82f6;'>a/n PT CREATIVA BRIDGING INTERN</p>"
+            . "</div>"
+            . "<div style='text-align:center;margin:24px 0 12px;'>"
+            . "<a href='" . htmlspecialchars($statusUrl) . "' style='background:#2563eb;color:#ffffff;padding:12px 28px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px;display:inline-block;box-shadow:0 2px 6px rgba(37,99,235,0.3);'>Buka Portal & Unduh Invoice PDF</a>"
+            . "</div>"
+            . "<p style='font-size:12px;color:#94a3b8;text-align:center;margin-top:20px;'>Email ini dikirim secara otomatis oleh Sistem RPA One-Creativa.</p>"
+            . "</div></div></body></html>";
+
+        // Kirim Email via mail()
+        $emailSent = false;
+        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $headers = [
+                'MIME-Version: 1.0',
+                'Content-type: text/html; charset=UTF-8',
+                'From: LPK Creativa Bridging <finance@creativabridging.com>',
+                'Reply-To: finance@creativabridging.com',
+                'X-Mailer: PHP/' . phpversion()
+            ];
+            $emailSent = @mail($email, $emailSubject, $emailHtml, implode("\r\n", $headers));
+        }
+
+        // Kirim WA via Wablas jika token tersedia
+        $envToken = getenv('WABLAS_TOKEN') ?: (defined('WABLAS_TOKEN') ? WABLAS_TOKEN : '');
+        $envDomain = getenv('WABLAS_DOMAIN') ?: (defined('WABLAS_DOMAIN') ? WABLAS_DOMAIN : 'kudus.wablas.com');
+        $waSent = false;
+        if (!empty($envToken) && !empty($waPhone)) {
+            $ch = curl_init("https://{$envDomain}/api/send-message");
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: ' . $envToken,
+                    'Content-Type: application/json',
+                ],
+                CURLOPT_POSTFIELDS => json_encode(['phone' => $waPhone, 'message' => $waMsg]),
+            ]);
+            $wres = curl_exec($ch);
+            $wcode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $waSent = ($wcode >= 200 && $wcode < 300);
+        }
+
+        // Catat Log Pengiriman
+        $waLink = "https://api.whatsapp.com/send?phone=" . urlencode($waPhone) . "&text=" . urlencode($waMsg);
+        rpa_record_log(
+            $conn,
+            $invoiceId,
+            'rpa_phase1_registration',
+            'WA & Email',
+            ($emailSent || $waSent) ? 'Success' : 'Terkirim (Simulasi)',
+            $waPhone ?: $email,
+            [
+                'email_sent' => $emailSent,
+                'wa_sent' => $waSent,
+                'wa_direct_link' => $waLink,
+                'status_url' => $statusUrl,
+                'due_date' => $dueDateTime,
+                'message' => "Tagihan 2x24 jam berhasil disiapkan untuk {$name}"
+            ],
+            ''
+        );
+
+        return [
+            'email_sent' => $emailSent,
+            'wa_sent' => $waSent,
+            'wa_link' => $waLink,
+            'wa_message' => $waMsg,
+            'email_subject' => $emailSubject,
         ];
     }
 }

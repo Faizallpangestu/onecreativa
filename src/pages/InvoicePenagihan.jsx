@@ -5050,6 +5050,26 @@ export default function InvoicePenagihan() {
     return () => { active = false; };
   }, []);
 
+  // Polling silent setiap 5 detik untuk memperbarui invoice secara real-time saat robot menarik data baru
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      axios.get('/api/billing.php').then(({ data }) => {
+        if (data.status === 'success' && Array.isArray(data.data?.invoices)) {
+          const serverInvs = data.data.invoices || [];
+          const serverPayments = data.data.pembayaran || [];
+          const finalInvoices = serverInvs.map(invoice => ({
+            ...invoice,
+            payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
+          }));
+          setInvoices(finalInvoices);
+          setAutomationLogs(Array.isArray(data.data.automation_logs) ? data.data.automation_logs : []);
+          setRpaStatus(data.data.rpa_status || {});
+        }
+      }).catch(() => {});
+    }, 5000);
+    return () => clearInterval(pollInterval);
+  }, []);
+
   // ── APPROVE PAYMENT & REALIZATION SINKRONISASI ──
   const handleApprovePayment = async (inv, paymentData) => {
     const formData = new FormData();

@@ -474,6 +474,9 @@ if ($method === 'DELETE') {
     $idEsc = mysqli_real_escape_string($conn, $id);
     if ($type === 'invoice') {
         mysqli_query($conn, "DELETE FROM billing_invoices WHERE id = '$idEsc'");
+        mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id = '$idEsc'");
+        rpa_ensure_processed_table($conn);
+        @mysqli_query($conn, "UPDATE rpa_processed_registrations SET deleted_at = NOW() WHERE invoice_id = '$idEsc'");
         ac_audit($conn, $actor, 'billing_invoice', $id, 'deleted', []);
     } elseif ($type === 'terkirim') {
         mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id = '$idEsc'");

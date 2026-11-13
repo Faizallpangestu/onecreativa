@@ -4,9 +4,11 @@
 
 - `POST /api/billing.php`, action `add_invoice`, is called by
   `src/components/BuatInvoiceWizardModal.jsx` and the legacy invoice form in
-  `src/pages/InvoicePenagihan.jsx`. Both currently omit `student_id`; the legacy
+  `src/pages/InvoicePenagihan.jsx`. At the BE-01 baseline both omitted `student_id`; the legacy
   form also permits arbitrary customer names, prices, discounts, and statuses.
-  Both callers must adopt the contract below. No frontend files are changed here.
+  BE-01.2 now integrates the active wizard with the contract below and removes
+  the unused duplicate form. The frontend behavior and verification are documented
+  in the BE-01.2 section below.
 - `src/pages/HistoryInvoice.jsx` calls a different endpoint: `/api/invoice.php`.
   Its `add_client` creates `invoice_clients`; its `add_invoice` uploads a receipt
   into `invoice_records`, with `needs_review`, rather than creating a
@@ -135,6 +137,102 @@ uncertain network result and reconcile with server data on 409 before issuing
 another request; do not silently generate a new number and risk duplicate debt.
 
 ## Verification and BE-02 follow-up
+
+### BE-01.2 frontend integration
+
+The active invoice wizard now loads identities and bank records exclusively
+from `accounting.php?view=lookups`. It retains `students[].id` separately as
+`databaseId`, rather than treating NIS, `web_id`, a display ID, a name/email
+match, or localStorage as an invoice identity. Syncing students reloads these
+lookups after the sync response; upstream response IDs are never used for
+invoice creation. Missing contacts remain empty rather than receiving dummy
+email/phone values. The billing endpoint's mixed student list is display-only.
+
+`banks[].id` is the selected `bank_account_id`. Available choices require an
+active master record, active associated cash COA, and explicit official bank
+name, account number, and verified holder. Display names are never substituted
+for holder names. No local bank fallback is used. A missing official holder
+blocks publication and explains the Finance/DB PIC dependency; backend 409
+errors are also displayed with their original message and request ID.
+
+Program, fee item, total, and additional discount are read-only. There is no
+quantity input or program-price selector in the creation flow. The request
+contains the official fee as a normalized decimal string, required database
+IDs, stable invoice number, dates, `Unpaid`, zero additional discount, and a
+validated schedule. No bank assertions or independent item prices are needed;
+the backend creates canonical item and bank metadata. Decimal parsing and
+installment summation use exact integer cents without float rounding.
+
+The stored student payment method determines the displayed scheme. Missing or
+unrecognized scheme data blocks publication for Finance review. In installment
+mode, the current lookup has no approved installment schedule: Finance must
+enter the confirmed dates and amounts explicitly. The wizard requires at least
+two positive terms, exact sum, ordered dates, and first date equal to invoice
+due date. It does not guess percentage splits, change prices, or silently switch
+an invalid installment plan to full payment. Full payment uses one term for the
+official amount and selected invoice due date.
+
+An invoice becomes successful only after server `status=success` with the same
+invoice ID. API failures leave the form and number intact. On 409, a lost
+response, or server failure, the client checks billing data by exact invoice
+number. Before an explicit retry it checks again. An existing number or an
+unavailable check prevents another POST; a confirmed absence allows an explicit
+retry with the same number. Finding that number is not sufficient proof that
+the previous request owns it, so the UI does not convert a conflict into an
+automatic success or generate a replacement number.
+
+The wizard no longer writes `saved_custom_invoices`, `saved_custom_terkirim`,
+or local student financial balances. Invoice preview also ignores those old
+local caches. New invoices do not create delivery/payment history. The delivery
+and payment tabs enrich only real `billing_terkirim` / `billing_pembayaran`
+records, preserving their statuses and retaining no fabricated counterpart for
+Paid/Partially Paid invoices. Missing payment history, reference, verified
+holder, and student balances remain unavailable rather than being invented.
+Payment approval reloads the server records and uses the server receipt URL.
+The old simulated resend notification is replaced with an accurate explanation
+that this flow does not send messages; no delivery API is added.
+
+The **Tambah Siswa Baru** intake UI remains available, but cannot publish until
+the student is registered through the existing business process and selected
+from database lookups. It does not register students automatically. **Simpan
+Draft** now explains that backend draft persistence is unavailable; it neither
+saves an official invoice locally nor claims the draft can be reopened later.
+Working input remains only while the form is open. Preview is available for a
+valid form and is marked as unpublished; official server invoices retain their
+valid stored metadata for PDF display. The removed duplicate legacy form was
+not mounted by any active caller, and contained the other unsafe creation path.
+
+Compatibility changes: local-only students/banks and old local invoice drafts
+are no longer official data sources; additional price/discount/item editing is
+unavailable; unknown owners, missing official holders, missing schemes, and
+invalid schedules require Finance review. No new backend endpoint or contract
+relaxation is introduced. Finance/DB PIC must provision verified official
+`account_holder` data, register the student with a positive operational fee and
+clear payment scheme, and confirm installment schedules before live issuance.
+End-to-end issuance against a real configured master is **not verified** here.
+
+Verification commands and results:
+
+- `node tools/student-invoice-test.mjs`: **18 passing regression scenarios**
+  covering official/wrong IDs, decimal totals, manual mode, incomplete master,
+  installment validity, sync refresh, 422/409/network errors, guarded retry,
+  and real-record-only payment/delivery mapping. API calls are mocked.
+- `node tools/student-invoice-browser-test.mjs`: **11 passing headless Chrome
+  scenarios**, using a temporary Vite fixture and mocked API. Checks include
+  read-only fields, preview, manual/draft behavior, database refresh after sync,
+  retained form/ID on errors, bank configuration, exact installments, and
+  success callbacks only after server confirmation. This is not backend E2E.
+  Set `BE012_BROWSER` to another installed Chromium executable if necessary.
+- `npm run build` (invoked as `npm.cmd run build` on Windows): passed, including
+  Vite, login prerender, and existing backend artifact packaging. Existing
+  Browserslist age and plugin timing warnings remain.
+- ESLint on the changed application and regression files: wizard, utility,
+  and both test files have zero errors/warnings. `InvoicePenagihan.jsx` has
+  **26 existing errors**, compared with 27 before this change. A comparison of
+  rule/message counts found **zero new findings**. Remaining findings are the
+  existing shared component/utility exports and unused-variable reports.
+- `git diff --check`: passed. No backend, pricing policy, webhook registration,
+  HistoryInvoice, credentials, or production configuration is changed.
 
 ### BE-01.1 integration hardening
 

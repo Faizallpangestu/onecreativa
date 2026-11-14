@@ -327,6 +327,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if (strtolower(trim((string)($body['stage'] ?? ''))) === 'invoice_email') {
+        http_response_code(422);
+        echo json_encode(['status'=>'error','message'=>'Status invoice_email hanya dicatat oleh pengiriman SMTP server.']);
+        exit;
+    }
     rpa_ensure_automation_logs_table($conn);
 
     if ($action === 'mark_delivery') {

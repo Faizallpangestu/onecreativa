@@ -167,12 +167,9 @@ $installments = !empty($meta['installments']) && is_array($meta['installments'])
     'nominal' => $grandTotal,
 ]];
 
-$bankName      = trim((string)($meta['bank_name'] ?? 'BCA')) ?: 'BCA';
-$accountNumber = trim((string)($meta['account_number'] ?? '1832-918-428')) ?: '1832-918-428';
-$accountHolder = trim((string)($meta['account_holder'] ?? 'CREATIVA BRIDGING INTERN')) ?: 'CREATIVA BRIDGING INTERN';
-if (strpos($accountNumber, '1832-918-428') !== false && strtoupper($accountHolder) === 'PT LPK CREATIVA') {
-    $accountHolder = 'CREATIVA BRIDGING INTERN';
-}
+$bankName      = trim((string)($meta['bank_name'] ?? ''));
+$accountNumber = trim((string)($meta['account_number'] ?? ''));
+$accountHolder = trim((string)($meta['account_holder'] ?? ''));
 
 $customNotesRaw = trim((string)($meta['notes'] ?? ''));
 $isBoilerplate = (stripos($customNotesRaw, 'Cara Pembayaran') !== false || stripos($customNotesRaw, 'Invoice ini bersifat confidential') !== false);

@@ -22,6 +22,7 @@ async function getBrowser() {
   }
   browserPromise = chromium.launch({
     headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}),
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   return browserPromise;
@@ -120,7 +121,8 @@ async function handleRenderPdf(req, res, reqUrl, docKind = 'invoice') {
       window.print = () => { };
     });
 
-    await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    const response = await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    if (!response?.ok()) throw new Error('Dokumen invoice resmi tidak tersedia.');
     await page.waitForSelector('.sheet', { timeout: 10000 });
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.emulateMedia({ media: 'print' });
@@ -154,11 +156,11 @@ async function handleRenderPdf(req, res, reqUrl, docKind = 'invoice') {
       sizeBytes: pdfBuffer.length,
       pdfBase64: pdfBuffer.toString('base64'),
     });
-  } catch (err) {
-    console.error('Playwright render failed:', err);
+  } catch {
+    console.error('Playwright document render failed. Check worker availability and document access.');
     return sendJson(res, 500, {
       status: 'error',
-      message: err?.message || 'Gagal merender PDF via Playwright.',
+      message: 'Gagal merender PDF via Playwright. Periksa ketersediaan dokumen resmi dan worker.',
     });
   } finally {
     if (context) {

@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Layout from "../components/Layout";
 import BuatInvoiceWizardModal from "../components/BuatInvoiceWizardModal";
+import InvoiceEmailButton from "../components/InvoiceEmailButton";
 import {
   Receipt, FileText, Send, CreditCard, BarChart2,
   TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle,
@@ -301,7 +302,7 @@ const STATUS_INV = {
   "Belum Dibayar": "bg-rose-50 text-rose-600 border border-rose-200",
   "Belum Lunas": "bg-rose-50 text-rose-600 border border-rose-200"
 };
-const STATUS_KIRIM = { "Terkirim": "bg-emerald-100 text-emerald-700", "Gagal": "bg-red-100 text-red-600" };
+const STATUS_KIRIM = { "Terkirim": "bg-emerald-100 text-emerald-700", "SMTP Accepted": "bg-emerald-100 text-emerald-700", "Pending": "bg-amber-100 text-amber-700", "Failed": "bg-red-100 text-red-600", "Gagal": "bg-red-100 text-red-600" };
 const STATUS_BACA = { "Dibaca": "bg-blue-100 text-blue-700", "Pending": "bg-amber-100 text-amber-700", "–": "bg-slate-100 text-slate-400" };
 const STATUS_VERIF = { "Terverifikasi": "bg-emerald-100 text-emerald-700", "Menunggu": "bg-amber-100 text-amber-700" };
 const STATUS_SISWA = { "Prioritas": "bg-violet-100 text-violet-700", "Aktif": "bg-emerald-100 text-emerald-700", "Menunggak": "bg-red-100 text-red-600", "Baru": "bg-blue-100 text-blue-700" };
@@ -1240,9 +1241,7 @@ function InvoiceDetailModal({ inv, onClose, onPaymentProofSaved, onOpenPaymentMo
 }
 
 // ─── VIEW MODAL: Invoice Terkirim ─────────────────────────────────────────────
-function TerkirimDetailModal({ item, onClose }) {
-  const resending = false;
-  const handleResend = () => Swal.fire({ icon: 'info', title: 'Pengiriman Ulang', text: 'Pengiriman ulang belum tersedia pada flow ini. Periksa record pengiriman atau koordinasikan melalui proses Finance yang berlaku; tidak ada pesan yang dikirim oleh tombol ini.' });
+function TerkirimDetailModal({ item, onClose, onRefresh }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
@@ -1271,6 +1270,8 @@ function TerkirimDetailModal({ item, onClose }) {
           )}
         </div>
         <div className="px-6 py-4 flex flex-col gap-3">
+          {item.email_attempt_id && <p className="text-xs text-slate-500">Percobaan #{item.email_attempt_id}. SMTP Accepted berarti diterima SMTP; status inbox dan baca belum diketahui. {item.error_message}</p>}
+          {!item.email_attempt_id && <p className="text-xs text-slate-500">Record kanal legacy/otomasi. Bukan bukti penerimaan SMTP PHP.</p>}
           {[
             { icon: Building2, label: "Siswa / Customer", value: item.customer },
             { icon: CalendarDays, label: "Tanggal Kirim", value: item.tglKirim },
@@ -1292,19 +1293,12 @@ function TerkirimDetailModal({ item, onClose }) {
         <div className="px-6 pb-5 flex items-center gap-2">
           <button
             type="button"
-            onClick={() => previewInvoicePDF({ id: item.id, customer: item.customer, total: item.nominal, tanggal: item.tglKirim })}
+            onClick={() => previewInvoicePDF(item.invoice || { id: item.noInv || item.id })}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-blue-200 cursor-pointer"
           >
             <Eye className="w-4 h-4" /> Buka Invoice PDF
           </button>
-          <button
-            type="button"
-            disabled={resending}
-            onClick={handleResend}
-            className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-emerald-200 cursor-pointer disabled:opacity-50"
-          >
-            <Send className="w-4 h-4 text-emerald-600" /> {resending ? "Mengirim..." : "Info Pengiriman Ulang"}
-          </button>
+          <InvoiceEmailButton invoiceId={item.noInv || item.id} recipient={item.invoice?.email} latestAttempt={item.invoice?.email_delivery} resend onRefresh={async () => { onClose(); await onRefresh(); }} />
           <button onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition cursor-pointer">
             Tutup
           </button>
@@ -2740,7 +2734,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                           </button>
                         </td>
                         <td className="py-3.5 px-4 text-slate-600 font-medium">{inv.tanggal}</td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900">{inv.customer}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900">{inv.customer}<p className="text-xs font-normal text-slate-500">{inv.email || 'Email belum tersedia'}</p><p className="text-xs font-normal text-slate-500">Email: {inv.email_delivery?.status || 'Belum ada percobaan SMTP'}</p></td>
                         <td className="py-3.5 px-4 text-slate-600 text-[11px]">
                           {inv.program || inv.keterangan || "Kelas Intensif Offline"}
                         </td>
@@ -2858,6 +2852,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                             )}
 
                             {/* Preview Invoice Eye Button */}
+                            <InvoiceEmailButton invoiceId={inv.id} recipient={inv.email} latestAttempt={inv.email_delivery} onRefresh={onRefresh} />
                             <button
                               type="button"
                               onClick={() => previewInvoicePDF(inv)}
@@ -2958,7 +2953,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
 }
 
 // ─── TAB 1: Invoice Terkirim ──────────────────────────────────────────────────
-function TabInvoiceTerkirim({ data, onDelete }) {
+function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
   const [kanal, setKanal] = useState("Semua Kanal");
   const [status, setStatus] = useState("Semua Status");
   const [search, setSearch] = useState("");
@@ -2988,15 +2983,15 @@ function TabInvoiceTerkirim({ data, onDelete }) {
   };
 
   const stats = [
-    { label: "Total Terkirim", value: data.filter(row => row.statusKirim === "Terkirim").length, sub: "Berdasarkan record server", ok: true, Icon: Send, bg: "bg-violet-100", ic: "text-violet-600" },
+    { label: "SMTP Accepted", value: data.filter(row => row.statusKirim === "SMTP Accepted").length, sub: "Bukan bukti inbox / baca", ok: true, Icon: Send, bg: "bg-violet-100", ic: "text-violet-600" },
     { label: "Via Email", value: data.filter(d => d.kanal === "Email").length, sub: "Berdasarkan record server", ok: true, Icon: Mail, bg: "bg-blue-100", ic: "text-blue-600" },
     { label: "Via WhatsApp", value: data.filter(d => d.kanal === "WhatsApp").length, sub: "Berdasarkan record server", ok: true, Icon: MessageCircle, bg: "bg-emerald-100", ic: "text-emerald-600" },
-    { label: "Gagal Kirim", value: data.filter(d => d.statusKirim === "Gagal").length, sub: "Berdasarkan record server", ok: false, Icon: AlertTriangle, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
+    { label: "Gagal Kirim", value: data.filter(d => ["Gagal", "Failed"].includes(d.statusKirim)).length, sub: "Berdasarkan record server", ok: false, Icon: AlertTriangle, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
   ];
 
   return (
     <>
-      {viewItem && <TerkirimDetailModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {viewItem && <TerkirimDetailModal item={viewItem} onClose={() => setViewItem(null)} onRefresh={onRefresh} />}
       {delItem && <ConfirmDeleteModal label={delItem.id} onConfirm={() => handleDelete(delItem.id)} onCancel={() => setDelItem(null)} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -3018,7 +3013,7 @@ function TabInvoiceTerkirim({ data, onDelete }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 font-semibold">Tanggal Kirim</label>
           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>01/05/2024</span><span className="text-slate-400">–</span><span>31/05/2024</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>Sesuai riwayat server</span>
           </div>
         </div>
         <div className="flex flex-col gap-1">
@@ -3032,7 +3027,7 @@ function TabInvoiceTerkirim({ data, onDelete }) {
           <label className="text-xs text-slate-500 font-semibold">Status Kirim</label>
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
             className="border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300">
-            {["Semua Status", "Terkirim", "Gagal"].map(s => <option key={s}>{s}</option>)}
+            {["Semua Status", "Pending", "SMTP Accepted", "Failed", "Terkirim", "Gagal"].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -3070,7 +3065,7 @@ function TabInvoiceTerkirim({ data, onDelete }) {
             {rows.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-slate-400 font-semibold">Tidak ada data</td></tr>
             ) : rows.map((r, i) => (
-              <tr key={r.id} className={`border-b border-slate-50 hover:bg-violet-50/50 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/30"}`}>
+              <tr key={r.email_attempt_id ? `email-${r.email_attempt_id}` : r.id} className={`border-b border-slate-50 hover:bg-violet-50/50 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/30"}`}>
                 <td className="px-4 py-3"><span className="text-violet-600 font-bold cursor-pointer hover:underline" onClick={() => setViewItem(r)}>{r.id}</span></td>
                 <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.tglKirim}</td>
                 <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{r.customer}</td>
@@ -3092,8 +3087,8 @@ function TabInvoiceTerkirim({ data, onDelete }) {
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
                       className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition"><Download className="w-4 h-4" /></button>
-                    <button onClick={() => setDelItem(r)} title="Hapus"
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>
+                    {!r.email_attempt_id && <button onClick={() => setDelItem(r)} title="Hapus"
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>
               </tr>
@@ -3772,8 +3767,13 @@ function Sidebar({ invoiceData = [] }) {
 }
 
 // ─── SYNCHRONIZE INVOICE TERKIRIM DENGAN DAFTAR INVOICE ──────────────────────
-function syncTerkirimWithInvoices(currentInvoices, existingTerkirim = []) {
-  return serverDeliveryRows(currentInvoices, existingTerkirim);
+function syncTerkirimWithInvoices(currentInvoices, existingTerkirim = [], emailAttempts = []) {
+  const emailRows = emailAttempts.map(attempt => ({ id: attempt.invoice_id, noInv: attempt.invoice_id, email_attempt_id: attempt.id,
+    tglKirim: attempt.created_at, kanal: 'Email', penerima: attempt.recipient, statusKirim: attempt.status,
+    statusBaca: 'Belum diketahui', error_message: attempt.error_message }));
+  return serverDeliveryRows(currentInvoices, [...emailRows, ...existingTerkirim]).map(row => ({ ...row,
+    invoice: currentInvoices.find(invoice => String(invoice.id) === String(row.noInv || row.id)),
+    customer: row.customer || currentInvoices.find(invoice => String(invoice.id) === String(row.noInv || row.id))?.customer }));
 }
 
 // ─── SYNCHRONIZE PEMBAYARAN DENGAN DAFTAR INVOICE ─────────────────────────────
@@ -3818,7 +3818,7 @@ export default function InvoicePenagihan() {
         setInvoices(finalInvoices);
 
         // 1. SINKRONISASI INVOICE TERKIRIM
-        const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, res.data.data.terkirim || []);
+        const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, res.data.data.terkirim || [], res.data.data.email_attempts || []);
         setTerkirim(syncedTerkirim);
 
         // 2. SINKRONISASI PEMBAYARAN
@@ -3851,7 +3851,7 @@ export default function InvoicePenagihan() {
       setInvoices(finalInvoices);
 
       // 1. SINKRONISASI INVOICE TERKIRIM
-      const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, data.data.terkirim || []);
+      const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, data.data.terkirim || [], data.data.email_attempts || []);
       setTerkirim(syncedTerkirim);
 
       // 2. SINKRONISASI PEMBAYARAN
@@ -4036,7 +4036,7 @@ export default function InvoicePenagihan() {
                 onPaymentProofSaved={handlePaymentProofSaved}
               />
             )}
-            {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} />}
+            {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} onRefresh={fetchData} />}
             {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
             {activeTab === 3 && <div className="p-6"><TabSiswa data={siswa} onDelete={(id) => handleDelete('siswa', id)} /></div>}
             {activeTab === 4 && (

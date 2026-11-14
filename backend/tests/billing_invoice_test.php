@@ -110,6 +110,10 @@ try {
     pricing_registration_checks($conn, $testName, $pricingFile, $registrationFile, $base, $send, $cookie, $csrf);
     require __DIR__.'/enrollment_billing_checks.php';
     enrollment_billing_checks($conn, $testName, $pricingFile, $registrationFile, $base, $send, $cookie, $csrf);
+    if (defined('RUN_INVOICE_MAIL_TESTS') && RUN_INVOICE_MAIL_TESTS) {
+        require __DIR__.'/invoice_mail_checks.php';
+        invoice_mail_checks($conn, $testName, $send, $cookie, $csrf, $legacy);
+    }
     billing_check(ac_rows($conn, "SELECT * FROM billing_invoices WHERE id LIKE 'OLD-%' ORDER BY id") === $legacy, 'All legacy invoice rows and metadata remain byte-for-byte unchanged');
     echo "PASS: $checks billing/enrollment integration checks.\n";
 } finally {

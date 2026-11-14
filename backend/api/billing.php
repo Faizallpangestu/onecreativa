@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__.'/../config/database.php';
 require_once __DIR__.'/../services/api_session_guard.php';
 require_once __DIR__.'/../services/rpa_automation.php';
+require_once __DIR__.'/../services/invoice_mail.php';
 $actor=api_session_guard($conn,$_SERVER['REQUEST_METHOD']==='GET'?'read':'prepare');
 
 function respond($code, $payload) {
@@ -97,6 +98,11 @@ function billing_remove_payment_proof($relativePath) {
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
+if ($method === 'GET' && ($_GET['view'] ?? '') === 'email_attempts') {
+    $invoiceId = ac_text($_GET['invoice_id'] ?? null, 'Nomor invoice', 50);
+    if (!ac_one($conn, 'SELECT id FROM billing_invoices WHERE id=?', [$invoiceId])) ac_fail('Invoice tidak ditemukan.', 404);
+    respond(200, ['status'=>'success','data'=>['attempts'=>ac_table($conn,'automation_logs') ? invoice_mail_history($conn,$invoiceId) : []]]);
+}
 if ($method === 'GET' && ($_GET['view'] ?? '') === 'charge') {
     require_once __DIR__.'/../services/enrollment_billing.php';
     [$enrollment, $charge] = eb_charge($conn, ac_id($_GET['student_id'] ?? null), ac_id($_GET['enrollment_id'] ?? null), ac_id($_GET['charge_id'] ?? null), false);
@@ -139,6 +145,11 @@ if ($method === 'GET') {
     }
 
     $data = [];
+    $data['email_attempts'] = array_map('invoice_mail_attempt', ac_rows($conn, "SELECT * FROM automation_logs WHERE stage='invoice_email' AND channel='Email' ORDER BY id DESC LIMIT 500"));
+    $latestEmail = [];
+    foreach (ac_rows($conn, "SELECT a.* FROM automation_logs a JOIN (SELECT MAX(id) AS id FROM automation_logs WHERE stage='invoice_email' AND channel='Email' GROUP BY invoice_id) latest ON latest.id=a.id") as $attempt) {
+        $latestEmail[$attempt['invoice_id']] = invoice_mail_attempt($attempt);
+    }
 
     // Load payments first so invoice balances/statuses can be derived from
     // the persisted, verified payment records below.
@@ -178,6 +189,7 @@ if ($method === 'GET') {
     $data['invoices'] = [];
     while ($r = mysqli_fetch_assoc($res)) {
         $decodedMeta = null;
+        $r['email_delivery'] = $latestEmail[$r['id']] ?? null;
         if (!empty($r['meta_json'])) {
             $decodedMeta = json_decode((string)$r['meta_json'], true);
             if (is_array($decodedMeta)) {
@@ -325,6 +337,16 @@ if ($method === 'POST') {
     if (!is_array($body)) $body = [];
     
     $action = $body['action'] ?? '';
+
+    if ($action === 'send_invoice_email') {
+        $result = invoice_mail_send($conn, $actor, $body);
+        $attempt = $result['attempt'];
+        $accepted = $attempt['status'] === 'SMTP Accepted';
+        $code = $accepted ? 200 : ($attempt['status'] === 'Pending' ? 409 : ($result['http_code'] ?? 502));
+        respond($code, ['status'=>$accepted ? 'success' : 'error', 'message'=>$accepted
+            ? 'Email diterima server SMTP. Ini belum membuktikan email masuk inbox atau dibaca.'
+            : ($attempt['error_message'] ?: 'Pengiriman masih Pending. Periksa riwayat sebelum mencoba lagi.'), 'data'=>$result]);
+    }
 
     if ($action !== 'add_invoice') {
         billing_ensure_proof_column($conn);

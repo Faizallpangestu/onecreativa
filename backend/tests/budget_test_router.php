@@ -4,6 +4,13 @@ if (PHP_SAPI !== 'cli-server') { http_response_code(404); exit; }
 $database = getenv('CREATIVA_RAB_TEST_DB');
 if (!preg_match('/^one_creativa_(rab|salary|accounting|employee)_test_[a-f0-9]{12}$/D', $database ?: '')) { http_response_code(404); exit; }
 $endpoint = basename(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+if (in_array($endpoint, ['invoice_document.php','automation_status.php'],true)) {
+ define('CREATIVA_TEST_ROUTER',true);
+ require_once __DIR__.'/../config/database.php';
+ $conn->select_db($database);
+ require __DIR__.'/../api/'.$endpoint;
+ exit;
+}
 if (in_array($endpoint, ['face_clock.php','settings.php'], true)) {
  define('CREATIVA_TEST_ROUTER',true);
  require_once __DIR__.'/../config/database.php';
@@ -29,7 +36,15 @@ if (getenv('CREATIVA_BILLING_TEST_LOCK_TIMEOUT') === '1' && in_array($endpoint, 
  $conn->query('SET SESSION innodb_lock_wait_timeout=1');
 }
 define('BUDGET_ATTACHMENT_DIR', sys_get_temp_dir() . '/' . $database . '_images');
-define('SALARY_DISABLE_EXTERNAL_EMAIL', true);
+$invoiceMailFile = sys_get_temp_dir().'/'.$database.'_invoice_mail.json';
+if (is_file($invoiceMailFile)) {
+ $mailFixture = json_decode(file_get_contents($invoiceMailFile),true);
+ // This router only permits local TLS capture; no external SMTP is possible.
+ if (!in_array($mailFixture['host'] ?? '', ['localhost',''],true) || ($mailFixture['encryption'] ?? '') !== 'ssl'
+     || !in_array($mailFixture['from_email'] ?? '', ['finance@example.test',''],true)) { http_response_code(404); exit; }
+ foreach ($mailFixture as $key=>$value) putenv('CREATIVA_SMTP_'.strtoupper($key).'='.(is_bool($value)?($value?'true':'false'):(string)$value));
+ define('SALARY_DISABLE_EXTERNAL_EMAIL', false);
+} else define('SALARY_DISABLE_EXTERNAL_EMAIL', true);
 define('ACCOUNTING_PROOF_DIR',sys_get_temp_dir().'/'.$database.'_proofs');
 define('EMPLOYEE_PHOTO_DIR',sys_get_temp_dir().'/'.$database.'_photos');
 require __DIR__ . '/../api/' . $endpoint;

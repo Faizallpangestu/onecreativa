@@ -4,7 +4,9 @@ require_once __DIR__.'/../vendor/phpmailer/src/PHPMailer.php';
 require_once __DIR__.'/../vendor/phpmailer/src/SMTP.php';
 
 function salary_mail_config(): array {
-    $config = ['host'=>'','port'=>587,'encryption'=>'tls','username'=>'','password'=>'','from_email'=>'','from_name'=>'Finance Creativa','ca_file'=>''];
+    $config = ['host'=>'','port'=>587,'encryption'=>'tls','username'=>'','password'=>'','from_email'=>'','from_name'=>'Finance Creativa','ca_file'=>'',
+        'invoice_email_sender'=>'', 'invoice_cc_tiffa'=>'', 'invoice_cc_alfin'=>'', 'invoice_pdf_required'=>true,
+        'invoice_pdf_worker_url'=>'', 'invoice_pdf_worker_secret'=>'', 'invoice_api_base_url'=>''];
     $local = __DIR__.'/../config/mail.local.php';
     if (is_file($local)) $config = array_replace($config, require $local);
     foreach (array_keys($config) as $key) {
@@ -21,8 +23,7 @@ function salary_mail_configured(?array $config = null): bool {
         && (int)$config['port'] > 0 && (int)$config['port'] <= 65535
         && (($config['username'] ?? '') === '' || ($config['password'] ?? '') !== '');
 }
-function salary_mail_send(array $snapshot, string $html, string $messageId, ?array $config = null): void {
-    $config = $config ?? salary_mail_config();
+function salary_mail_transport(array $config): PHPMailer\PHPMailer\PHPMailer {
     if (!salary_mail_configured($config)) throw new RuntimeException('SMTP belum dikonfigurasi.');
     $mail = new PHPMailer\PHPMailer\PHPMailer(true);
     $mail->isSMTP(); $mail->Host=$config['host']; $mail->Port=(int)$config['port'];
@@ -31,6 +32,11 @@ function salary_mail_send(array $snapshot, string $html, string $messageId, ?arr
     if (!empty($config['ca_file'])) $mail->SMTPOptions=['ssl'=>['cafile'=>$config['ca_file'],'verify_peer'=>true,'verify_peer_name'=>true]];
     $mail->CharSet='UTF-8'; $mail->Encoding='base64';
     $mail->setFrom($config['from_email'],$config['from_name']);
+    return $mail;
+}
+function salary_mail_send(array $snapshot, string $html, string $messageId, ?array $config = null): void {
+    $config = $config ?? salary_mail_config();
+    $mail = salary_mail_transport($config);
     $mail->addAddress($snapshot['recipient_email'],$snapshot['employee_name']);
     $mail->Subject='Slip Gaji '.$snapshot['month'].' — '.$snapshot['employee_name'];
     $mail->MessageID=$messageId;

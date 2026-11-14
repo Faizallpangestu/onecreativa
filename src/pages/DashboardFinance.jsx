@@ -1510,7 +1510,7 @@ export default function DashboardFinance() {
         [...(cloned.projection_items || []), ...(cloned.realization_items || [])].forEach(item => {
           if (item.source_type !== 'invoice_billing') return;
           [item.id, item.number, item.related_proj_id, item.related_proj_number, item.source_id].forEach(value => {
-            const invoiceId = String(value || '').replace(/^(FIN-|PROJ-|PENDING-|MENUNGGU-)/, '');
+            const invoiceId = String(value || '').replace(/^(FIN-|PROJ-|PENDING-|MENUNGGU-)/, '').replace(/-T\d+$/, '');
             if (invoiceId) serverInvoiceIds.add(invoiceId);
           });
         });
@@ -2177,19 +2177,27 @@ export default function DashboardFinance() {
     return items.filter(i => {
       if (flowFilter === 'income' && i.type !== 'income') return false;
       if (flowFilter === 'expense' && i.type !== 'expense') return false;
-      if (globalPeriod.startsWith('Q')) {
-        const d = new Date(i.transaction_date);
-        if (!isNaN(d.getTime())) {
-          const m = d.getMonth() + 1;
-          if (globalPeriod === 'Q1' && !(m >= 1 && m <= 3)) return false;
-          if (globalPeriod === 'Q2' && !(m >= 4 && m <= 6)) return false;
-          if (globalPeriod === 'Q3' && !(m >= 7 && m <= 9)) return false;
-          if (globalPeriod === 'Q4' && !(m >= 10 && m <= 12)) return false;
-        }
+
+      const d = new Date(i.transaction_date);
+      const hasDate = !isNaN(d.getTime());
+      const itemYear = hasDate ? d.getFullYear() : null;
+      const itemMonth = hasDate ? d.getMonth() + 1 : null;
+
+      // Filter Tahun: jika globalPeriod spesifik tahun (bukan 'all'), batasi item sesuai tahun
+      if (globalPeriod !== 'all' && !globalPeriod.startsWith('Q') && itemYear !== null) {
+        if (itemYear !== Number(globalPeriod)) return false;
       }
-      if (selectedMonth !== null) {
-        const d = new Date(i.transaction_date);
-        if (d.getMonth() + 1 !== selectedMonth) return false;
+
+      if (globalPeriod.startsWith('Q') && itemMonth !== null) {
+        if (itemYear !== null && itemYear !== Number(year)) return false;
+        if (globalPeriod === 'Q1' && !(itemMonth >= 1 && itemMonth <= 3)) return false;
+        if (globalPeriod === 'Q2' && !(itemMonth >= 4 && itemMonth <= 6)) return false;
+        if (globalPeriod === 'Q3' && !(itemMonth >= 7 && itemMonth <= 9)) return false;
+        if (globalPeriod === 'Q4' && !(itemMonth >= 10 && itemMonth <= 12)) return false;
+      }
+      if (selectedMonth !== null && itemMonth !== null) {
+        if (itemMonth !== selectedMonth) return false;
+        if (itemYear !== null && globalPeriod !== 'all' && !globalPeriod.startsWith('Q') && itemYear !== Number(globalPeriod)) return false;
       }
       if (searchTerm.trim()) {
         const s = searchTerm.toLowerCase();
@@ -2204,7 +2212,7 @@ export default function DashboardFinance() {
       }
       return true;
     });
-  }, [selectedMonth, searchTerm, flowFilter, globalPeriod]);
+  }, [selectedMonth, searchTerm, flowFilter, globalPeriod, year]);
 
   const filteredProjectionItems = useMemo(() => {
     return filterItems(activeData?.projection_items);

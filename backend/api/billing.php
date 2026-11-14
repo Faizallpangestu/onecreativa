@@ -298,10 +298,26 @@ if ($method === 'GET') {
     }
 
     $mtCfg = rpa_get_midtrans_config();
+    $waBotReady = false;
+    $ch = curl_init("http://127.0.0.1:3500/health");
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 1,
+        CURLOPT_CONNECTTIMEOUT => 1,
+    ]);
+    $hres = curl_exec($ch);
+    curl_close($ch);
+    if ($hres) {
+        $hj = json_decode($hres, true);
+        $waBotReady = !empty($hj['isBotReady']);
+    }
+
     $data['rpa_status'] = [
         'midtrans_enabled' => $mtCfg['is_configured'],
         'midtrans_is_production' => $mtCfg['is_production'],
         'n8n_receipt_configured' => rpa_get_receipt_webhook_url() !== '',
+        'wa_bot_ready' => $waBotReady,
+        'wa_bot_qr_url' => 'http://localhost:3500/qr',
     ];
 
     respond(200, ['status' => 'success', 'data' => $data]);
@@ -443,6 +459,19 @@ if ($method === 'POST') {
         );
         $urls = $receiptAuto['urls'];
 
+        // Sinkronisasi status cicilan ke Student Dashboard creativabridging.com jika siswa terhubung ke portal
+        $metaDecoded = !empty($invoice['meta_json']) ? (json_decode((string)$invoice['meta_json'], true) ?: []) : [];
+        $rawWebId = (int)($metaDecoded['web_id'] ?? 0);
+        if ($rawWebId <= 0) {
+            $procRow = ac_one($conn, 'SELECT web_id FROM rpa_processed_registrations WHERE invoice_id=? LIMIT 1', [$invoiceId]);
+            if ($procRow && !empty($procRow['web_id'])) {
+                $rawWebId = (int)$procRow['web_id'];
+            }
+        }
+        if ($rawWebId > 0) {
+            rpa_sync_payment_to_remote_student_dashboard($rawWebId, $invoiceId, $amtNumeric);
+        }
+
         respond(200, [
             'status' => 'success',
             'data' => [
@@ -461,6 +490,54 @@ if ($method === 'POST') {
             ]
         ]);
     }
+
+    if ($action === 'resend_notification') {
+        $invId = trim((string)($body['invoice_id'] ?? ''));
+        if ($invId === '') respond(400, ['status' => 'error', 'message' => 'Invoice ID wajib diisi.']);
+        
+        $stmt = $conn->prepare("SELECT * FROM billing_invoices WHERE id = ? LIMIT 1");
+        $stmt->bind_param("s", $invId);
+        $stmt->execute();
+        $inv = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$inv) respond(404, ['status' => 'error', 'message' => 'Invoice tidak ditemukan.']);
+
+        $meta = json_decode((string)($inv['meta_json'] ?? ''), true) ?: [];
+        $installments = $meta['installments'] ?? [];
+        $urls = rpa_build_public_urls($inv['id'], $inv['public_token'] ?: rpa_ensure_invoice_token($conn, $inv['id']));
+
+        $notifRes = rpa_send_invoice_notifications(
+            $conn,
+            $inv['id'],
+            $inv['customer'],
+            $inv['email'] ?? '',
+            $inv['phone'] ?? '',
+            $inv['keterangan'] ?: 'Kelas Intensif',
+            (float)$inv['total'],
+            $installments,
+            $inv['jatuhTempo'],
+            $urls['status_url'],
+            $urls['invoice_url']
+        );
+
+        $today = date('Y-m-d');
+        if (!empty($inv['email'])) {
+            $eStatus = !empty($notifRes['email_sent']) ? 'Terkirim' : 'Gagal';
+            $eId = $inv['id'] . '-EML';
+            @mysqli_query($conn, "REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES ('$eId', '$today', '" . mysqli_real_escape_string($conn, $inv['customer']) . "', 'Email', '" . mysqli_real_escape_string($conn, $inv['email']) . "', '$eStatus', 'Pending', NOW())");
+        }
+        if (!empty($inv['phone'])) {
+            $wStatus = !empty($notifRes['wa_sent']) ? 'Terkirim' : 'Siap Kirim';
+            $wId = $inv['id'];
+            @mysqli_query($conn, "REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES ('$wId', '$today', '" . mysqli_real_escape_string($conn, $inv['customer']) . "', 'WhatsApp', '" . mysqli_real_escape_string($conn, $inv['phone']) . "', '$wStatus', 'Pending', NOW())");
+        }
+
+        respond(200, [
+            'status' => 'success',
+            'message' => 'Notifikasi invoice berhasil diproses.',
+            'data' => $notifRes
+        ]);
+    }
     
     respond(400, ['status' => 'error', 'message' => 'Aksi belum didukung. Tidak ada data yang disimpan.']);
 }
@@ -473,9 +550,19 @@ if ($method === 'DELETE') {
     }
     $idEsc = mysqli_real_escape_string($conn, $id);
     if ($type === 'invoice') {
+        rpa_ensure_processed_table($conn);
+        // Cek web_id dari meta_json sebelum invoice dihapus agar dicatat permanen di rpa_processed_registrations
+        $metaCheck = mysqli_query($conn, "SELECT meta_json, customer FROM billing_invoices WHERE id = '$idEsc' LIMIT 1");
+        if ($metaCheck && $mRow = mysqli_fetch_assoc($metaCheck)) {
+            $mJson = json_decode((string)($mRow['meta_json'] ?? ''), true);
+            $webId = (int)($mJson['web_id'] ?? 0);
+            $custName = (string)($mRow['customer'] ?? '');
+            if ($webId > 0) {
+                @mysqli_query($conn, "INSERT INTO rpa_processed_registrations (web_id, invoice_id, customer, deleted_at) VALUES ($webId, '$idEsc', '" . mysqli_real_escape_string($conn, $custName) . "', NOW()) ON DUPLICATE KEY UPDATE invoice_id = VALUES(invoice_id), deleted_at = NOW()");
+            }
+        }
         mysqli_query($conn, "DELETE FROM billing_invoices WHERE id = '$idEsc'");
         mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id = '$idEsc'");
-        rpa_ensure_processed_table($conn);
         @mysqli_query($conn, "UPDATE rpa_processed_registrations SET deleted_at = NOW() WHERE invoice_id = '$idEsc'");
         ac_audit($conn, $actor, 'billing_invoice', $id, 'deleted', []);
     } elseif ($type === 'terkirim') {

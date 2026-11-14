@@ -296,17 +296,10 @@ try {
             $insStmt->execute();
             $insStmt->close();
 
-            $penerima = ($phone && $phone !== '-') ? $phone : ($email ?: '-');
-            $kanal = ($phone && $phone !== '-') ? 'WhatsApp' : 'Email';
-            $terkirimStmt = $conn->prepare("INSERT INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, ?, ?, 'Terkirim', 'Pending', NOW())");
-            $terkirimStmt->bind_param("sssss", $invoiceId, $today, $name, $kanal, $penerima);
-            $terkirimStmt->execute();
-            $terkirimStmt->close();
-
             $urls = rpa_build_public_urls($invoiceId, $token);
 
-            // Kirim notifikasi WA & Email otomatis dengan tenggat waktu 2x24 jam
-            rpa_send_invoice_notifications(
+            // Kirim notifikasi WA & Email otomatis dengan tenggat waktu 2x24 jam via SMTP & Gateway
+            $notifRes = rpa_send_invoice_notifications(
                 $conn,
                 $invoiceId,
                 $name,
@@ -319,6 +312,32 @@ try {
                 $urls['status_url'],
                 $urls['invoice_url']
             );
+
+            // Sinkronisasi otomatis rincian termin cicilan ke Student Dashboard creativabridging.com
+            rpa_sync_invoices_to_remote_student_dashboard((int)$rawId, $invoiceId, (float)$finalTotal, $installments, $urls['invoice_url']);
+
+            // Catat ke billing_terkirim untuk Email (jika ada)
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $eStatus = !empty($notifRes['email_sent']) ? 'Terkirim' : 'Gagal';
+                $eId = $invoiceId . '-EML';
+                $eStmt = $conn->prepare("REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, 'Email', ?, ?, 'Pending', NOW())");
+                if ($eStmt) {
+                    $eStmt->bind_param("sssss", $eId, $today, $name, $email, $eStatus);
+                    $eStmt->execute();
+                    $eStmt->close();
+                }
+            }
+
+            // Catat ke billing_terkirim untuk WhatsApp (jika ada)
+            if (!empty($phone) && $phone !== '-') {
+                $wStatus = !empty($notifRes['wa_sent']) ? 'Terkirim' : 'Siap Kirim';
+                $wStmt = $conn->prepare("REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, 'WhatsApp', ?, ?, 'Pending', NOW())");
+                if ($wStmt) {
+                    $wStmt->bind_param("sssss", $invoiceId, $today, $name, $phone, $wStatus);
+                    $wStmt->execute();
+                    $wStmt->close();
+                }
+            }
 
             // Tandai web_id ini sudah diproses agar TIDAK PERNAH dibuat ulang jika admin menghapusnya
             $recProc = $conn->prepare("INSERT INTO rpa_processed_registrations (web_id, invoice_id, customer, created_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE invoice_id=VALUES(invoice_id)");

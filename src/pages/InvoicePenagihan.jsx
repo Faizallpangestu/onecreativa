@@ -2197,21 +2197,65 @@ function InvoiceDetailModal({ inv, onClose, onPaymentProofSaved, onOpenPaymentMo
 }
 
 // ─── VIEW MODAL: Invoice Terkirim ─────────────────────────────────────────────
-function TerkirimDetailModal({ item, onClose }) {
+function TerkirimDetailModal({ item, onClose, onRefresh }) {
   const [resending, setResending] = useState(false);
 
-  const handleResend = () => {
+  const cleanInvId = (item.id || '').replace(/-EML$/, '');
+  const pDigits = String(item.penerima || '').replace(/\D/g, '');
+  const cleanPhone = pDigits.startsWith('0') ? '62' + pDigits.slice(1) : pDigits;
+  const isWa = item.kanal === 'WhatsApp' || (cleanPhone.length >= 9 && cleanPhone.startsWith('62'));
+
+  const handleOpenWa = () => {
+    const text = encodeURIComponent(
+      `Halo Sdr/i *${item.customer}*,\n\n` +
+      `Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n` +
+      `Berikut rincian invoice tagihan pendaftaran Anda:\n\n` +
+      `• No. Invoice: *${cleanInvId}*\n` +
+      `• Rekening Pembayaran Resmi:\n` +
+      `  Bank BCA: *1832-918-428*\n` +
+      `  a/n *PT CREATIVA BRIDGING INTERN*\n` +
+      `• Tenggat Waktu Cicilan 1: *2x24 Jam*\n\n` +
+      `Silakan unduh invoice resmi PDF dan cek portal status pembayaran melalui tautan berikut:\n` +
+      `https://creativabridging.com/status-pendaftaran?inv=${cleanInvId}\n\n` +
+      `Setelah melakukan pembayaran, mohon unggah bukti transfer melalui portal di atas atau kirimkan via WhatsApp ini.\n\n` +
+      `Salam hangat,\n_Tim Keuangan & Admisi LPK Creativa Bridging International_`
+    );
+    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${text}`, '_blank');
+  };
+
+  const handleResend = async () => {
     setResending(true);
-    setTimeout(() => {
-      setResending(false);
+    try {
+      const res = await axios.post('/api/billing.php', {
+        action: 'resend_notification',
+        invoice_id: cleanInvId
+      });
+      const data = res.data?.data || {};
+      const emOk = data.email_sent ? 'Email terkirim ke inbox siswa.' : 'Email belum terkirim.';
+      const waOk = data.wa_sent ? 'Pesan WhatsApp otomatis terkirim via Gateway.' : 'Tautan pesan WhatsApp 2x24 jam telah disiapkan.';
+      
       Swal.fire({
         icon: "success",
-        title: "Invoice Berhasil Dikirim Ulang!",
-        html: `Notifikasi penagihan invoice <b>${item.id}</b> berhasil dikirimkan ulang via <b>${item.kanal}</b> ke <b>${item.penerima}</b>.`,
-        timer: 2000,
-        showConfirmButton: false
+        title: "Notifikasi Berhasil Diproses!",
+        html: `<div style="font-size:12px;text-align:left;line-height:1.6;">
+          <p><strong>Status Pengiriman:</strong></p>
+          <ul style="padding-left:18px;margin:6px 0;">
+            <li>✉️ <b>Email:</b> ${emOk}</li>
+            <li>💬 <b>WhatsApp:</b> ${waOk}</li>
+          </ul>
+        </div>`,
+        confirmButtonColor: '#2563eb'
       });
-    }, 600);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Kirim Ulang",
+        text: e.response?.data?.message || e.message || "Terjadi kesalahan saat memproses pengiriman ulang."
+      });
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -2227,11 +2271,11 @@ function TerkirimDetailModal({ item, onClose }) {
         <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${STATUS_KIRIM[item.statusKirim] || "bg-emerald-100 text-emerald-700"}`}>
-              {item.statusKirim === "Terkirim" ? <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <XCircle className="w-3.5 h-3.5 mr-1 text-red-600" />}
+              {item.statusKirim === "Terkirim" ? <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <XCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />}
               {item.statusKirim || "Terkirim"}
             </span>
             <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${STATUS_BACA[item.statusBaca] || "bg-blue-50 text-blue-700"}`}>
-              {item.statusBaca || "Dibaca"}
+              {item.statusBaca || "Pending"}
             </span>
           </div>
           {item.statusInvoice && (
@@ -2259,10 +2303,19 @@ function TerkirimDetailModal({ item, onClose }) {
             </div>
           ))}
         </div>
-        <div className="px-6 pb-5 flex items-center gap-2">
+        <div className="px-6 pb-5 flex flex-wrap items-center gap-2">
+          {isWa && (
+            <button
+              type="button"
+              onClick={handleOpenWa}
+              className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-200 cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4" /> Buka WhatsApp Siswa
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => previewInvoicePDF({ id: item.id, customer: item.customer, total: item.nominal, tanggal: item.tglKirim })}
+            onClick={() => previewInvoicePDF({ id: cleanInvId, customer: item.customer, total: item.nominal, tanggal: item.tglKirim })}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-blue-200 cursor-pointer"
           >
             <Eye className="w-4 h-4" /> Buka Invoice PDF
@@ -2271,9 +2324,9 @@ function TerkirimDetailModal({ item, onClose }) {
             type="button"
             disabled={resending}
             onClick={handleResend}
-            className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-emerald-200 cursor-pointer disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-blue-200 cursor-pointer disabled:opacity-50"
           >
-            <Send className="w-4 h-4 text-emerald-600" /> {resending ? "Mengirim..." : "Kirim Ulang"}
+            <Send className="w-4 h-4 text-blue-600" /> {resending ? "Mengirim..." : "Kirim Ulang"}
           </button>
           <button onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition cursor-pointer">
             Tutup
@@ -3891,6 +3944,38 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                               </button>
                             )}
 
+                            {/* WhatsApp Button */}
+                            {inv.phone && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const p = String(inv.phone || "").replace(/\D/g, "");
+                                  const phone = p.startsWith("0") ? "62" + p.slice(1) : p;
+                                  const statusLink = inv.status_url || `https://creativabridging.com/status-pendaftaran?inv=${inv.id}`;
+                                  const text = encodeURIComponent(
+                                    `Halo Sdr/i *${inv.customer}*,\n\n` +
+                                    `Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n` +
+                                    `Berikut rincian invoice tagihan pendaftaran Anda:\n\n` +
+                                    `• No. Invoice: *${inv.id}*\n` +
+                                    `• Total Biaya: *${formatRp(inv.total)}*\n` +
+                                    `• Rekening Pembayaran Resmi:\n` +
+                                    `  Bank BCA: *1832-918-428*\n` +
+                                    `  a/n *PT CREATIVA BRIDGING INTERN*\n` +
+                                    `• Tenggat Waktu Cicilan 1: *2x24 Jam*\n\n` +
+                                    `Silakan unduh invoice resmi PDF dan cek status melalui portal resmi LPK:\n` +
+                                    `${statusLink}\n\n` +
+                                    `Setelah transfer, mohon kirim bukti pembayaran melalui portal atau balas pesan ini.\n\n` +
+                                    `Salam hangat,\n_Tim Keuangan & Admisi LPK Creativa Bridging International_`
+                                  );
+                                  window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, "_blank");
+                                }}
+                                title="Buka Chat WhatsApp Siswa (Pesan Otomatis Tagihan 2x24 Jam)"
+                                className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 transition cursor-pointer"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                            )}
+
                             {/* Preview Invoice Eye Button */}
                             <button
                               type="button"
@@ -3992,7 +4077,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
 }
 
 // ─── TAB 1: Invoice Terkirim ──────────────────────────────────────────────────
-function TabInvoiceTerkirim({ data, onDelete }) {
+function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
   const [kanal, setKanal] = useState("Semua Kanal");
   const [status, setStatus] = useState("Semua Status");
   const [search, setSearch] = useState("");
@@ -4030,7 +4115,7 @@ function TabInvoiceTerkirim({ data, onDelete }) {
 
   return (
     <>
-      {viewItem && <TerkirimDetailModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {viewItem && <TerkirimDetailModal item={viewItem} onClose={() => setViewItem(null)} onRefresh={onRefresh} />}
       {delItem && <ConfirmDeleteModal label={delItem.id} onConfirm={() => handleDelete(delItem.id)} onCancel={() => setDelItem(null)} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -4088,6 +4173,14 @@ function TabInvoiceTerkirim({ data, onDelete }) {
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
           <RefreshCw className="w-3.5 h-3.5" /> Reset Filter
         </button>
+        <button
+          type="button"
+          onClick={() => window.open('http://localhost:3500/qr', '_blank')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-200 cursor-pointer ml-auto"
+          title="Tautkan nomor WhatsApp Anda agar robot dapat mengirim pesan WA otomatis langsung ke HP calon siswa"
+        >
+          <MessageCircle className="w-4 h-4" /> Tautkan WhatsApp Otomatis (Scan QR)
+        </button>
       </div>
 
       <p className="px-4 pt-4 pb-2 text-sm font-black text-slate-700">Daftar Invoice Terkirim</p>
@@ -4122,6 +4215,33 @@ function TabInvoiceTerkirim({ data, onDelete }) {
                 <td className="px-4 py-3"><span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold ${STATUS_BACA[r.statusBaca]}`}>{r.statusBaca}</span></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
+                    {r.kanal === "WhatsApp" && (
+                      <button
+                        onClick={() => {
+                          const p = String(r.penerima || "").replace(/\D/g, "");
+                          const phone = p.startsWith("0") ? "62" + p.slice(1) : p;
+                          const cleanId = (r.id || "").replace(/-EML$/, "");
+                          const text = encodeURIComponent(
+                            `Halo Sdr/i *${r.customer}*,\n\n` +
+                            `Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n` +
+                            `Berikut informasi invoice resmi pendaftaran Anda:\n\n` +
+                            `• No. Invoice: *${cleanId}*\n` +
+                            `• Rekening Pembayaran Resmi:\n` +
+                            `  Bank BCA: *1832-918-428*\n` +
+                            `  a/n *PT CREATIVA BRIDGING INTERN*\n` +
+                            `• Tenggat Waktu Cicilan 1: *2x24 Jam*\n\n` +
+                            `Silakan unduh invoice resmi PDF dan cek status melalui link portal:\n` +
+                            `https://creativabridging.com/status-pendaftaran?inv=${cleanId}\n\n` +
+                            `Salam hangat,\n_Tim Keuangan & Admisi LPK Creativa_`
+                          );
+                          window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, "_blank");
+                        }}
+                        title="Buka Chat WhatsApp Siswa (Pesan Otomatis Tagihan)"
+                        className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 transition cursor-pointer"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </button>
+                    )}
                     <button onClick={() => setViewItem(r)} title="Lihat Detail"
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
@@ -5221,12 +5341,24 @@ export default function InvoicePenagihan() {
     // 2. Call backend DELETE
     try {
       await axios.delete(`/api/billing.php?type=${type}&id=${id}`);
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil Dihapus',
+        text: `Data ${id} telah dihapus permanen.`,
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch (e) {
       console.warn('Backend delete fallback:', e);
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menghapus',
+        text: e.response?.data?.message || e.message || 'Terjadi kesalahan saat menghapus data di server.',
+      });
     }
 
     // 3. Re-sync data
-    fetchData();
+    await fetchData();
   };
 
   const [showBuatRoot, setShowBuatRoot] = useState(false);
@@ -5358,6 +5490,52 @@ export default function InvoicePenagihan() {
           </div>
         </div>
 
+        {/* ── WHATSAPP BOT STATUS BANNER ── */}
+        <div className={`mb-6 rounded-2xl border p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs transition-all ${
+          rpaStatus?.wa_bot_ready
+            ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
+            : "bg-amber-50/90 border-amber-300 text-amber-950"
+        }`}>
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+              rpaStatus?.wa_bot_ready ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+            }`}>
+              <MessageCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-black">
+                  {rpaStatus?.wa_bot_ready ? "WhatsApp Bot Otomatis Aktif & Terhubung" : "WhatsApp Bot Belum Ditautkan (Scan QR Diperlukan)"}
+                </h4>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${
+                  rpaStatus?.wa_bot_ready ? "bg-emerald-200 text-emerald-900" : "bg-amber-200 text-amber-900 animate-pulse"
+                }`}>
+                  {rpaStatus?.wa_bot_ready ? "ONLINE / SIAP KIRIM" : "MENUNGGU SCAN HP"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                {rpaStatus?.wa_bot_ready
+                  ? "Robot RPA siap mengirimkan invoice beserta 6 termin cicilan langsung ke WhatsApp calon siswa segera setelah mendaftar."
+                  : "Buka WhatsApp di HP Anda → Perangkat Tertaut → Tautkan Perangkat, lalu scan QR Code agar pesan WA terkirim otomatis tanpa perlu klik manual."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 justify-end">
+            <button
+              type="button"
+              onClick={() => window.open(rpaStatus?.wa_bot_qr_url || 'http://localhost:3500/qr', '_blank')}
+              className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer whitespace-nowrap ${
+                rpaStatus?.wa_bot_ready
+                  ? "bg-white hover:bg-slate-50 border border-slate-300 text-slate-700"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200"
+              }`}
+            >
+              <QrCode className="w-4 h-4" />
+              {rpaStatus?.wa_bot_ready ? "Status WhatsApp Bot" : "Scan QR Code WhatsApp Sekarang"}
+            </button>
+          </div>
+        </div>
+
         {/* ── MAIN CONTENT CARD (FULL WIDTH BOOTSTRAP CARD WITH NAV TABS) ── */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
           {/* Nav Tabs */}
@@ -5388,7 +5566,7 @@ export default function InvoicePenagihan() {
                 onPaymentProofSaved={handlePaymentProofSaved}
               />
             )}
-            {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} />}
+            {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} onRefresh={fetchData} />}
             {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
             {activeTab === 3 && <div className="p-6"><TabSiswa data={siswa} onDelete={(id) => handleDelete('siswa', id)} /></div>}
             {activeTab === 4 && (

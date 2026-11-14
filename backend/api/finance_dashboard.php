@@ -400,6 +400,18 @@ try {
             ? "(SELECT COALESCE(SUM(bp.jumlah), 0) FROM billing_pembayaran bp WHERE bp.noInv = bi.id AND LOWER(TRIM(bp.statusVerif)) IN ('terverifikasi','verified'))"
             : '0';
         $billingAppliedExpr = "LEAST(bi.total, {$billingPaidExpr})";
+        $paymentsByInv = [];
+        if (ac_table($conn, 'billing_pembayaran')) {
+            $payRes = @mysqli_query($conn, "SELECT id, noInv, tglBayar, jumlah, statusVerif FROM billing_pembayaran WHERE LOWER(TRIM(statusVerif)) IN ('terverifikasi','verified') ORDER BY id ASC");
+            if ($payRes) {
+                while ($pRow = mysqli_fetch_assoc($payRes)) {
+                    $noInv = $pRow['noInv'];
+                    if (!isset($paymentsByInv[$noInv])) $paymentsByInv[$noInv] = [];
+                    $paymentsByInv[$noInv][] = $pRow;
+                }
+            }
+        }
+
         $invStmt = $conn->prepare("
              SELECT bi.id,
                     CASE WHEN bi.tanggal REGEXP '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN STR_TO_DATE(bi.tanggal, '%d/%m/%Y') ELSE DATE(bi.tanggal) END AS transaction_date,
@@ -419,6 +431,7 @@ try {
                     END AS status,
                    'Belum diverifikasi' AS cash_account_name,
                     bi.jatuhTempo,
+                    bi.meta_json,
                     bi.created_at
              FROM billing_invoices bi
               WHERE (CASE WHEN bi.tanggal REGEXP '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN STR_TO_DATE(bi.tanggal, '%d/%m/%Y') ELSE DATE(bi.tanggal) END) >= ?
@@ -430,62 +443,178 @@ try {
         $invStmt->close();
 
         foreach ($invList as $inv) {
-            $invTimestamp = strtotime($inv['transaction_date']);
-            $invYear = $invTimestamp ? (int)date('Y', $invTimestamp) : $year;
-            $m = $invTimestamp ? (int)date('n', $invTimestamp) : 1;
-            $invoiceStatus = strtolower((string)($inv['status'] ?? 'unpaid'));
-            $isPaid = $invoiceStatus === 'paid';
-            $isPartial = $invoiceStatus === 'partial';
+            $meta = !empty($inv['meta_json']) ? (json_decode((string)$inv['meta_json'], true) ?: []) : [];
+            $installments = $meta['installments'] ?? [];
 
-            // 1. Proyeksi: Invoice unpaid masuk ke proyeksi
-            if (!$isPaid) {
-                $projInv = $inv;
-                $projInv['number'] = $inv['id'];
-                $projInv['payment_status'] = $isPartial ? 'partial' : 'unpaid';
-                if ($invYear === $year && isset($months[$m])) {
-                    $months[$m]['projection'] = ac_decimal(
-                        ac_cents($months[$m]['projection']) + ac_cents($projInv['amount'])
-                    );
+            // ── KONDISI A: SKEMA CICILAN (INSTALLMENTS PLAN) ──
+            if (is_array($installments) && count($installments) > 0) {
+                $totalPaid = (float)($inv['paid_amount'] ?? 0);
+                $cumPaid = $totalPaid;
+                $invPays = $paymentsByInv[$inv['id']] ?? [];
+                $payIdx = 0;
+
+                foreach ($installments as $idx => $inst) {
+                    $itemNo = $idx + 1;
+                    $instNominal = (float)($inst['nominal'] ?? 0);
+                    $instDesc = !empty($inst['keterangan']) ? $inst['keterangan'] : (!empty($inst['deskripsi']) ? $inst['deskripsi'] : "Cicilan {$itemNo}");
+                    $instDate = !empty($inst['jatuhTempo']) ? $inst['jatuhTempo'] : (!empty($inst['tanggal']) ? $inst['tanggal'] : $inv['transaction_date']);
+                    $instTs = strtotime($instDate);
+                    $instYear = $instTs ? (int)date('Y', $instTs) : $year;
+                    $instMonth = $instTs ? (int)date('n', $instTs) : 1;
+
+                    // Alokasi pembayaran masuk per termin
+                    if ($cumPaid >= $instNominal) {
+                        $terminPaid = $instNominal;
+                        $terminUnpaid = 0.0;
+                        $terminStatus = 'paid';
+                        $cumPaid -= $instNominal;
+                    } elseif ($cumPaid > 0) {
+                        $terminPaid = $cumPaid;
+                        $terminUnpaid = $instNominal - $cumPaid;
+                        $terminStatus = 'partial';
+                        $cumPaid = 0.0;
+                    } else {
+                        $terminPaid = 0.0;
+                        $terminUnpaid = $instNominal;
+                        $terminStatus = 'unpaid';
+                    }
+
+                    $termId = "{$inv['id']}-T{$itemNo}";
+                    $displayDesc = "{$inv['party_name']} - {$instDesc} (No. {$inv['id']})";
+
+                    // 1. Proyeksi: Tampilkan setiap termin dengan nominalnya sendiri
+                    $projTerm = [
+                        'id' => $termId,
+                        'number' => $termId,
+                        'transaction_date' => $instDate,
+                        'type' => 'income',
+                        'amount' => $terminUnpaid > 0 ? $terminUnpaid : $instNominal,
+                        'invoice_amount' => $instNominal,
+                        'paid_amount' => $terminPaid,
+                        'party_name' => $inv['party_name'],
+                        'description' => $displayDesc,
+                        'source_type' => 'invoice_billing',
+                        'classification' => 'Pemasukan Pelatihan (Cicilan)',
+                        'approval_status' => 'approved',
+                        'payment_status' => $terminStatus,
+                        'cash_account_name' => 'BCA (1832-918-428)',
+                        'jatuh_tempo' => $instDate,
+                        'jatuhTempo' => $instDate,
+                        'related_proj_id' => $termId,
+                        'related_proj_number' => $termId,
+                        'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
+                        'parent_invoice_id' => $inv['id'],
+                        'created_at' => $inv['created_at'],
+                    ];
+                    if ($terminStatus === 'paid') {
+                        $projTerm['was_realized'] = true;
+                    }
+                    $projectionItems[] = $projTerm;
+
+                    // 2. Realisasi: Jika belum lunas, buat baris pasangan Menunggu Bayar
+                    if ($terminStatus !== 'paid') {
+                        $todayIso = date('Y-m-d');
+                        $isOverdue = $todayIso > $instDate;
+                        $pendingReal = [
+                            'id' => "PENDING-{$termId}",
+                            'number' => "MENUNGGU-{$termId}",
+                            'transaction_date' => $instDate,
+                            'type' => 'income',
+                            'amount' => 0,
+                            'expected_amount' => $instNominal,
+                            'paid_amount' => $terminPaid,
+                            'party_name' => $inv['party_name'],
+                            'description' => "{$inv['party_name']} - {$instDesc} (Menunggu Bayar)",
+                            'source_type' => 'invoice_billing',
+                            'classification' => 'Pemasukan Pelatihan (Cicilan)',
+                            'approval_status' => 'approved',
+                            'payment_status' => $isOverdue ? 'overdue' : 'unpaid',
+                            'cash_account_name' => 'BCA (1832-918-428)',
+                            'paid_at' => null,
+                            'is_pending_realization' => true,
+                            'related_proj_id' => $termId,
+                            'related_proj_number' => $termId,
+                            'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
+                            'parent_invoice_id' => $inv['id'],
+                        ];
+                        $realizationItems[] = $pendingReal;
+                    }
+
+                    // Jika ada pembayaran terealisasi untuk termin ini
+                    if ($terminPaid > 0) {
+                        $payRow = $invPays[$payIdx] ?? null;
+                        if ($payRow) $payIdx++;
+                        $payDate = !empty($payRow['tglBayar']) ? $payRow['tglBayar'] : $instDate;
+
+                        $realTerm = [
+                            'id' => "FIN-{$termId}",
+                            'number' => "FIN-{$termId}",
+                            'transaction_date' => $payDate,
+                            'type' => 'income',
+                            'amount' => $terminPaid,
+                            'expected_amount' => $instNominal,
+                            'party_name' => $inv['party_name'],
+                            'description' => "Pembayaran {$instDesc} - {$inv['party_name']} (No. {$inv['id']})",
+                            'source_type' => 'invoice_billing',
+                            'classification' => 'Pemasukan Pelatihan (Cicilan)',
+                            'approval_status' => 'approved',
+                            'payment_status' => $terminStatus,
+                            'cash_account_name' => 'BCA (1832-918-428)',
+                            'paid_at' => $payDate,
+                            'related_proj_id' => $termId,
+                            'related_proj_number' => $termId,
+                            'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
+                            'parent_invoice_id' => $inv['id'],
+                        ];
+                        $realizationItems[] = $realTerm;
+                    }
                 }
-                $projectionItems[] = $projInv;
+            } else {
+                // ── KONDISI B: SKEMA FULL PAYMENT / REGULER ──
+                $invTimestamp = strtotime($inv['transaction_date']);
+                $invYear = $invTimestamp ? (int)date('Y', $invTimestamp) : $year;
+                $m = $invTimestamp ? (int)date('n', $invTimestamp) : 1;
+                $invoiceStatus = strtolower((string)($inv['status'] ?? 'unpaid'));
+                $isPaid = $invoiceStatus === 'paid';
+                $isPartial = $invoiceStatus === 'partial';
 
-                // Masukkan juga baris pasangan ke Realisasi Arus Kas dengan status Unpaid/Overdue
-                $todayIso = date('Y-m-d');
-                $due = !empty($inv['jatuhTempo']) ? $inv['jatuhTempo'] : $inv['transaction_date'];
-                $isOverdue = $todayIso > $due;
-                $pendingReal = $inv;
-                $pendingReal['id'] = 'PENDING-' . $inv['id'];
-                $pendingReal['number'] = 'MENUNGGU-' . $inv['id'];
-                $pendingReal['amount'] = 0;
-                $pendingReal['expected_amount'] = (float)$inv['invoice_amount'];
-                $pendingReal['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
-                $pendingReal['paid_at'] = null;
-                $pendingReal['is_pending_realization'] = true;
-                $pendingReal['related_proj_id'] = $inv['id'];
-                $pendingReal['related_proj_number'] = $inv['id'];
-                $realizationItems[] = $pendingReal;
-            }
+                // 1. Proyeksi: Invoice unpaid masuk ke proyeksi
+                if (!$isPaid) {
+                    $projInv = $inv;
+                    $projInv['number'] = $inv['id'];
+                    $projInv['payment_status'] = $isPartial ? 'partial' : 'unpaid';
+                    $projectionItems[] = $projInv;
 
-            // 2. Realisasi: Jika sudah dibayar (Paid/Lunas), masuk ke Realisasi aktual
-            if (($isPaid || $isPartial) && (float)$inv['paid_amount'] > 0) {
-                $realInv = $inv;
-                $realInv['number'] = 'FIN-' . $inv['id'];
-                $realInv['amount'] = $inv['paid_amount'];
-                $realInv['payment_status'] = $isPaid ? 'paid' : 'partial';
-                $realInv['paid_at'] = null;
-                $realInv['needs_review'] = 1;
-                $realInv['date_basis'] = 'invoice_date_not_payment_date';
-                $realInv['related_proj_id'] = $inv['id'];
-                $realInv['related_proj_number'] = $inv['id'];
-                if ($invYear === $year && isset($months[$m])) {
-                    $months[$m]['realization'] = ac_decimal(
-                        ac_cents($months[$m]['realization']) + ac_cents($realInv['amount'])
-                    );
-                    $months[$m]['income'] = ac_decimal(
-                        ac_cents($months[$m]['income']) + ac_cents($realInv['amount'])
-                    );
+                    // Masukkan juga baris pasangan ke Realisasi Arus Kas dengan status Unpaid/Overdue
+                    $todayIso = date('Y-m-d');
+                    $due = !empty($inv['jatuhTempo']) ? $inv['jatuhTempo'] : $inv['transaction_date'];
+                    $isOverdue = $todayIso > $due;
+                    $pendingReal = $inv;
+                    $pendingReal['id'] = 'PENDING-' . $inv['id'];
+                    $pendingReal['number'] = 'MENUNGGU-' . $inv['id'];
+                    $pendingReal['amount'] = 0;
+                    $pendingReal['expected_amount'] = (float)$inv['invoice_amount'];
+                    $pendingReal['payment_status'] = $isOverdue ? 'overdue' : 'unpaid';
+                    $pendingReal['paid_at'] = null;
+                    $pendingReal['is_pending_realization'] = true;
+                    $pendingReal['related_proj_id'] = $inv['id'];
+                    $pendingReal['related_proj_number'] = $inv['id'];
+                    $realizationItems[] = $pendingReal;
                 }
-                if ($invYear === $year) $realizationItems[] = $realInv;
+
+                // 2. Realisasi: Jika sudah dibayar (Paid/Lunas), masuk ke Realisasi aktual
+                if (($isPaid || $isPartial) && (float)$inv['paid_amount'] > 0) {
+                    $realInv = $inv;
+                    $realInv['number'] = 'FIN-' . $inv['id'];
+                    $realInv['amount'] = $inv['paid_amount'];
+                    $realInv['payment_status'] = $isPaid ? 'paid' : 'partial';
+                    $realInv['paid_at'] = null;
+                    $realInv['needs_review'] = 1;
+                    $realInv['date_basis'] = 'invoice_date_not_payment_date';
+                    $realInv['related_proj_id'] = $inv['id'];
+                    $realInv['related_proj_number'] = $inv['id'];
+                    $realizationItems[] = $realInv;
+                }
             }
         }
     }

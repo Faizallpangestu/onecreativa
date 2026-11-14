@@ -5,7 +5,7 @@ require_once __DIR__.'/../vendor/phpmailer/src/SMTP.php';
 
 function salary_mail_config(): array {
     $config = ['host'=>'','port'=>587,'encryption'=>'tls','username'=>'','password'=>'','from_email'=>'','from_name'=>'Finance Creativa','ca_file'=>'',
-        'invoice_email_sender'=>'', 'invoice_cc_tiffa'=>'', 'invoice_cc_alfin'=>'', 'invoice_pdf_required'=>true,
+        'invoice_email_sender'=>'', 'receipt_email_sender'=>'', 'invoice_cc_tiffa'=>'', 'invoice_cc_alfin'=>'', 'invoice_pdf_required'=>true,
         'invoice_pdf_worker_url'=>'', 'invoice_pdf_worker_secret'=>'', 'invoice_api_base_url'=>''];
     $local = __DIR__.'/../config/mail.local.php';
     if (is_file($local)) $config = array_replace($config, require $local);

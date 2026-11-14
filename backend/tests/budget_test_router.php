@@ -3,8 +3,10 @@
 if (PHP_SAPI !== 'cli-server') { http_response_code(404); exit; }
 $database = getenv('CREATIVA_RAB_TEST_DB');
 if (!preg_match('/^one_creativa_(rab|salary|accounting|employee)_test_[a-f0-9]{12}$/D', $database ?: '')) { http_response_code(404); exit; }
+define('RPA_DISABLE_EXTERNAL_DELIVERY',true);
+putenv('CREATIVA_PRIVATE_UPLOAD_DIR='.sys_get_temp_dir().'/'.$database.'_documents');
 $endpoint = basename(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
-if (in_array($endpoint, ['invoice_document.php','automation_status.php'],true)) {
+if (in_array($endpoint, ['invoice_document.php','receipt_document.php','automation_status.php'],true)) {
  define('CREATIVA_TEST_ROUTER',true);
  require_once __DIR__.'/../config/database.php';
  $conn->select_db($database);

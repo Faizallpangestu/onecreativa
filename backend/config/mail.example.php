@@ -13,6 +13,7 @@ return [
     // Enable php ONLY after disabling the invoice email branch in the active n8n workflow.
     // Leave empty to disable invoice email; use n8n when that workflow owns email.
     'invoice_email_sender' => '', // php | n8n | empty
+    'receipt_email_sender' => '', // php | n8n | empty; disable live n8n receipt email before enabling php.
     'invoice_cc_tiffa' => '', // Bu Tiffa's verified email, supplied privately by Finance.
     'invoice_cc_alfin' => '', // Pak Alfin's verified email, supplied privately by Finance.
     'invoice_api_base_url' => '', // Public HTTPS API base, e.g. https://your-domain/api

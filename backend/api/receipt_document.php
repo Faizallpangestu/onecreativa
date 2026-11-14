@@ -11,7 +11,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../services/rpa_automation.php';
+require_once __DIR__ . '/../services/billing_receipts.php';
 
 header('Content-Type: text/plain; charset=utf-8');
 $EXPECTED_SECRET = rpa_get_secret();
@@ -96,8 +96,10 @@ if (!$hasSecretAccess) {
     }
 }
 
+if ($paymentId > 0 && !bp_verified($payment)) ac_fail('Pembayaran belum terverifikasi; receipt resmi belum tersedia.',409);
+
 $allPayments = [];
-$verifiedPaidTotal = 0.0;
+$verifiedPaidCents = 0;
 $allStmt = $conn->prepare("SELECT * FROM `billing_pembayaran` WHERE noInv = ? AND LOWER(TRIM(statusVerif)) IN ('terverifikasi','verified') ORDER BY id ASC");
 if ($allStmt) {
     $allStmt->bind_param('s', $invoiceId);
@@ -105,16 +107,16 @@ if ($allStmt) {
     $resAll = $allStmt->get_result();
     while ($row = $resAll->fetch_assoc()) {
         $allPayments[] = $row;
-        $verifiedPaidTotal += (float)($row['jumlah'] ?? 0);
+        $verifiedPaidCents = ac_add($verifiedPaidCents,ac_cents((string)$row['jumlah']));
     }
     $allStmt->close();
 }
 
-$grandTotal = (float)($invoice['total'] ?? 0);
+$grandTotalCents = ac_cents((string)$invoice['total']);
+$grandTotal = ac_decimal($grandTotalCents);
 $statusLower = strtolower(trim((string)($invoice['status'] ?? '')));
-if ($verifiedPaidTotal <= 0 && in_array($statusLower, ['paid', 'lunas'], true)) {
-    $verifiedPaidTotal = $grandTotal;
-}
+// Preserve the historical invoice-only display fallback; exact payment routes never synthesize money.
+if (!$payment && $verifiedPaidCents === 0 && in_array($statusLower, ['paid','lunas'],true)) $verifiedPaidCents=$grandTotalCents;
 
 if (!$payment) {
     // Fallback jika invoice sudah Paid manual tanpa baris di billing_pembayaran
@@ -144,7 +146,8 @@ if (!empty($invoice['meta_json'])) {
 
 function rct_fmt_comma($n, $withSpace = true): string {
     $prefix = $withSpace ? 'Rp ' : 'Rp';
-    return $prefix . number_format((float)$n, 2, ',', '.');
+    $parts=explode('.',ac_decimal(ac_cents((string)$n)));
+    return $prefix . preg_replace('/\B(?=(\d{3})+(?!\d))/','.', $parts[0]).','.$parts[1];
 }
 
 function rct_fmt_date($str): string {
@@ -156,31 +159,35 @@ function rct_fmt_date($str): string {
     return ($months[$m] ?? '') . ' ' . (int)date('j', $ts) . ', ' . date('Y', $ts);
 }
 
-$payDate = (string)($payment['tglBayar'] ?? date('Y-m-d'));
-$payAmt = (float)($payment['jumlah'] ?? 0);
-$remainingTotal = max(0.0, $grandTotal - $verifiedPaidTotal);
-$isFullyPaid = $remainingTotal <= 0.01;
-$receiptNo = ((int)$payment['id'] > 0)
-    ? rpa_format_receipt_number((int)$payment['id'], $payDate)
-    : ('RCT-' . date('ym', strtotime($payDate) ?: time()) . '-0000');
+$receiptData=(int)$payment['id']>0?receipt_snapshot($conn,(int)$payment['id']):null;
+if ($receiptData) {
+    $verifiedPaidCents=ac_cents($receiptData['paid_total']);
+    if (isset($receiptData['payment_ids'])) $allPayments=array_values(array_filter($allPayments,fn($row)=>in_array((int)$row['id'],$receiptData['payment_ids'],true)));
+}
+$payDate=(string)$payment['tglBayar'];
+$payCents=ac_cents((string)$payment['jumlah']); $payAmt=ac_decimal($payCents);
+$verifiedPaidTotal=ac_decimal($verifiedPaidCents);
+$remainingCents=max(0,$grandTotalCents-$verifiedPaidCents); $remainingTotal=ac_decimal($remainingCents);
+$isFullyPaid=$remainingCents===0;
+$receiptNo=$receiptData['receipt_number'] ?? ('RCT-'.date('ym',strtotime($payDate)?:time()).'-0000');
 
 $programTitle = trim((string)($meta['program'] ?? $invoice['keterangan'] ?? 'Program Pelatihan Bahasa Jepang'));
 $lokasi = trim((string)($meta['lokasi'] ?? 'Cianjur'));
-$terbilangText = rpa_terbilang($payAmt);
+$terbilangText = ($payCents>=100?rpa_terbilang_chunk(intdiv($payCents,100)):'Nol').' Rupiah'.($payCents%100?' '.rpa_terbilang_chunk($payCents%100).' Sen':'');
 $installments = !empty($meta['installments']) && is_array($meta['installments']) ? $meta['installments'] : [];
 
 // Cari termin berikutnya jika masih Partially Paid
 $nextInstallment = null;
 if (!$isFullyPaid && !empty($installments)) {
-    $running = 0.0;
+    $running = 0;
     foreach ($installments as $idx => $inst) {
-        $nom = (float)($inst['nominal'] ?? $inst['amount'] ?? 0);
-        $running += $nom;
-        if ($verifiedPaidTotal + 1 < $running) {
+        $nom = ac_cents((string)($inst['nominal'] ?? $inst['amount'] ?? '0'));
+        $running = ac_add($running,$nom);
+        if ($verifiedPaidCents < $running) {
             $nextInstallment = [
                 'label' => strtoupper((string)($inst['keterangan'] ?? $inst['deskripsi'] ?? ('CICILAN KE-' . ($idx + 1)))),
                 'due' => $inst['jatuhTempo'] ?? $inst['tanggal'] ?? '-',
-                'due_amount' => max(0.0, min($nom, $running - $verifiedPaidTotal)),
+                'due_amount' => ac_decimal(max(0, min($nom, $running - $verifiedPaidCents))),
             ];
             break;
         }

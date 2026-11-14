@@ -20,6 +20,7 @@ if (!function_exists('rpa_get_secret')) {
 
 if (!function_exists('rpa_get_receipt_webhook_url')) {
     function rpa_get_receipt_webhook_url(): string {
+        if (defined('RPA_DISABLE_EXTERNAL_DELIVERY') && RPA_DISABLE_EXTERNAL_DELIVERY) return '';
         if (defined('N8N_RECEIPT_WEBHOOK_URL') && trim((string)N8N_RECEIPT_WEBHOOK_URL) !== '') {
             return trim((string)N8N_RECEIPT_WEBHOOK_URL);
         }
@@ -447,7 +448,7 @@ if (!function_exists('rpa_trigger_receipt_automation')) {
                 $invoiceId,
                 'phase2_receipt_trigger',
                 'n8n',
-                $rpaDispatched ? 'Terkirim' : 'Gagal',
+                $rpaDispatched ? 'Dispatched' : 'Failed',
                 $emailAddr ?: $waPhone,
                 ['receipt_number' => $receiptNumber, 'payment_id' => $paymentId, 'http_code' => $dispatch['http_code'] ?? null],
                 (string)($dispatch['error'] ?? '')

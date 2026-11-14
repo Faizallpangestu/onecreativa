@@ -327,9 +327,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    if (strtolower(trim((string)($body['stage'] ?? ''))) === 'invoice_email') {
+    if (in_array(strtolower(trim((string)($body['stage'] ?? ''))),['invoice_email','receipt_email'],true)) {
         http_response_code(422);
-        echo json_encode(['status'=>'error','message'=>'Status invoice_email hanya dicatat oleh pengiriman SMTP server.']);
+        echo json_encode(['status'=>'error','message'=>'Status email resmi hanya dicatat oleh pengiriman SMTP server.']);
         exit;
     }
     rpa_ensure_automation_logs_table($conn);

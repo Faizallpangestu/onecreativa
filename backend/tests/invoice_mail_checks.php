@@ -161,6 +161,10 @@ function invoice_mail_checks(mysqli $db, string $database, callable $send, strin
         try { $result=$post($next()); } finally { $db->query('DROP TRIGGER fail_email_audit'); }
         billing_check($result['code']===500 && $count()===$messagesBefore && (int)ac_one($db,"SELECT COUNT(*) AS n FROM automation_logs WHERE stage='invoice_email'")['n']===$loggedBefore,'Audit failure rolls back Pending and sends no message');
         echo 'PASS: '.($GLOBALS['checks']-$before)." M3.1 local TLS SMTP / real Playwright PDF / API checks. No external mail sent.\n";
+        if (defined('RUN_RECEIPT_TESTS') && RUN_RECEIPT_TESTS) {
+            require __DIR__.'/receipt_checks.php';
+            receipt_checks($db,$database,$send,$cookie,$csrf,$dir,$config,$write,$count);
+        }
     } finally {
         foreach ([$worker,$documents,$smtp] as $process) if (is_resource($process)) { proc_terminate($process); proc_close($process); }
         if (is_file($configFile)) unlink($configFile);

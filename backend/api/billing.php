@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__.'/../config/database.php';
 require_once __DIR__.'/../services/api_session_guard.php';
 require_once __DIR__.'/../services/rpa_automation.php';
-require_once __DIR__.'/../services/invoice_mail.php';
+require_once __DIR__.'/../services/billing_receipts.php';
 $actor=api_session_guard($conn,$_SERVER['REQUEST_METHOD']==='GET'?'read':'prepare');
 
 function respond($code, $payload) {
@@ -93,11 +93,23 @@ function billing_store_payment_proof($upload) {
 
 function billing_remove_payment_proof($relativePath) {
     if (!preg_match('#^payment_proofs/[a-f0-9]{32}\.(jpg|png|webp|pdf)$#D', (string)$relativePath)) return;
-    $file = __DIR__ . '/../uploads/' . basename($relativePath);
+    $file = __DIR__ . '/../uploads/' . $relativePath;
     if (is_file($file)) unlink($file);
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
+if ($method === 'GET' && ($_GET['view'] ?? '') === 'payment_request') {
+    $saved=ac_one($conn,"SELECT result_json FROM accounting_idempotency WHERE request_key=? AND actor_id=? AND operation IN ('billing_manual_payment','billing_verify_payment')",[ac_key($_GET['request_id'] ?? null),(int)$actor['id']]);
+    respond(200,['status'=>'success','data'=>['payment'=>$saved?bp_complete($conn,$actor,json_decode($saved['result_json'],true),false):null]]);
+}
+if ($method === 'GET' && in_array($_GET['view'] ?? '',['receipt_email_attempts','receipt_pdf'],true)) {
+    $receipt=receipt_snapshot($conn,ac_id($_GET['payment_id'] ?? null));
+    if ($_GET['view']==='receipt_email_attempts') respond(200,['status'=>'success','data'=>['attempts'=>receipt_mail_history($conn,$receipt['payment_id'])]]);
+    $receipt=receipt_prepare($conn,$actor,$receipt['payment_id']);
+    $pdf=receipt_pdf($conn,$receipt);
+    header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="'.$receipt['receipt_number'].'.pdf"');
+    header('Content-Length: '.strlen($pdf)); echo $pdf; exit;
+}
 if ($method === 'GET' && ($_GET['view'] ?? '') === 'email_attempts') {
     $invoiceId = ac_text($_GET['invoice_id'] ?? null, 'Nomor invoice', 50);
     if (!ac_one($conn, 'SELECT id FROM billing_invoices WHERE id=?', [$invoiceId])) ac_fail('Invoice tidak ditemukan.', 404);
@@ -122,6 +134,9 @@ if ($method === 'GET') {
         $paymentId = ac_id($_GET['id'] ?? null, 'ID pembayaran');
         $payment = ac_one($conn, 'SELECT proof_path FROM billing_pembayaran WHERE id=?', [$paymentId]);
         $relativePath = (string)($payment['proof_path'] ?? '');
+        if (preg_match('#^student_payments/([a-f0-9]{32}\.(?:jpg|png|webp|pdf))$#D',$relativePath,$match)) {
+            require_once __DIR__.'/../services/relationships.php'; rs_file('student_payments',$match[1]);
+        }
         if (!preg_match('#^payment_proofs/[a-f0-9]{32}\.(jpg|png|webp|pdf)$#D', $relativePath)) {
             respond(404, ['status' => 'error', 'message' => 'File bukti pembayaran tidak ditemukan.']);
         }
@@ -155,6 +170,7 @@ if ($method === 'GET') {
     // the persisted, verified payment records below.
     $res = mysqli_query($conn, "SELECT * FROM billing_pembayaran ORDER BY created_at DESC");
     $data['pembayaran'] = [];
+    $data['student_submissions'] = bp_submissions($conn);
     $verifiedPaymentTotals = [];
     $latestVerifiedPaymentIdByInv = [];
     while ($r = mysqli_fetch_assoc($res)) {
@@ -166,6 +182,10 @@ if ($method === 'GET') {
         $r['proof_mime'] = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'][$proofExtension] ?? '';
         $r['buktiBayar'] = $r['proof_url'];
         $r['buktiMime'] = $r['proof_mime'];
+        if (bp_verified($r)) {
+            try { $r['receipt'] = bp_complete($conn,$actor,['receipt'=>receipt_snapshot($conn,(int)$r['id']),'verified_now'=>false,'replayed'=>true],false); }
+            catch (AccountingException $error) { $r['receipt_error']=$error->getMessage(); }
+        }
         unset($r['proof_path']);
         $data['pembayaran'][] = $r;
         if (in_array(strtolower(trim((string)($r['statusVerif'] ?? ''))), ['terverifikasi', 'verified'], true) && !empty($r['noInv'])) {
@@ -338,6 +358,12 @@ if ($method === 'POST') {
     
     $action = $body['action'] ?? '';
 
+    if ($action === 'send_receipt_email') {
+        $result=receipt_mail_send($conn,$actor,$body); $attempt=$result['attempt']; $accepted=$attempt['status']==='SMTP Accepted';
+        respond($accepted?200:($attempt['status']==='Pending'?409:($result['http_code']??502)),['status'=>$accepted?'success':'error',
+            'message'=>$accepted?'Receipt diterima server SMTP; status inbox/baca belum diketahui.':($attempt['error_message']?:'Percobaan receipt masih Pending.'),'data'=>$result]);
+    }
+
     if ($action === 'send_invoice_email') {
         $result = invoice_mail_send($conn, $actor, $body);
         $attempt = $result['attempt'];
@@ -391,93 +417,29 @@ if ($method === 'POST') {
         respond(200, ['status' => 'success', 'data' => $result]);
     }
 
-    if ($action === 'approve_payment') {
-        $invoiceId = ac_text($body['invoice_id'] ?? '', 'Nomor invoice', 50);
-        $paymentDate = ac_date($body['tglBayar'] ?? '');
-        $amount = ac_decimal(ac_cents((string)($body['jumlah'] ?? '')));
-        if ($amount === '0.00') ac_fail('Nominal pembayaran harus lebih dari nol.');
-        $method = ac_text($body['metode'] ?? 'Transfer Bank', 'Metode pembayaran', 50);
-        $customer = ac_text($body['customer'] ?? '', 'Nama pembayar', 255);
-
-        $conn->begin_transaction();
+    if (in_array($action, ['approve_payment','verify_payment'], true)) {
         $proofPath = null;
         try {
-            $invoice = ac_one($conn, 'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE', [$invoiceId]);
-            if (!$invoice) ac_fail('Invoice tidak ditemukan.', 404);
-
-            $payments = ac_rows($conn, "SELECT jumlah,statusVerif FROM billing_pembayaran WHERE noInv=? FOR UPDATE", [$invoiceId]);
-            $total = ac_cents((string)$invoice['total']);
-            $paid = 0;
-            foreach ($payments as $payment) {
-                if (in_array(strtolower(trim((string)$payment['statusVerif'])), ['terverifikasi', 'verified'], true)) {
-                    $paid = ac_add($paid, ac_cents((string)$payment['jumlah']));
-                }
-            }
-            if ($paid === 0 && in_array(strtolower(trim((string)$invoice['status'])), ['paid', 'lunas'], true)) {
-                $paid = $total;
-            }
-            $outstanding = max(0, $total - $paid);
-            $amountCents = ac_cents($amount);
-            if ($amountCents > $outstanding) ac_fail('Nominal pembayaran melebihi sisa tagihan.', 409);
-
-            $newPaid = ac_add($paid, $amountCents);
-            $remaining = max(0, $total - $newPaid);
-            $status = $remaining === 0 ? 'Paid' : 'Partially Paid';
-            $proofPath = billing_store_payment_proof($_FILES['proof'] ?? null);
-            ac_query($conn, "INSERT INTO billing_pembayaran(noInv,tglBayar,customer,metode,jumlah,sisa,statusVerif,proof_path) VALUES(?,?,?,?,?,?, 'Terverifikasi',?)",
-                [$invoiceId, $paymentDate, $customer, $method, $amount, ac_decimal($remaining), $proofPath]);
-            $paymentId = (int)$conn->insert_id;
-            ac_query($conn, 'UPDATE billing_invoices SET status=? WHERE id=?', [$status, $invoiceId]);
-            ac_audit($conn, $actor, 'billing_payment', (string)$paymentId, 'verified', [
-                'invoice_id' => $invoiceId,
-                'amount' => $amount,
-                'remaining' => ac_decimal($remaining),
-                'status' => $status
-            ]);
-            $conn->commit();
-        } catch (Throwable $e) {
-            $conn->rollback();
+            if ($action === 'approve_payment') $proofPath = billing_store_payment_proof($_FILES['proof'] ?? null);
+            $verified = bp_verify($conn,$actor,$body,$action === 'approve_payment',$proofPath);
+        } catch (Throwable $error) {
             if ($proofPath) billing_remove_payment_proof($proofPath);
-            throw $e;
+            throw $error;
         }
-
-        // Phase 2 RPA: Siapkan token, nomor receipt, dokumen resmi, dan picu n8n jika dikonfigurasi
-        $amtNumeric = (float)$amount;
-        $paidTotalNumeric = (float)ac_decimal($newPaid);
-        $remNumeric = (float)ac_decimal($remaining);
-        $receiptAuto = rpa_trigger_receipt_automation(
-            $conn,
-            $invoice,
-            $paymentId,
-            $amtNumeric,
-            $paidTotalNumeric,
-            $remNumeric,
-            $status,
-            $paymentDate,
-            $method,
-            $customer
-        );
-        $urls = $receiptAuto['urls'];
-
-        respond(200, [
-            'status' => 'success',
-            'data' => [
-                'payment_id' => $paymentId,
-                'receipt_number' => $receiptAuto['receipt_number'],
-                'invoice_id' => $invoiceId,
-                'status' => $status,
-                'terbayar' => ac_decimal($newPaid),
-                'sisa' => ac_decimal($remaining),
-                'receipt_url' => $urls['receipt_url'],
-                'invoice_url' => $urls['invoice_url'],
-                'status_url' => $urls['status_url'],
-                'rpa_dispatched' => $receiptAuto['rpa_dispatched'],
-                'proof_url' => $proofPath ? '/api/billing.php?view=payment_proof&id=' . $paymentId : '',
-                'proof_mime' => $proofPath ? (['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'][strtolower(pathinfo($proofPath, PATHINFO_EXTENSION))] ?? '') : ''
-            ]
-        ]);
+        if ($verified['replayed'] && $proofPath) billing_remove_payment_proof($proofPath);
+        $result = bp_complete($conn,$actor,$verified);
+        $result['rpa_dispatched'] = false;
+        if ($verified['verified_now'] && rpa_get_receipt_webhook_url() !== '') {
+            try {
+                $r = $verified['receipt'];
+                $invoice = ac_one($conn,'SELECT * FROM billing_invoices WHERE id=?',[$r['invoice_id']]);
+                $automation = rpa_trigger_receipt_automation($conn,$invoice,$r['payment_id'],(float)$r['amount'],(float)$r['paid_total'],(float)$r['remaining'],$r['invoice_status'],$r['payment_date'],$r['method'],$r['customer']);
+                $result['rpa_dispatched'] = $automation['rpa_dispatched'];
+            } catch (Throwable $error) { $result['automation_message'] = 'Pembayaran tersimpan; dispatch otomasi belum dikonfirmasi.'; }
+        }
+        respond(200,['status'=>'success','data'=>$result]);
     }
-    
+
     respond(400, ['status' => 'error', 'message' => 'Aksi belum didukung. Tidak ada data yang disimpan.']);
 }
 
@@ -490,6 +452,7 @@ if ($method === 'DELETE') {
     $idEsc = mysqli_real_escape_string($conn, $id);
     if ($type === 'invoice') {
         if (ac_table($conn, 'enrollment_charges') && ac_one($conn, 'SELECT id FROM enrollment_charges WHERE billing_invoice_id=?', [$id])) ac_fail('Invoice charge resmi tidak dapat dihapus atau diganti otomatis. Review Finance diperlukan.', 409);
+        if (ac_one($conn,"SELECT id FROM billing_pembayaran WHERE noInv=? AND LOWER(TRIM(statusVerif)) IN ('verified','terverifikasi') LIMIT 1",[$id])) ac_fail('Invoice memiliki receipt pembayaran resmi dan tidak dapat dihapus.',409);
         mysqli_query($conn, "DELETE FROM billing_invoices WHERE id = '$idEsc'");
         ac_audit($conn, $actor, 'billing_invoice', $id, 'deleted', []);
     } elseif ($type === 'terkirim') {
@@ -501,6 +464,7 @@ if ($method === 'DELETE') {
         ac_atomic($conn, function () use ($conn, $actor, $paymentId, &$proofPathToDelete) {
             $payment = ac_one($conn, 'SELECT * FROM billing_pembayaran WHERE id=? FOR UPDATE', [$paymentId]);
             if (!$payment) ac_fail('Pembayaran tidak ditemukan.', 404);
+            if (bp_verified($payment)) ac_fail('Pembayaran terverifikasi dan receipt resmi harus dipertahankan.',409);
             $proofPathToDelete = (string)($payment['proof_path'] ?? '');
             $invoiceId = (string)($payment['noInv'] ?? '');
             $invoice = $invoiceId !== '' ? ac_one($conn, 'SELECT * FROM billing_invoices WHERE id=? FOR UPDATE', [$invoiceId]) : null;
@@ -526,6 +490,7 @@ if ($method === 'DELETE') {
         });
         billing_remove_payment_proof($proofPathToDelete);
     } elseif ($type === 'pembayaran') {
+        if (ac_one($conn,"SELECT id FROM billing_pembayaran WHERE (id=? OR noInv=?) AND LOWER(TRIM(statusVerif)) IN ('verified','terverifikasi') LIMIT 1",[$id,$id])) ac_fail('Pembayaran terverifikasi dan receipt resmi harus dipertahankan.',409);
         mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE id = '$idEsc' OR noInv = '$idEsc'");
     } elseif ($type === 'siswa') {
         mysqli_query($conn, "DELETE FROM billing_siswa WHERE id = '$idEsc' OR nama = '$idEsc'");

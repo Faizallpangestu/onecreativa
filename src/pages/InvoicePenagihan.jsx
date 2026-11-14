@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -8,6 +8,8 @@ import autoTable from "jspdf-autotable";
 import Layout from "../components/Layout";
 import BuatInvoiceWizardModal from "../components/BuatInvoiceWizardModal";
 import InvoiceEmailButton from "../components/InvoiceEmailButton";
+import PaymentReceiptActions from "../components/PaymentReceiptActions";
+import {reconcilePayment, showPaymentResult} from "../utils/paymentReceipt";
 import {
   Receipt, FileText, Send, CreditCard, BarChart2,
   TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle,
@@ -2052,10 +2054,10 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
                 <CheckCircle className="w-6 h-6 text-emerald-600" />
               </h3>
               <p className="text-xs text-slate-600 font-medium max-w-sm mt-1.5 leading-relaxed">
-                Tanda bukti valid. Invoice <strong className="font-mono text-slate-800">#{inv.id}</strong> berstatus <strong className="text-emerald-700">Paid ✓</strong> dan kwitansi resmi sedang diterbitkan...
+                Pembayaran invoice <strong className="font-mono text-slate-800">#{inv.id}</strong> tersimpan. Saldo, receipt, dan hasil email mengikuti respons server.
               </p>
               <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-200 shadow-2xs">
-                <Check className="w-4 h-4 text-emerald-600" /> Realisasi & Proyeksi Kas Tersinkronisasi
+                <Check className="w-4 h-4 text-emerald-600" /> Status pembayaran dimuat dari server
               </div>
             </div>
           )}
@@ -2399,7 +2401,7 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
                 </span>
               </label>
               <p className="text-[11px] text-emerald-700 ml-6 mt-0.5">
-                Status invoice otomatis tercatat <strong>Paid ✓</strong> dan tersinkronisasi ke laporan Realisasi Keuangan.
+                Saldo invoice dihitung server dari pembayaran terverifikasi. Hasil receipt dan pengiriman email dilaporkan terpisah.
               </p>
             </div>
 
@@ -3102,7 +3104,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
 }
 
 // ─── TAB 2: Pembayaran ────────────────────────────────────────────────────────
-function TabPembayaran({ data, onDelete }) {
+function TabPembayaran({ data, onDelete, onRefresh, invoices, submissions }) {
   const [metode, setMetode] = useState("Semua Metode");
   const [status, setStatus] = useState("Semua Status");
   const [search, setSearch] = useState("");
@@ -3175,7 +3177,7 @@ function TabPembayaran({ data, onDelete }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 font-semibold">Tanggal Bayar</label>
           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>01/05/2024</span><span className="text-slate-400">–</span><span>31/05/2024</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>Sesuai record server</span>
           </div>
         </div>
         <div className="flex flex-col gap-1">
@@ -3217,6 +3219,15 @@ function TabPembayaran({ data, onDelete }) {
         </div>
       </div>
 
+      {submissions.filter(s=>!s.billing_payment_id).length>0 && <div className="p-4 space-y-3 border-b border-slate-100">
+        <p className="text-sm font-bold">Bukti siswa untuk review ? belum menjadi pembayaran billing</p>
+        {submissions.filter(s=>!s.billing_payment_id).map(s=><div key={s.id} className="rounded-xl border border-slate-200 p-3 space-y-2 text-xs">
+          <p>Bukti siswa #{s.id} ? {s.invoice_id} ? {s.customer} ? {formatRp(s.amount)} ? {s.transfer_date} ? Referensi: {s.reference}</p>
+          <p>Review akuntansi: {s.status}. {s.status!=='pending'?'Bukti sudah direview pada akuntansi; perlu rekonsiliasi sebelum dibuat sebagai pembayaran billing.':''}</p>
+          <a href={s.proof_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">Lihat bukti siswa #{s.id}</a>
+          <PaymentReceiptActions payment={{submission_id:s.id,noInv:s.invoice_id,statusVerif:'Menunggu',proof_url:s.proof_url,accounting_reviewed:s.status!=='pending'}} recipient={s.email} onRefresh={onRefresh}/>
+        </div>)}
+      </div>}
       <p className="px-4 pt-4 pb-2 text-sm font-black text-slate-700">Daftar Pembayaran</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -3249,6 +3260,7 @@ function TabPembayaran({ data, onDelete }) {
                       className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-800 transition cursor-pointer">
                       <ImageIcon className="w-4 h-4" />
                     </button>
+                    <PaymentReceiptActions payment={r} recipient={invoices.find(inv=>String(inv.id)===String(r.noInv))?.email} onRefresh={onRefresh}/>
                     <button onClick={() => setViewItem(r)} title="Lihat Detail & Bukti"
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition cursor-pointer"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
@@ -3799,6 +3811,8 @@ export default function InvoicePenagihan() {
   const [pembayaran, setPembayaran] = useState([]);
   const [siswa, setSiswa] = useState([]);
   const [automationLogs, setAutomationLogs] = useState([]);
+  const [submissions,setSubmissions]=useState([]);
+  const manualRequests=useRef(new Map());
   const [rpaStatus, setRpaStatus] = useState({});
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -3816,6 +3830,7 @@ export default function InvoicePenagihan() {
           payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
         }));
         setInvoices(finalInvoices);
+        setSubmissions(res.data.data.student_submissions || []);
 
         // 1. SINKRONISASI INVOICE TERKIRIM
         const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, res.data.data.terkirim || [], res.data.data.email_attempts || []);
@@ -3849,6 +3864,7 @@ export default function InvoicePenagihan() {
         payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
       }));
       setInvoices(finalInvoices);
+      setSubmissions(data.data.student_submissions || []);
 
       // 1. SINKRONISASI INVOICE TERKIRIM
       const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, data.data.terkirim || [], data.data.email_attempts || []);
@@ -3871,6 +3887,9 @@ export default function InvoicePenagihan() {
   // ── APPROVE PAYMENT & REALIZATION SINKRONISASI ──
   const handleApprovePayment = async (inv, paymentData) => {
     const formData = new FormData();
+    const requestId=manualRequests.current.get(String(inv.id)) || crypto.randomUUID();
+    manualRequests.current.set(String(inv.id),requestId);
+    formData.append('request_id',requestId);
     formData.append('action', 'approve_payment');
     formData.append('invoice_id', String(inv.id));
     formData.append('tglBayar', paymentData.tglBayar);
@@ -3879,17 +3898,21 @@ export default function InvoicePenagihan() {
     formData.append('jumlah', String(paymentData.nominal || 0));
     if (paymentData.buktiFile) formData.append('proof', paymentData.buktiFile);
 
-    const response = await axios.post('/api/billing.php', formData);
-    if (response.data?.status !== 'success' || !response.data?.data) {
-      throw new Error(response.data?.message || 'Pembayaran tidak berhasil disimpan.');
+    let persistedPayment;
+    try {
+      persistedPayment=await reconcilePayment(requestId);
+      if(!persistedPayment){
+        const response=await axios.post('/api/billing.php',formData);
+        if(response.data?.status!=='success' || response.data?.data?.payment_status!=='Verified')throw new Error(response.data?.message || 'Pembayaran belum dikonfirmasi.');
+        persistedPayment=response.data.data;
+      }
+    } catch(error) {
+      try { persistedPayment=await reconcilePayment(requestId); } catch { throw new Error('Hasil pembayaran belum pasti. Periksa server sebelum retry; request pembayaran tetap sama.'); }
+      if(!persistedPayment){if(error.response?.status<500)manualRequests.current.delete(String(inv.id));throw error;}
     }
-
-    const persistedPayment = response.data.data;
+    manualRequests.current.delete(String(inv.id));
     await fetchData();
-    const result = await Swal.fire({ icon: 'success', title: 'Pembayaran Tersimpan di Server',
-      text: `Pembayaran #${persistedPayment.payment_id} berhasil dicatat. Saldo dan status dimuat ulang dari server.`,
-      showCancelButton: Boolean(persistedPayment.receipt_url), confirmButtonText: persistedPayment.receipt_url ? 'Buka Kwitansi Server' : 'Selesai', cancelButtonText: 'Tutup' });
-    if (result.isConfirmed && persistedPayment.receipt_url) window.open(persistedPayment.receipt_url, '_blank', 'noopener,noreferrer');
+    await showPaymentResult(persistedPayment);
     return true;
   };
 
@@ -4037,7 +4060,7 @@ export default function InvoicePenagihan() {
               />
             )}
             {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} onRefresh={fetchData} />}
-            {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
+            {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} onRefresh={fetchData} invoices={invoices} submissions={submissions} />}
             {activeTab === 3 && <div className="p-6"><TabSiswa data={siswa} onDelete={(id) => handleDelete('siswa', id)} /></div>}
             {activeTab === 4 && (
               <TabRiwayatRpa

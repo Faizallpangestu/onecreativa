@@ -14,6 +14,34 @@ function sb_billing_owner(mysqli $db, array $source): ?int {
  return $owner;
 }
 function sb_finance(mysqli $db,array $a,string $permission='read'):void{ac_require($db,$a,$permission);}
+function sb_submission_status(array $submission,?array $link,?array $mapping,?array $payment,?int $owner): array {
+ $result=['billing_verification'=>'Needs Reconciliation','billing_payment_id'=>null,'accounting_review'=>ucfirst($submission['status'])];
+ if(!$link || (int)$link['id']!==(int)$submission['invoice_link_id'] || (int)$link['student_id']!==(int)$submission['student_id'] || $owner!==(int)$submission['student_id'] || !$link['billing_invoice_id'])return $result;
+ $payload=['submission_id'=>(int)$submission['id'],'invoice_id'=>$link['billing_invoice_id']];
+ if(!$mapping || $mapping['operation']!=='billing_submission' || !hash_equals(hash('sha256',json_encode($payload,JSON_THROW_ON_ERROR)),$mapping['payload_hash'] ?? ''))return $result;
+ $saved=json_decode($mapping['result_json'],true);
+ if(!$payment || (string)($saved['payment_id']??'')!==(string)$payment['id'] || $payment['noInv']!==$link['billing_invoice_id'])return $result;
+ $status=strtolower(trim($payment['statusVerif']));
+ if(!in_array($status,['verified','terverifikasi','pending','menunggu'],true))return $result;
+ return array_replace($result,['billing_verification'=>in_array($status,['verified','terverifikasi'],true)?'Verified':'Pending','billing_payment_id'=>(int)$payment['id']]);
+}
+function sb_submission_statuses(mysqli $db,array $submissions,array $links): array {
+ $links=array_column($links,null,'id');$hasMappings=ac_table($db,'accounting_idempotency');
+ foreach($submissions as &$submission){
+  $link=$links[$submission['invoice_link_id']]??null;$mapping=null;$payment=null;$owner=null;
+  if($link && (int)$link['student_id']===(int)$submission['student_id'] && $link['billing_invoice_id']!==null && $hasMappings){
+   $invoice=ac_one($db,'SELECT * FROM billing_invoices WHERE id=?',[$link['billing_invoice_id']]);
+   try{$owner=$invoice?sb_billing_owner($db,$invoice):null;}catch(AccountingException $error){$owner=null;}
+   if($owner===(int)$submission['student_id']){
+    $mapping=ac_one($db,'SELECT operation,payload_hash,result_json FROM accounting_idempotency WHERE request_key=?',['billing-submission-'.$submission['id']]);
+    $saved=$mapping?json_decode($mapping['result_json'],true):null;
+    if(isset($saved['payment_id']) && preg_match('/^[1-9]\d{0,9}$/D',(string)$saved['payment_id']))$payment=ac_one($db,'SELECT id,noInv,statusVerif FROM billing_pembayaran WHERE id=? AND noInv=?',[(int)$saved['payment_id'],$link['billing_invoice_id']]);
+   }
+  }
+  $submission+=sb_submission_status($submission,$link,$mapping,$payment,$owner);
+ }
+ return $submissions;
+}
 function sb_invoice_owner(array $source): ?int {
  $meta=[];
  if(!empty($source['meta_json'])){

@@ -245,6 +245,10 @@ function bp_verify(mysqli $db, array $actor, array $body, bool $manual = false, 
     });
 }
 
+function bp_email_status(?array $attempt,bool $historyAvailable = true): ?string {
+    return $historyAvailable ? ($attempt['status'] ?? 'Not Attempted') : null;
+}
+
 function bp_complete(mysqli $db, array $actor, array $verified, bool $sendEmail = true): array {
     $receipt=$verified['receipt']; $id=(int)$receipt['payment_id'];
     $result=['payment_id'=>$id,'invoice_id'=>$receipt['invoice_id'],'payment_status'=>'Verified','receipt_status'=>'Available',
@@ -266,11 +270,12 @@ function bp_complete(mysqli $db, array $actor, array $verified, bool $sendEmail 
         $history=receipt_mail_history($db,$id);
         // A verification replay never resends, even when a later explicit email retry has failed.
         $delivery=$history ? ['attempt'=>$history[0],'replayed'=>true] : ($sendEmail ? receipt_mail_send($db,$actor,['payment_id'=>$id,'request_id'=>'receipt-auto-'.$id,'previous_attempt_id'=>null]) : ['attempt'=>null]);
-        $result['email_status']=$delivery['attempt']['status'] ?? 'Not Attempted'; $result['email']=$delivery;
+        $result['email_status']=bp_email_status($delivery['attempt']); $result['email']=$delivery;
     } catch (Throwable $error) {
-        try { $history=receipt_mail_history($db,$id); } catch (Throwable $readError) { $history=[]; }
-        $result['email_status']=$history[0]['status'] ?? 'Pending';
-        $result['email']=['attempt'=>$history[0] ?? null,'message'=>'Pembayaran tetap terverifikasi. Pengiriman receipt belum dapat dikonfirmasi; periksa konfigurasi/riwayat server.'];
+        $historyAvailable=true;
+        try { $history=receipt_mail_history($db,$id); } catch (Throwable $readError) { $history=[];$historyAvailable=false; }
+        $result['email_status']=bp_email_status($history[0] ?? null,$historyAvailable);
+        $result['email']=['attempt'=>$history[0] ?? null,'history_available'=>$historyAvailable,'message'=>'Pembayaran tetap terverifikasi. Periksa konfigurasi/riwayat email server.'];
     }
     $result['pdf_status']=is_file(receipt_pdf_path($receipt))?'Available':'Not Generated';
     return $result;

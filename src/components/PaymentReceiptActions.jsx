@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import InvoiceEmailButton from './InvoiceEmailButton';
-import { reconcilePayment, showPaymentResult } from '../utils/paymentReceipt';
+import { reconcilePayment, showPaymentResult, officialReceiptUrl, receiptEmailLabel } from '../utils/paymentReceipt';
 
 const requests=new Map();
 const active=new Set();
@@ -35,8 +35,8 @@ export default function PaymentReceiptActions({payment,recipient,onRefresh}) {
   return <div className="flex flex-wrap items-center gap-2 text-xs">
     {!verified && <button type="button" disabled={busy || !payment.proof_url || payment.accounting_reviewed} onClick={verify} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-semibold disabled:opacity-50">{busy?'Memverifikasi…':'Verify'}</button>}
     {verified && <><span>#{payment.id} · {receipt?.receipt_number || payment.receipt_error || 'Receipt perlu review'}</span>
-      {receipt?.receipt_pdf_url && <a className="text-blue-700 underline" href={receipt.receipt_pdf_url} target="_blank" rel="noreferrer">Buka / Unduh Receipt PDF</a>}
-      <span>Email: {receipt?.email_status || 'Not Attempted'}</span>
+      {receipt && officialReceiptUrl(payment) && <a className="text-blue-700 underline" href={officialReceiptUrl(payment)} target="_blank" rel="noreferrer">Buka / Unduh Receipt PDF</a>}
+      <span>Email: {receiptEmailLabel(receipt || {})}</span>
       {receipt && <InvoiceEmailButton paymentId={payment.id} invoiceId={payment.noInv} recipient={recipient} latestAttempt={receipt.email?.attempt} onRefresh={onRefresh} />}</>}
   </div>;
 }

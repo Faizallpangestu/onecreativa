@@ -9,7 +9,7 @@ import Layout from "../components/Layout";
 import BuatInvoiceWizardModal from "../components/BuatInvoiceWizardModal";
 import InvoiceEmailButton from "../components/InvoiceEmailButton";
 import PaymentReceiptActions from "../components/PaymentReceiptActions";
-import {reconcilePayment, showPaymentResult} from "../utils/paymentReceipt";
+import {reconcilePayment, showPaymentResult, openOfficialReceipt} from "../utils/paymentReceipt";
 import {
   Receipt, FileText, Send, CreditCard, BarChart2,
   TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle,
@@ -806,13 +806,7 @@ export function generateInvoicePDF(rawInv, mode = "download") {
   doc.text("Notes/Terms", 14, currentY);
   currentY += 5.5;
 
-  if (inv.kelasMulai) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(17, 24, 39);
-    doc.text(`Kelas Mulai : ${inv.kelasMulai}`, 14, currentY);
-    currentY += 5.5;
-  }
+
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -948,195 +942,6 @@ export function terbilangRupiah(angka) {
   return (sebut(angka).replace(/\s+/g, ' ').trim() + ' Rupiah');
 }
 
-// ─── HELPER: Generate & Download / Preview Official Kwitansi (Receipt PDF) ────
-export function generateReceiptPDF(payment, inv, mode = 'preview') {
-  if (!payment?.id || !['terverifikasi', 'verified'].includes(String(payment.statusVerif || '').toLowerCase())) {
-    Swal.fire({ icon: 'info', title: 'Kwitansi Belum Tersedia', text: 'Diperlukan record pembayaran server yang terverifikasi.' });
-    return;
-  }
-  const doc = new jsPDF({ format: 'a4' });
-  doc.setFont("helvetica");
-
-  const receiptNo = payment.receipt_number || payment.receiptNo || `Pembayaran #${payment.id}`;
-  const customerName = inv.customer || payment.customer || 'Siswa / Customer';
-  const amountPaid = Number(payment.nominal || payment.jumlah || inv.total || 0);
-
-  doc.setProperties({
-    title: `KWITANSI - ${receiptNo} - ${customerName.toUpperCase()}`
-  });
-
-  let currentY = 18;
-
-  // 1. KOP SURAT RESMI
-  try {
-    const logoImg = new Image();
-    logoImg.src = "/images/creativa-kop-logo.png";
-    doc.addImage(logoImg, 'PNG', 14, 12, 50, 20);
-  } catch (e) {
-    doc.setTextColor(30, 58, 138);
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(14);
-    doc.text("CREATIVA BRIDGING", 14, 20);
-    doc.text("INTERNATIONAL", 14, 26);
-  }
-
-  // Header Title
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(22);
-  doc.setFont(undefined, 'bold');
-  doc.text("KWITANSI RESMI", 196, 18, { align: 'right' });
-
-  doc.setFontSize(9.5);
-  doc.text("PT. Creativa Bridging International", 196, 24, { align: 'right' });
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.text("Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1, Cianjur", 196, 29, { align: 'right' });
-  doc.text("+62 815-2222-672 | finance@creativabridging.com", 196, 34, { align: 'right' });
-
-  // Double Line Separator
-  currentY = 40;
-  doc.setDrawColor(16, 185, 129); // emerald green accent for receipt
-  doc.setLineWidth(0.8);
-  doc.line(14, currentY, 196, currentY);
-  doc.setLineWidth(0.2);
-  doc.line(14, currentY + 1.2, 196, currentY + 1.2);
-  currentY += 10;
-
-  // Receipt Number & Date Banner
-  doc.setFillColor(240, 253, 244); // bg-emerald-50
-  doc.setDrawColor(187, 247, 208); // border-emerald-200
-  doc.roundedRect(14, currentY, 182, 18, 3, 3, 'FD');
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(6, 95, 70); // emerald-800
-  doc.text(`NO. KWITANSI: ${receiptNo}`, 20, currentY + 7);
-  doc.text(`TANGGAL: ${payment.tglBayar || 'Belum tersedia'}`, 190, currentY + 7, { align: 'right' });
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Referensi Tagihan: Invoice #${inv.id || '-'}`, 20, currentY + 13);
-  doc.text(`Waktu Approve: ${payment.jamBayar || 'Belum tersedia'}`, 190, currentY + 13, { align: 'right' });
-
-  currentY += 26;
-
-  // Receipt Content Box
-  autoTable(doc, {
-    startY: currentY,
-    body: [
-      ["Telah Terima Dari", `:  ${customerName.toUpperCase()}`],
-      ["Uang Sejumlah", `:  # ${terbilangRupiah(amountPaid)} #`],
-      ["Untuk Pembayaran", `:  Pembayaran ${payment.terminName ? (payment.terminName + ' ') : ''}Tagihan Invoice No. ${inv.id || '-'}\n   Program: ${inv.program || inv.keterangan || 'Kelas Pelatihan Bahasa Jepang & Skill'}`],
-      ["Metode & Rekening", `:  ${payment.metode || 'Belum tersedia'} — ${payment.rekening || inv.rekening || 'Belum tersedia'}`],
-      ["Catatan Verifikasi", `:  ${payment.catatan || 'Pembayaran resmi pelatihan kerja Jepang telah diverifikasi oleh Divisi Keuangan.'}`],
-    ],
-    theme: 'plain',
-    styles: { fontSize: 9.5, cellPadding: 3.5, textColor: [15, 23, 42] },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 44, textColor: [51, 65, 85] },
-      1: { cellWidth: 138 }
-    }
-  });
-
-  // 3. Kotak Nominal & Stamp Verifikasi
-  currentY = doc.lastAutoTable.finalY + 8;
-  const boxHeight = 18;
-
-  // Left Box: JUMLAH PEMBAYARAN (Nominal Angka)
-  doc.setFillColor(248, 250, 252); // slate-50
-  doc.setDrawColor(203, 213, 225); // slate-300
-  doc.setLineWidth(0.4);
-  doc.roundedRect(14, currentY, 94, boxHeight, 3, 3, 'FD');
-
-  doc.setFontSize(7.5);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(100, 116, 139); // slate-500
-  doc.text("JUMLAH DITERIMA (IDR):", 20, currentY + 5.5);
-
-  doc.setFontSize(13.5);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(4, 120, 87); // emerald-700
-  doc.text(formatRp(amountPaid), 20, currentY + 13);
-
-  // Right Box: STAMP LUNAS / TERVERIFIKASI (Official Badge)
-  const stampX = 114;
-  const stampWidth = 82;
-  doc.setFillColor(236, 253, 245); // emerald-50
-  doc.setDrawColor(16, 185, 129); // emerald-500
-  doc.setLineWidth(0.7);
-  doc.roundedRect(stampX, currentY, stampWidth, boxHeight, 3, 3, 'FD');
-
-  // Vector Green Checkmark Badge Circle
-  const circleX = stampX + 8;
-  const circleY = currentY + (boxHeight / 2);
-  doc.setFillColor(16, 185, 129); // emerald-500
-  doc.circle(circleX, circleY, 4, 'F');
-
-  // Draw crisp white vector checkmark inside the circle
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.7);
-  doc.line(circleX - 1.8, circleY, circleX - 0.5, circleY + 1.6);
-  doc.line(circleX - 0.5, circleY + 1.6, circleX + 2.0, circleY - 1.5);
-
-  // Stamp Text
-  doc.setFont(undefined, 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(6, 95, 70); // emerald-800
-  doc.text("LUNAS / TERVERIFIKASI", circleX + 7, currentY + 7.5);
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(4, 120, 87); // emerald-700
-  doc.text("Sistem Keuangan PT Creativa Bridging", circleX + 7, currentY + 12.5);
-
-  currentY += boxHeight + 10;
-
-  // Signature Section
-  doc.setFontSize(8.5);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(71, 85, 105);
-
-  // Left Signature: Pembayar / Siswa
-  doc.text("Penyetor / Siswa,", 24, currentY);
-  doc.text("Diterima & Disetujui Oleh,", 126, currentY);
-  currentY += 18;
-
-  // Underline for signature
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(24, currentY - 2, 85, currentY - 2);
-  doc.line(126, currentY - 2, 188, currentY - 2);
-
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text(customerName, 24, currentY + 2);
-  doc.text(payment.approverName || "Belum tersedia", 126, currentY + 2);
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text("Siswa LPK Creativa", 24, currentY + 6.5);
-  doc.text("Finance & Treasury Dept.", 126, currentY + 6.5);
-
-  // Digital Verification Note
-  currentY += 14;
-  doc.setFontSize(7.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text("* Kwitansi ini adalah bukti pembayaran sah yang diterbitkan secara elektronik oleh Sistem Keuangan PT Creativa Bridging International.", 14, currentY);
-  doc.text(`* No. Referensi Transaksi: ${payment.refNumber || 'Belum tersedia'}`, 14, currentY + 4);
-
-  if (mode === 'preview') {
-    const blobUrl = doc.output('bloburl');
-    window.open(blobUrl, '_blank');
-    return blobUrl;
-  }
-  doc.save(`${receiptNo}.pdf`);
-}
-
-export function previewReceiptPDF(payment, inv) {
-  return generateReceiptPDF(payment, inv, 'preview');
-}
 
 // ─── TEMPLATES FOR INCLUDE, EXCLUDE & NOTES ─────────────────────────────────────
 function InvoiceDetailModal({ inv, onClose, onPaymentProofSaved, onOpenPaymentModal }) {
@@ -1623,6 +1428,7 @@ function RiwayatBuktiInvoiceModal({ inv, onClose, onOpenPaymentModal, onPaymentP
 
                         {/* Aksi Tombol Bukti Transfer & Kwitansi */}
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          <button type="button" onClick={() => openOfficialReceipt([p],inv.id)} className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs">Cetak Kwitansi Resmi</button>
                           {canAttachProof && (
                             <label className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-slate-200">
                               <UploadCloud className="w-3.5 h-3.5" />
@@ -1768,12 +1574,7 @@ function PembayaranDetailModal({ item, onClose }) {
             <button
               type="button"
               onClick={() => {
-                previewReceiptPDF(item, {
-                  id: item.noInv,
-                  customer: item.customer,
-                  program: item.program || "Kelas Pelatihan Bahasa Jepang",
-                  total: Number(item.jumlah || 0) + Number(item.sisa || 0)
-                });
+                openOfficialReceipt([item], item.noInv);
               }}
               className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
             >
@@ -2496,11 +2297,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
   const [selectedBuktiInv, setSelectedBuktiInv] = useState(null);
 
   // Helper to open kwitansi / receipt
-  const handleReceiptClick = (inv) => {
-    const latestPayment = inv.payments?.at(-1);
-    if (!latestPayment) return Swal.fire({ icon: 'info', title: 'Record Pembayaran Belum Tersedia', text: 'Status invoice tidak menggantikan bukti transaksi pembayaran di server.' });
-    previewReceiptPDF(latestPayment, inv);
-  };
+  const handleReceiptClick = inv => openOfficialReceipt(inv.payments || [], inv.id);
 
   const handleProofSaved = (updatedPayment) => {
     onPaymentProofSaved?.(updatedPayment);

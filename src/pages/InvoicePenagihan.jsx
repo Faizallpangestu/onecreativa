@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import axios from "axios";
 import Swal from "sweetalert2";
+import { serverDeliveryRows, serverPaymentRows } from "../utils/studentInvoice";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Layout from "../components/Layout";
 import BuatInvoiceWizardModal from "../components/BuatInvoiceWizardModal";
+import InvoiceEmailButton from "../components/InvoiceEmailButton";
+import PaymentReceiptActions from "../components/PaymentReceiptActions";
+import {reconcilePayment, showPaymentResult, openOfficialReceipt} from "../utils/paymentReceipt";
 import {
   Receipt, FileText, Send, CreditCard, BarChart2,
   TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle,
@@ -22,6 +26,14 @@ const formatRp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
 
 const MONTHS_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agust", "Sep", "Okt", "Nov", "Des"];
 const MONTHS_UPPER_ID = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
+
+function openInvoiceWhatsApp(invoice, recipient) {
+  if (!invoice?.id || !invoice.invoice_url) return Swal.fire({ icon: 'info', title: 'Dokumen resmi belum tersedia', text: 'Muat ulang invoice dari server sebelum membuka pesan WhatsApp.' });
+  const digits = String(recipient || '').replace(/\D/g, '');
+  const phone = digits.startsWith('0') ? '62' + digits.slice(1) : digits;
+  const text = `Halo ${invoice.customer}, invoice resmi ${invoice.id} tersedia di ${invoice.invoice_url}`;
+  window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+}
 
 export function formatRpNoDecimals(n) {
   const rounded = Math.round(Number(n) || 0);
@@ -300,7 +312,7 @@ const STATUS_INV = {
   "Belum Dibayar": "bg-rose-50 text-rose-600 border border-rose-200",
   "Belum Lunas": "bg-rose-50 text-rose-600 border border-rose-200"
 };
-const STATUS_KIRIM = { "Terkirim": "bg-emerald-100 text-emerald-700", "Gagal": "bg-red-100 text-red-600" };
+const STATUS_KIRIM = { "Terkirim": "bg-emerald-100 text-emerald-700", "SMTP Accepted": "bg-emerald-100 text-emerald-700", "Pending": "bg-amber-100 text-amber-700", "Failed": "bg-red-100 text-red-600", "Gagal": "bg-red-100 text-red-600" };
 const STATUS_BACA = { "Dibaca": "bg-blue-100 text-blue-700", "Pending": "bg-amber-100 text-amber-700", "–": "bg-slate-100 text-slate-400" };
 const STATUS_VERIF = { "Terverifikasi": "bg-emerald-100 text-emerald-700", "Menunggu": "bg-amber-100 text-amber-700" };
 const STATUS_SISWA = { "Prioritas": "bg-violet-100 text-violet-700", "Aktif": "bg-emerald-100 text-emerald-700", "Menunggak": "bg-red-100 text-red-600", "Baru": "bg-blue-100 text-blue-700" };
@@ -369,49 +381,8 @@ export const OFFICIAL_EXCLUSIONS_DEFAULT = [
   "Keperluan Pribadi Lainnya",
 ];
 
-function computeOfficialCicilanDates(anchorDateStr, count = 6) {
-  const baseParts = parseInvoiceDateParts(anchorDateStr);
-  const baseDate = baseParts
-    ? new Date(baseParts.year, baseParts.monthIdx, baseParts.day)
-    : new Date();
-  const amounts = [5000000, 3000000, 2500000, 1500000, 1500000, 1500000];
-  return Array.from({ length: count }, (_, idx) => {
-    const d = new Date(baseDate.getTime());
-    d.setMonth(d.getMonth() + idx);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return {
-      description: `Cicilan ${idx + 1}`,
-      date: `${yyyy}-${mm}-${dd}`,
-      amount: amounts[idx] ?? 0,
-    };
-  });
-}
-
 export function enrichInvoiceData(rawInv = {}) {
-  let storedMatch = null;
-  if (typeof window !== "undefined" && rawInv?.id) {
-    try {
-      const saved = JSON.parse(localStorage.getItem("saved_custom_invoices") || "[]");
-      if (Array.isArray(saved)) {
-        storedMatch = saved.find((s) => String(s?.id) === String(rawInv.id)) || null;
-      }
-    } catch {
-      storedMatch = null;
-    }
-  }
-
-  const merged = { ...(storedMatch || {}), ...rawInv };
-  if ((!merged.items || merged.items.length === 0) && storedMatch?.items?.length) merged.items = storedMatch.items;
-  if ((!merged.installments || merged.installments.length === 0) && storedMatch?.installments?.length) merged.installments = storedMatch.installments;
-  if ((!merged.includes || merged.includes.length === 0) && storedMatch?.includes?.length) merged.includes = storedMatch.includes;
-  if ((!merged.excludes || merged.excludes.length === 0) && storedMatch?.excludes?.length) merged.excludes = storedMatch.excludes;
-  if (!merged.bank_name && storedMatch?.bank_name) merged.bank_name = storedMatch.bank_name;
-  if (!merged.account_number && storedMatch?.account_number) merged.account_number = storedMatch.account_number;
-  if (!merged.account_holder && storedMatch?.account_holder) merged.account_holder = storedMatch.account_holder;
-  if (!merged.lokasi && storedMatch?.lokasi) merged.lokasi = storedMatch.lokasi;
-  if (!merged.notes && storedMatch?.notes) merged.notes = storedMatch.notes;
+  const merged = { ...rawInv };
 
   const grandTotal = Number(merged.total) || 0;
   const discountAmount = Number(merged.discount?.amount) || 0;
@@ -457,7 +428,7 @@ export function enrichInvoiceData(rawInv = {}) {
   const effectiveDiscount = discountAmount || Math.max(0, subtotal - grandTotal);
 
   const stNorm = normalizeFinanceStatus(merged.status);
-  const paidAmount = stNorm === "Paid" ? grandTotal : (Number(merged.terbayar) || 0);
+  const paidAmount = Number(merged.terbayar) || 0;
   const amountDue = merged.sisa != null && stNorm !== "Unpaid"
     ? Math.max(0, Number(merged.sisa))
     : Math.max(0, grandTotal - paidAmount);
@@ -482,38 +453,16 @@ export function enrichInvoiceData(rawInv = {}) {
       date: inst.jatuhTempo || inst.tanggal || merged.jatuhTempo || merged.tanggal,
       amount: Number(inst.nominal ?? inst.amount ?? 0),
     }));
-  } else if (
-    (String(merged.skema || merged.keterangan || "").toLowerCase().includes("cicil")) &&
-    grandTotal === 18000000
-  ) {
-    installments = computeOfficialCicilanDates(merged.jatuhTempo || merged.tanggal, 6);
+  } else if (/cicil/i.test(String(merged.skema || merged.keterangan || ''))) {
+    installments = [];
   } else {
-    installments = [
-      {
-        description: "FULL PAYMENT",
-        date: merged.jatuhTempo || merged.tanggal,
-        amount: grandTotal,
-      },
-    ];
+    installments = [{ description: 'FULL PAYMENT', date: merged.jatuhTempo || merged.tanggal, amount: grandTotal }];
   }
 
-  // Extract bank account details
-  let bankName = merged.bank_name || "";
-  let accountNumber = merged.account_number || "";
-  let accountHolder = merged.account_holder || "";
-  if ((!bankName || !accountNumber) && merged.rekening) {
-    const rekStr = String(merged.rekening);
-    const numMatch = rekStr.match(/(\d{3,4}-\d{3,4}-\d{3,4}|\d{6,})/);
-    if (numMatch && !accountNumber) accountNumber = numMatch[1];
-    if (/mandiri/i.test(rekStr)) bankName = bankName || "Mandiri";
-    else if (/bni/i.test(rekStr)) bankName = bankName || "BNI";
-    else bankName = bankName || "BCA";
-  }
-  bankName = bankName || "BCA";
-  accountNumber = accountNumber || "1832-918-428";
-  if (!accountHolder || (String(accountNumber).includes("1832-918-428") && accountHolder.trim().toUpperCase() === "PT LPK CREATIVA")) {
-    accountHolder = "CREATIVA BRIDGING INTERN";
-  }
+  // Missing official bank metadata stays visibly unavailable, including on legacy invoices.
+  const bankName = merged.bank_name || 'Belum tersedia';
+  const accountNumber = merged.account_number || 'Belum tersedia';
+  const accountHolder = merged.account_holder || 'Belum terverifikasi';
 
   const rawNotes = String(merged.notes || merged.catatan || "").trim();
   const isLegacyBoilerplate =
@@ -865,13 +814,7 @@ export function generateInvoicePDF(rawInv, mode = "download") {
   doc.text("Notes/Terms", 14, currentY);
   currentY += 5.5;
 
-  if (inv.kelasMulai) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(17, 24, 39);
-    doc.text(`Kelas Mulai : ${inv.kelasMulai}`, 14, currentY);
-    currentY += 5.5;
-  }
+
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -1007,1097 +950,13 @@ export function terbilangRupiah(angka) {
   return (sebut(angka).replace(/\s+/g, ' ').trim() + ' Rupiah');
 }
 
-// ─── HELPER: Generate & Download / Preview Official Kwitansi (Receipt PDF) ────
-export function generateReceiptPDF(payment, inv, mode = 'preview') {
-  const doc = new jsPDF({ format: 'a4' });
-  doc.setFont("helvetica");
-
-  const receiptNo = payment.receiptNo || `RCP-${inv.id || 'INV'}-${Date.now().toString().slice(-4)}`;
-  const customerName = inv.customer || payment.customer || 'Siswa / Customer';
-  const amountPaid = Number(payment.nominal || payment.jumlah || inv.total || 0);
-
-  doc.setProperties({
-    title: `KWITANSI - ${receiptNo} - ${customerName.toUpperCase()}`
-  });
-
-  let currentY = 18;
-
-  // 1. KOP SURAT RESMI
-  try {
-    const logoImg = new Image();
-    logoImg.src = "/images/creativa-kop-logo.png";
-    doc.addImage(logoImg, 'PNG', 14, 12, 50, 20);
-  } catch (e) {
-    doc.setTextColor(30, 58, 138);
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(14);
-    doc.text("CREATIVA BRIDGING", 14, 20);
-    doc.text("INTERNATIONAL", 14, 26);
-  }
-
-  // Header Title
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(22);
-  doc.setFont(undefined, 'bold');
-  doc.text("KWITANSI RESMI", 196, 18, { align: 'right' });
-
-  doc.setFontSize(9.5);
-  doc.text("PT. Creativa Bridging International", 196, 24, { align: 'right' });
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.text("Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1, Cianjur", 196, 29, { align: 'right' });
-  doc.text("+62 815-2222-672 | finance@creativabridging.com", 196, 34, { align: 'right' });
-
-  // Double Line Separator
-  currentY = 40;
-  doc.setDrawColor(16, 185, 129); // emerald green accent for receipt
-  doc.setLineWidth(0.8);
-  doc.line(14, currentY, 196, currentY);
-  doc.setLineWidth(0.2);
-  doc.line(14, currentY + 1.2, 196, currentY + 1.2);
-  currentY += 10;
-
-  // Receipt Number & Date Banner
-  doc.setFillColor(240, 253, 244); // bg-emerald-50
-  doc.setDrawColor(187, 247, 208); // border-emerald-200
-  doc.roundedRect(14, currentY, 182, 18, 3, 3, 'FD');
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(6, 95, 70); // emerald-800
-  doc.text(`NO. KWITANSI: ${receiptNo}`, 20, currentY + 7);
-  doc.text(`TANGGAL: ${payment.tglBayar || inv.tanggal || new Date().toISOString().slice(0, 10)}`, 190, currentY + 7, { align: 'right' });
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Referensi Tagihan: Invoice #${inv.id || '-'}`, 20, currentY + 13);
-  doc.text(`Waktu Approve: ${payment.jamBayar || '12:00'} WIB`, 190, currentY + 13, { align: 'right' });
-
-  currentY += 26;
-
-  // Receipt Content Box
-  autoTable(doc, {
-    startY: currentY,
-    body: [
-      ["Telah Terima Dari", `:  ${customerName.toUpperCase()}`],
-      ["Uang Sejumlah", `:  # ${terbilangRupiah(amountPaid)} #`],
-      ["Untuk Pembayaran", `:  Pembayaran ${payment.terminName ? (payment.terminName + ' ') : ''}Tagihan Invoice No. ${inv.id || '-'}\n   Program: ${inv.program || inv.keterangan || 'Kelas Pelatihan Bahasa Jepang & Skill'}`],
-      ["Metode & Rekening", `:  ${payment.metode || 'Transfer Bank'} — ${payment.rekening || inv.rekening || 'BCA (1832-918-428 a/n PT CREATIVA BRIDGING INTERN)'}`],
-      ["Catatan Verifikasi", `:  ${payment.catatan || 'Pembayaran resmi pelatihan kerja Jepang telah diverifikasi oleh Divisi Keuangan.'}`],
-    ],
-    theme: 'plain',
-    styles: { fontSize: 9.5, cellPadding: 3.5, textColor: [15, 23, 42] },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 44, textColor: [51, 65, 85] },
-      1: { cellWidth: 138 }
-    }
-  });
-
-  // 3. Kotak Nominal & Stamp Verifikasi
-  currentY = doc.lastAutoTable.finalY + 8;
-  const boxHeight = 18;
-
-  // Left Box: JUMLAH PEMBAYARAN (Nominal Angka)
-  doc.setFillColor(248, 250, 252); // slate-50
-  doc.setDrawColor(203, 213, 225); // slate-300
-  doc.setLineWidth(0.4);
-  doc.roundedRect(14, currentY, 94, boxHeight, 3, 3, 'FD');
-
-  doc.setFontSize(7.5);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(100, 116, 139); // slate-500
-  doc.text("JUMLAH DITERIMA (IDR):", 20, currentY + 5.5);
-
-  doc.setFontSize(13.5);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(4, 120, 87); // emerald-700
-  doc.text(formatRp(amountPaid), 20, currentY + 13);
-
-  // Right Box: STAMP LUNAS / TERVERIFIKASI (Official Badge)
-  const stampX = 114;
-  const stampWidth = 82;
-  doc.setFillColor(236, 253, 245); // emerald-50
-  doc.setDrawColor(16, 185, 129); // emerald-500
-  doc.setLineWidth(0.7);
-  doc.roundedRect(stampX, currentY, stampWidth, boxHeight, 3, 3, 'FD');
-
-  // Vector Green Checkmark Badge Circle
-  const circleX = stampX + 8;
-  const circleY = currentY + (boxHeight / 2);
-  doc.setFillColor(16, 185, 129); // emerald-500
-  doc.circle(circleX, circleY, 4, 'F');
-
-  // Draw crisp white vector checkmark inside the circle
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.7);
-  doc.line(circleX - 1.8, circleY, circleX - 0.5, circleY + 1.6);
-  doc.line(circleX - 0.5, circleY + 1.6, circleX + 2.0, circleY - 1.5);
-
-  // Stamp Text
-  doc.setFont(undefined, 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(6, 95, 70); // emerald-800
-  doc.text("LUNAS / TERVERIFIKASI", circleX + 7, currentY + 7.5);
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(4, 120, 87); // emerald-700
-  doc.text("Sistem Keuangan PT Creativa Bridging", circleX + 7, currentY + 12.5);
-
-  currentY += boxHeight + 10;
-
-  // Signature Section
-  doc.setFontSize(8.5);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(71, 85, 105);
-
-  // Left Signature: Pembayar / Siswa
-  doc.text("Penyetor / Siswa,", 24, currentY);
-  doc.text("Diterima & Disetujui Oleh,", 126, currentY);
-  currentY += 18;
-
-  // Underline for signature
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(24, currentY - 2, 85, currentY - 2);
-  doc.line(126, currentY - 2, 188, currentY - 2);
-
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text(customerName, 24, currentY + 2);
-  doc.text(payment.approverName || "FINANCE LPK CREATIVA", 126, currentY + 2);
-
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text("Siswa LPK Creativa", 24, currentY + 6.5);
-  doc.text("Finance & Treasury Dept.", 126, currentY + 6.5);
-
-  // Digital Verification Note
-  currentY += 14;
-  doc.setFontSize(7.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text("* Kwitansi ini adalah bukti pembayaran sah yang diterbitkan secara elektronik oleh Sistem Keuangan PT Creativa Bridging International.", 14, currentY);
-  doc.text(`* No. Referensi Transaksi: ${payment.refNumber || ('TRX-' + (payment.receiptNo || inv.id || 'CBI'))} | Tercatat pada Buku Besar Realisasi Kas`, 14, currentY + 4);
-
-  if (mode === 'preview') {
-    const blobUrl = doc.output('bloburl');
-    window.open(blobUrl, '_blank');
-    return blobUrl;
-  }
-  doc.save(`${receiptNo}.pdf`);
-}
-
-export function previewReceiptPDF(payment, inv) {
-  return generateReceiptPDF(payment, inv, 'preview');
-}
 
 // ─── TEMPLATES FOR INCLUDE, EXCLUDE & NOTES ─────────────────────────────────────
-const DEFAULT_INCLUDES = OFFICIAL_INCLUSIONS_DEFAULT;
-const DEFAULT_EXCLUDES = OFFICIAL_EXCLUSIONS_DEFAULT;
-
-const DEFAULT_NOTES_TEMPLATES = {
-  cicilan: `1. Invoice ini bersifat confidential (rahasia) dan merupakan bukti tagihan resmi.
-2. Cara Pembayaran:
-   - Transfer via Bank BCA No. Rekening 1832-918-428 a/n PT CREATIVA BRIDGING INTERN
-   - Cantumkan Nomor Invoice pada keterangan transfer.
-   - Kirimkan bukti transfer melalui WhatsApp Finance atau email ke finance@creativabridging.com
-3. Pelunasan tagihan wajib diselesaikan sesuai tanggal jatuh tempo yang tertera.
-Terimakasih telah bergabung dengan LPK Creativa Bridging International.`,
-
-  fullPayment: `1. Pembayaran lunas mencakup seluruh program pelatihan intensif hingga siap penempatan kerja.
-2. Transfer resmi ditujukan ke Bank BCA No. Rekening 1832-918-428 a/n PT CREATIVA BRIDGING INTERN.
-3. Bukti transfer wajib dikonfirmasi ke admin keuangan untuk penerbitan kuitansi lunas.
-Terimakasih atas kepercayaan Anda pada LPK Creativa Bridging International.`,
-
-  refundPolicy: `1. Tagihan jatuh tempo dalam waktu 14 hari kerja sejak diterbitkan.
-2. Pembatalan program yang telah disetujui tunduk pada ketentuan administrasi LPK Creativa Bridging International.
-3. Rekening resmi pembayaran: Bank BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN.
-Segala pertanyaan dapat diajukan ke customer care kami di +62 815-2222-672.`,
-};
-
-const DEFAULT_CUSTOMERS = [];
-
-// ─── BUAT INVOICE MODAL (MOCKUP #2 MATCHING) ──────────────────────────────────
-function BuatInvoiceModal({ onClose, onSuccess, dataSiswa = [] }) {
-  // Merge customer candidates
-  const candidateCustomers = [
-    ...DEFAULT_CUSTOMERS,
-    ...(Array.isArray(dataSiswa) ? dataSiswa.map(s => ({
-      name: s.nama || s.name || s.customer || "Siswa LPK",
-      code: s.batch || s.program || "-",
-      email: s.email || "",
-      phone: s.phone || s.wa || "",
-    })) : [])
-  ];
-
-  // Form State
-  const [showKop, setShowKop] = useState(true);
-  const [showLogo, setShowLogo] = useState(true);
-  const [isManualCustomer, setIsManualCustomer] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-
-  const [invNumber, setInvNumber] = useState(() => `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Math.floor(1000 + Math.random() * 9000))}`);
-  const [salesCode, setSalesCode] = useState("SLS-CBI-01");
-  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [paymentDue, setPaymentDue] = useState(() => new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]);
-  const [status, setStatus] = useState("Belum Lunas");
-
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-
-  // Line items (table like Foto 2)
-  const [items, setItems] = useState([
-    { id: 1, name: "Kelas Intensif Offline Bahasa Jepang (DP Pendaftaran)", qty: 1, price: 5000000, amount: 5000000 },
-  ]);
-
-  // Discount (like Foto 2)
-  const [showDiscount, setShowDiscount] = useState(false);
-  const [discountDesc, setDiscountDesc] = useState("Diskon Early Bird Batch 24");
-  const [discountValue, setDiscountValue] = useState("0");
-  const [discountType, setDiscountType] = useState("Rp"); // "Rp" or "%"
-
-  // Inclusions & Exclusions
-  const [activeTabExtras, setActiveTabExtras] = useState("include"); // "include" | "exclude" | "notes"
-  const [includedList, setIncludedList] = useState(DEFAULT_INCLUDES);
-  const [excludedList, setExcludedList] = useState(DEFAULT_EXCLUDES);
-  const [customIncludeInput, setCustomIncludeInput] = useState("");
-  const [customExcludeInput, setCustomExcludeInput] = useState("");
-
-  // Notes / Terms
-  const [selectedNoteTemplate, setSelectedNoteTemplate] = useState("cicilan");
-  const [notesText, setNotesText] = useState(DEFAULT_NOTES_TEMPLATES.cicilan);
-
-  const [loading, setLoading] = useState(false);
-
-  // Calculations
-  const subtotal = items.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
-  const rawDiscount = Number(discountValue) || 0;
-  const calculatedDiscount = discountType === "%"
-    ? Math.round((subtotal * Math.min(100, Math.max(0, rawDiscount))) / 100)
-    : Math.min(subtotal, Math.max(0, rawDiscount));
-  const grandTotal = Math.max(0, subtotal - calculatedDiscount);
-
-  // Handle Item Row Changes
-  const handleItemChange = (id, field, value) => {
-    setItems(items.map(it => {
-      if (it.id !== id) return it;
-      const updated = { ...it, [field]: value };
-      const q = field === 'qty' ? Number(value) : Number(it.qty) || 1;
-      const p = field === 'price' ? Number(value) : Number(it.price) || 0;
-      updated.amount = q * p;
-      return updated;
-    }));
-  };
-
-  const handleAddItem = () => {
-    const nextId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
-    setItems([
-      ...items,
-      { id: nextId, name: "Biaya Pelatihan & Modul Skill", qty: 1, price: 2000000, amount: 2000000 }
-    ]);
-  };
-
-  const handleRemoveItem = (id) => {
-    if (items.length <= 1) return;
-    setItems(items.filter(it => it.id !== id));
-  };
-
-  // Quick Preset Add
-  const handleQuickAddPreset = (label, amount) => {
-    const nextId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
-    setItems([...items, { id: nextId, name: label, qty: 1, price: amount, amount: amount }]);
-  };
-
-  // Select Customer handler
-  const handleSelectCustomer = (cust) => {
-    setCustomerName(cust.name);
-    setCustomerEmail(cust.email || "");
-    setCustomerPhone(cust.phone || "");
-    setCustomerSearch(cust.name);
-    setShowCustomerDropdown(false);
-  };
-
-  // Toggle Include/Exclude
-  const toggleInclude = (text) => {
-    if (includedList.includes(text)) {
-      setIncludedList(includedList.filter(t => t !== text));
-    } else {
-      setIncludedList([...includedList, text]);
-    }
-  };
-
-  const toggleExclude = (text) => {
-    if (excludedList.includes(text)) {
-      setExcludedList(excludedList.filter(t => t !== text));
-    } else {
-      setExcludedList([...excludedList, text]);
-    }
-  };
-
-  const handleAddCustomInclude = (e) => {
-    e.preventDefault();
-    if (!customIncludeInput.trim()) return;
-    setIncludedList([...includedList, customIncludeInput.trim()]);
-    setCustomIncludeInput("");
-  };
-
-  const handleAddCustomExclude = (e) => {
-    e.preventDefault();
-    if (!customExcludeInput.trim()) return;
-    setExcludedList([...excludedList, customExcludeInput.trim()]);
-    setCustomExcludeInput("");
-  };
-
-  const handleNoteTemplateChange = (tmplKey) => {
-    setSelectedNoteTemplate(tmplKey);
-    setNotesText(DEFAULT_NOTES_TEMPLATES[tmplKey] || "");
-  };
-
-  // Direct PDF Download / Preview
-  const handleDirectPDF = () => {
-    if (!customerName) {
-      alert("Mohon pilih atau masukkan nama customer terlebih dahulu.");
-      return;
-    }
-    const currentInvoiceData = {
-      id: invNumber,
-      customer: customerName,
-      email: customerEmail,
-      phone: customerPhone,
-      tanggal: invoiceDate,
-      jatuhTempo: paymentDue,
-      salesCode,
-      status,
-      items,
-      subtotal,
-      discount: { desc: discountDesc, value: discountValue, type: discountType, amount: calculatedDiscount },
-      total: grandTotal,
-      includes: includedList,
-      excludes: excludedList,
-      notes: notesText,
-      showKop,
-      showLogo,
-    };
-    generateInvoicePDF(currentInvoiceData);
-  };
-
-  // Submit / Save
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!customerName) return alert("Mohon pilih atau ketik nama siswa / customer!");
-    if (items.length === 0 || grandTotal <= 0) return alert("Mohon lengkapi item tagihan!");
-
-    setLoading(true);
-
-    const payload = {
-      id: invNumber,
-      customer: customerName,
-      email: customerEmail,
-      phone: customerPhone,
-      tanggal: invoiceDate,
-      jatuhTempo: paymentDue,
-      status,
-      salesCode,
-      keterangan: items[0]?.name || "Pelatihan Intensif LPK",
-      total: String(grandTotal),
-      subtotal: String(subtotal),
-      items,
-      discount: { desc: discountDesc, value: discountValue, type: discountType, amount: calculatedDiscount },
-      includes: includedList,
-      excludes: excludedList,
-      notes: notesText,
-      showKop,
-      showLogo,
-      action: "add_invoice",
-    };
-
-    try {
-      await axios.post('/api/billing.php', payload);
-      onSuccess();
-    } catch (err) {
-      // Local fallback in case billing API mock is used
-      onSuccess();
-    }
-    setLoading(false);
-  };
-
-  const filteredCustomerList = candidateCustomers.filter(c =>
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.code.toLowerCase().includes(customerSearch.toLowerCase())
-  );
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs overflow-y-auto" onClick={onClose}>
-      <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto flex flex-col border border-slate-100 my-auto animate-in fade-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Top Header Bar */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
-              <Receipt className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold tracking-tight">Form Pembuatan Invoice Otomatis</h2>
-              <p className="text-[11px] text-slate-400">Template Resmi PT. Creativa Bridging International</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDirectPDF}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition"
-              title="Preview / Unduh PDF"
-            >
-              <Printer className="w-3.5 h-3.5 text-blue-400" />
-              <span>Cetak PDF</span>
-            </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Invoice Canvas Container */}
-        <div className="p-6 sm:p-8 space-y-6">
-
-          {/* Controls Bar: Toggle Kop Surat & Logo */}
-          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={showKop}
-                  onChange={e => setShowKop(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                />
-                <span>Tampilkan Kop Surat Resmi</span>
-              </label>
-              {showKop && (
-                <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={showLogo}
-                    onChange={e => setShowLogo(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span>Tampilkan Logo</span>
-                </label>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Format Standar LPK Creativa Bridging Internasional</span>
-            </div>
-          </div>
-
-          {/* KOP SURAT (Header Sesuai Permintaan User) */}
-          {showKop && (
-            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-2xs">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-4">
-                {/* Left: Logo */}
-                <div className="flex items-center gap-3">
-                  {showLogo ? (
-                    <img
-                      src="/images/creativa-kop-logo.png"
-                      alt="Creativa Bridging International"
-                      className="h-16 w-auto object-contain"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextElementSibling.style.display = 'block';
-                      }}
-                    />
-                  ) : null}
-                  <div className={`space-y-0.5 ${showLogo ? 'hidden' : 'block'}`}>
-                    <h3 className="text-lg font-black tracking-tight text-[#1e3a8a]">CREATIVA BRIDGING</h3>
-                    <p className="text-xs font-bold tracking-widest text-slate-700">INTERNATIONAL</p>
-                  </div>
-                </div>
-
-                {/* Right: Company Legal Info */}
-                <div className="text-right space-y-1 sm:max-w-md">
-                  <h4 className="text-sm font-bold text-slate-900">PT. Creativa Bridging International</h4>
-                  <p className="text-xs text-slate-600 leading-snug">
-                    Ruko Business Park, Jl. Ir. H. Juanda, Panembong, Ruko B1<br />
-                    Mekarsari, Kec. Cianjur, Kab. Cianjur, Jawa Barat 43211
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium">
-                    +62 815-2222-672 | <span className="text-blue-600 hover:underline">creativabridging.com</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Double Line Separator */}
-              <div className="border-b-2 border-slate-900 mt-1 mb-0.5" />
-              <div className="border-b border-slate-400" />
-            </div>
-          )}
-
-          {/* SECTION: Customer & Invoice Meta (Matching Foto Kedua) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
-
-            {/* Top Left: Customer Section */}
-            <div className="lg:col-span-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setIsManualCustomer(!isManualCustomer)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm shadow-blue-500/20 transition active:scale-95"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>{isManualCustomer ? "Pilih dari Daftar Siswa" : "+ Add Customer"}</span>
-                </button>
-                <span className="text-[11px] text-slate-400">
-                  {isManualCustomer ? "Input manual siswa baru" : "Pilih dari database"}
-                </span>
-              </div>
-
-              {isManualCustomer ? (
-                <div className="space-y-2 bg-blue-50/40 p-3.5 rounded-2xl border border-blue-100">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Nama Lengkap Siswa / Customer *</label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      placeholder="Ketik nama siswa..."
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={customerEmail}
-                        onChange={e => setCustomerEmail(e.target.value)}
-                        placeholder="email@gmail.com"
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">No. WhatsApp / HP</label>
-                      <input
-                        type="text"
-                        value={customerPhone}
-                        onChange={e => setCustomerPhone(e.target.value)}
-                        placeholder="0812..."
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="border border-slate-200 rounded-2xl p-2.5 bg-white shadow-2xs space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 block">Select Customer</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={customerSearch}
-                        onFocus={() => setShowCustomerDropdown(true)}
-                        onChange={e => {
-                          setCustomerSearch(e.target.value);
-                          setCustomerName(e.target.value);
-                          setShowCustomerDropdown(true);
-                        }}
-                        placeholder="Ketik untuk mencari customer..."
-                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/50"
-                      />
-                      <ChevronRight className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
-                    </div>
-
-                    {showCustomerDropdown && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 max-h-56 overflow-y-auto p-1 divide-y divide-slate-50">
-                        {filteredCustomerList.length === 0 ? (
-                          <div className="p-3 text-center text-xs text-slate-400">
-                            Tidak ditemukan siswa dengan nama tersebut.
-                          </div>
-                        ) : (
-                          filteredCustomerList.map((c, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => handleSelectCustomer(c)}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-slate-700 flex items-center justify-between transition rounded-lg"
-                            >
-                              <span className="font-semibold text-slate-900">{c.name}</span>
-                              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md font-mono">{c.code}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    {customerName && (
-                      <div className="pt-1 text-[11px] text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
-                        <span>Customer Terpilih: <strong className="text-slate-800">{customerName}</strong></span>
-                        {customerEmail && <span>• {customerEmail}</span>}
-                        {customerPhone && <span>• {customerPhone}</span>}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Top Right: Invoice Metadata (Exact fields from Foto 2) */}
-            <div className="lg:col-span-6 border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">Invoice Number</label>
-                  <input
-                    type="text"
-                    value={invNumber}
-                    onChange={e => setInvNumber(e.target.value)}
-                    placeholder="INVxxx"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">Sales Code</label>
-                  <input
-                    type="text"
-                    value={salesCode}
-                    onChange={e => setSalesCode(e.target.value)}
-                    placeholder="Contoh: SLS-001"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">Invoice Date</label>
-                  <input
-                    type="date"
-                    value={invoiceDate}
-                    onChange={e => setInvoiceDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">Payment Due</label>
-                  <input
-                    type="date"
-                    value={paymentDue}
-                    onChange={e => setPaymentDue(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-500 block mb-1">Status Pembayaran</label>
-                <select
-                  value={status}
-                  onChange={e => setStatus(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 cursor-pointer"
-                >
-                  <option value="Belum Lunas">Belum Lunas</option>
-                  <option value="Sebagian">Sebagian</option>
-                  <option value="Lunas">Lunas</option>
-                </select>
-              </div>
-            </div>
-
-          </div>
-
-          {/* SECTION: Items Table (Exact Layout from Foto Kedua) */}
-          <div className="border border-slate-200 rounded-2xl bg-white shadow-2xs overflow-hidden">
-            <div className="px-5 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Rincian Tagihan (Line Items)</span>
-              {/* Presets Button */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-400">Pilihan Cepat:</span>
-                {METODE_CICILAN.slice(0, 3).map(m => (
-                  <button
-                    key={m.label}
-                    type="button"
-                    onClick={() => handleQuickAddPreset(m.label, m.amount)}
-                    className="text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg transition"
-                  >
-                    + {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-bold bg-white">
-                    <th className="px-4 py-3 text-left w-1/2">Item</th>
-                    <th className="px-3 py-3 text-center w-20">Quantity</th>
-                    <th className="px-4 py-3 text-right w-36">Price (Rp)</th>
-                    <th className="px-4 py-3 text-right w-36">Amount (Rp)</th>
-                    <th className="px-3 py-3 text-center w-12">#</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.map((it) => (
-                    <tr key={it.id} className="hover:bg-slate-50/50 transition">
-                      <td className="px-4 py-2.5">
-                        <input
-                          type="text"
-                          value={it.name}
-                          onChange={e => handleItemChange(it.id, 'name', e.target.value)}
-                          placeholder="Deskripsi item tagihan..."
-                          className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <input
-                          type="number"
-                          min="1"
-                          value={it.qty}
-                          onChange={e => handleItemChange(it.id, 'qty', e.target.value)}
-                          className="w-full border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-center font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <input
-                          type="number"
-                          value={it.price}
-                          onChange={e => handleItemChange(it.id, 'price', e.target.value)}
-                          placeholder="0"
-                          className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-right font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-slate-900">
-                        {formatRp(it.amount)}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(it.id)}
-                          disabled={items.length <= 1}
-                          className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Add Item Link Button */}
-            <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Add Item</span>
-              </button>
-              <span className="text-[11px] text-slate-400">Total {items.length} item dicatat</span>
-            </div>
-          </div>
-
-          {/* SECTION: Discount & Subtotal (Matching Foto Kedua) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-1">
-            {/* Left: Discount Inputs */}
-            <div className="md:col-span-7 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-700">Discount</span>
-                {!showDiscount && (
-                  <button
-                    type="button"
-                    onClick={() => setShowDiscount(true)}
-                    className="text-xs font-semibold text-blue-600 hover:underline"
-                  >
-                    + Add Discount
-                  </button>
-                )}
-              </div>
-
-              {showDiscount && (
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <input
-                    type="text"
-                    value={discountDesc}
-                    onChange={e => setDiscountDesc(e.target.value)}
-                    placeholder="Description"
-                    className="flex-1 min-w-[130px] border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    value={discountValue}
-                    onChange={e => setDiscountValue(e.target.value)}
-                    placeholder="Value"
-                    className="w-24 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                  <select
-                    value={discountType}
-                    onChange={e => setDiscountType(e.target.value)}
-                    className="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold bg-white text-slate-800 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Rp">Rp</option>
-                    <option value="%">%</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => { setShowDiscount(false); setDiscountValue("0"); }}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
-                    title="Hapus Diskon"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Subtotal, Discount & Total (Exact look from Foto 2) */}
-            <div className="md:col-span-5 space-y-2 text-right pr-2">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">Sub – Total amount:</span>
-                <span className="font-bold text-slate-900">{formatRp(subtotal)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Total Discount:</span>
-                <span className="font-semibold text-rose-600">
-                  {calculatedDiscount > 0 ? `- ${formatRp(calculatedDiscount)}` : "Rp 0,00"}
-                </span>
-              </div>
-              <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-800">Total</span>
-                <span className="text-xl font-black text-slate-900">{formatRp(grandTotal)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION: Include, Exclude, and Notes/Terms (Permintaan Spesifik User) */}
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-2xs space-y-4">
-            {/* Tab navigation for Extra Options */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTabExtras("include")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${activeTabExtras === "include"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  ✓ Biaya Sudah Termasuk ({includedList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTabExtras("exclude")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${activeTabExtras === "exclude"
-                    ? "bg-rose-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  ✕ Biaya Tidak Termasuk ({excludedList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTabExtras("notes")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${activeTabExtras === "notes"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  📝 Notes / Terms
-                </button>
-              </div>
-
-              <span className="text-[11px] text-slate-400 hidden sm:inline">Pilihan lampiran faktur</span>
-            </div>
-
-            {/* TAB CONTENT: Biaya Sudah Termasuk (Include) */}
-            {activeTabExtras === "include" && (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500">
-                  Centang item fasilitas yang sudah termasuk dalam tagihan ini (akan tampil pada lembar invoice resmi):
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {DEFAULT_INCLUDES.map((item, idx) => {
-                    const isChecked = includedList.includes(item);
-                    return (
-                      <label
-                        key={idx}
-                        onClick={() => toggleInclude(item)}
-                        className={`flex items-start gap-2.5 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${isChecked
-                          ? "bg-blue-50/70 border-blue-200 text-blue-900"
-                          : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
-                          }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => { }}
-                          className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 pointer-events-none"
-                        />
-                        <span className="font-medium">{item}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {/* Custom Include Item */}
-                <form onSubmit={handleAddCustomInclude} className="flex gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={customIncludeInput}
-                    onChange={e => setCustomIncludeInput(e.target.value)}
-                    placeholder="Tambah item include kustom lainnya..."
-                    className="flex-1 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-semibold transition"
-                  >
-                    + Tambah
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* TAB CONTENT: Biaya Tidak Termasuk (Exclude) */}
-            {activeTabExtras === "exclude" && (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500">
-                  Centang item biaya yang TIDAK termasuk dalam tagihan ini:
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {DEFAULT_EXCLUDES.map((item, idx) => {
-                    const isChecked = excludedList.includes(item);
-                    return (
-                      <label
-                        key={idx}
-                        onClick={() => toggleExclude(item)}
-                        className={`flex items-start gap-2.5 p-2 rounded-xl border text-xs cursor-pointer transition select-none ${isChecked
-                          ? "bg-rose-50/70 border-rose-200 text-rose-900"
-                          : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
-                          }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => { }}
-                          className="mt-0.5 rounded text-rose-600 focus:ring-rose-500 pointer-events-none"
-                        />
-                        <span className="font-medium">{item}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {/* Custom Exclude Item */}
-                <form onSubmit={handleAddCustomExclude} className="flex gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={customExcludeInput}
-                    onChange={e => setCustomExcludeInput(e.target.value)}
-                    placeholder="Tambah item exclude kustom..."
-                    className="flex-1 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3.5 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-semibold transition"
-                  >
-                    + Tambah
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* TAB CONTENT: Notes / Terms & Conditions */}
-            {activeTabExtras === "notes" && (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-700">Pilih Template Ketentuan Pembayaran:</span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleNoteTemplateChange("cicilan")}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition ${selectedNoteTemplate === "cicilan" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                    >
-                      Cicilan Bertahap
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleNoteTemplateChange("fullPayment")}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition ${selectedNoteTemplate === "fullPayment" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                    >
-                      Full Payment
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleNoteTemplateChange("refundPolicy")}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition ${selectedNoteTemplate === "refundPolicy" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                    >
-                      Kebijakan Refund
-                    </button>
-                  </div>
-                </div>
-
-                <textarea
-                  rows={4}
-                  value={notesText}
-                  onChange={e => setNotesText(e.target.value)}
-                  placeholder="Ketik catatan / syarat dan ketentuan pembayaran di sini..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-mono leading-relaxed focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-              </div>
-            )}
-          </div>
-
-        </div>
-
-        {/* Modal Footer Bar */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 sticky bottom-0 z-20">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white hover:border-slate-300 transition"
-          >
-            Batal
-          </button>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleDirectPDF}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs"
-            >
-              <Printer className="w-4 h-4 text-slate-500" />
-              <span>Cetak / Unduh PDF</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition disabled:opacity-50 active:scale-95"
-            >
-              {loading ? "Menyimpan Invoice..." : "Buat & Simpan Invoice"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── VIEW MODAL: Invoice ──────────────────────────────────────────────────────
 function InvoiceDetailModal({ inv, onClose, onPaymentProofSaved, onOpenPaymentModal }) {
   const [showBuktiModal, setShowBuktiModal] = useState(false);
   const stNorm = normalizeFinanceStatus(inv.status);
   const totalVal = Number(inv.total) || 0;
-  const terbayarVal = stNorm === "Paid" ? totalVal : (Number(inv.terbayar) || 0);
+  const terbayarVal = Number(inv.terbayar) || 0;
   const sisaVal = Math.max(0, totalVal - terbayarVal);
 
   return (
@@ -2198,65 +1057,11 @@ function InvoiceDetailModal({ inv, onClose, onPaymentProofSaved, onOpenPaymentMo
 
 // ─── VIEW MODAL: Invoice Terkirim ─────────────────────────────────────────────
 function TerkirimDetailModal({ item, onClose, onRefresh }) {
-  const [resending, setResending] = useState(false);
-
-  const cleanInvId = (item.id || '').replace(/-EML$/, '');
-  const pDigits = String(item.penerima || '').replace(/\D/g, '');
-  const cleanPhone = pDigits.startsWith('0') ? '62' + pDigits.slice(1) : pDigits;
-  const isWa = item.kanal === 'WhatsApp' || (cleanPhone.length >= 9 && cleanPhone.startsWith('62'));
-
-  const handleOpenWa = () => {
-    const text = encodeURIComponent(
-      `Halo Sdr/i *${item.customer}*,\n\n` +
-      `Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n` +
-      `Berikut rincian invoice tagihan pendaftaran Anda:\n\n` +
-      `• No. Invoice: *${cleanInvId}*\n` +
-      `• Rekening Pembayaran Resmi:\n` +
-      `  Bank BCA: *1832-918-428*\n` +
-      `  a/n *PT CREATIVA BRIDGING INTERN*\n` +
-      `• Tenggat Waktu Cicilan 1: *2x24 Jam*\n\n` +
-      `Silakan unduh invoice resmi PDF dan cek portal status pembayaran melalui tautan berikut:\n` +
-      `https://creativabridging.com/status-pendaftaran?inv=${cleanInvId}\n\n` +
-      `Setelah melakukan pembayaran, mohon unggah bukti transfer melalui portal di atas atau kirimkan via WhatsApp ini.\n\n` +
-      `Salam hangat,\n_Tim Keuangan & Admisi LPK Creativa Bridging International_`
-    );
-    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${text}`, '_blank');
-  };
-
-  const handleResend = async () => {
-    setResending(true);
-    try {
-      const res = await axios.post('/api/billing.php', {
-        action: 'resend_notification',
-        invoice_id: cleanInvId
-      });
-      const data = res.data?.data || {};
-      const emOk = data.email_sent ? 'Email terkirim ke inbox siswa.' : 'Email belum terkirim.';
-      const waOk = data.wa_sent ? 'Pesan WhatsApp otomatis terkirim via Gateway.' : 'Tautan pesan WhatsApp 2x24 jam telah disiapkan.';
-      
-      Swal.fire({
-        icon: "success",
-        title: "Notifikasi Berhasil Diproses!",
-        html: `<div style="font-size:12px;text-align:left;line-height:1.6;">
-          <p><strong>Status Pengiriman:</strong></p>
-          <ul style="padding-left:18px;margin:6px 0;">
-            <li>✉️ <b>Email:</b> ${emOk}</li>
-            <li>💬 <b>WhatsApp:</b> ${waOk}</li>
-          </ul>
-        </div>`,
-        confirmButtonColor: '#2563eb'
-      });
-      if (onRefresh) onRefresh();
-    } catch (e) {
-      Swal.fire({
-        icon: "error",
-        title: "Gagal Kirim Ulang",
-        text: e.response?.data?.message || e.message || "Terjadi kesalahan saat memproses pengiriman ulang."
-      });
-    } finally {
-      setResending(false);
-    }
-  };
+  const cleanInvId = String(item.noInv || item.invoice?.id || item.id || '').replace(/-EML$/, '');
+  const digits = String(item.penerima || '').replace(/\D/g, '');
+  const cleanPhone = digits.startsWith('0') ? '62' + digits.slice(1) : digits;
+  const isWa = item.kanal === 'WhatsApp' && cleanPhone.length >= 9;
+  const handleOpenWa = () => openInvoiceWhatsApp(item.invoice, item.penerima);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
@@ -2272,10 +1077,10 @@ function TerkirimDetailModal({ item, onClose, onRefresh }) {
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${STATUS_KIRIM[item.statusKirim] || "bg-emerald-100 text-emerald-700"}`}>
               {item.statusKirim === "Terkirim" ? <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <XCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />}
-              {item.statusKirim || "Terkirim"}
+              {item.statusKirim || "Belum tersedia"}
             </span>
             <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${STATUS_BACA[item.statusBaca] || "bg-blue-50 text-blue-700"}`}>
-              {item.statusBaca || "Pending"}
+              {item.statusBaca || "Belum tersedia"}
             </span>
           </div>
           {item.statusInvoice && (
@@ -2285,6 +1090,8 @@ function TerkirimDetailModal({ item, onClose, onRefresh }) {
           )}
         </div>
         <div className="px-6 py-4 flex flex-col gap-3">
+          {item.email_attempt_id && <p className="text-xs text-slate-500">Percobaan #{item.email_attempt_id}. SMTP Accepted berarti diterima SMTP; status inbox dan baca belum diketahui. {item.error_message}</p>}
+          {!item.email_attempt_id && <p className="text-xs text-slate-500">Record kanal legacy/otomasi. Bukan bukti penerimaan SMTP PHP.</p>}
           {[
             { icon: Building2, label: "Siswa / Customer", value: item.customer },
             { icon: CalendarDays, label: "Tanggal Kirim", value: item.tglKirim },
@@ -2315,19 +1122,12 @@ function TerkirimDetailModal({ item, onClose, onRefresh }) {
           )}
           <button
             type="button"
-            onClick={() => previewInvoicePDF({ id: cleanInvId, customer: item.customer, total: item.nominal, tanggal: item.tglKirim })}
+            onClick={() => previewInvoicePDF(item.invoice || { id: String(item.noInv || item.id || "").replace(/-EML$/, ""), customer: item.customer, total: item.nominal, tanggal: item.tglKirim })}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-blue-200 cursor-pointer"
           >
             <Eye className="w-4 h-4" /> Buka Invoice PDF
           </button>
-          <button
-            type="button"
-            disabled={resending}
-            onClick={handleResend}
-            className="px-4 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-blue-200 cursor-pointer disabled:opacity-50"
-          >
-            <Send className="w-4 h-4 text-blue-600" /> {resending ? "Mengirim..." : "Kirim Ulang"}
-          </button>
+          <InvoiceEmailButton invoiceId={cleanInvId} recipient={item.invoice?.email} latestAttempt={item.invoice?.email_delivery} resend onRefresh={async () => { onClose(); await onRefresh(); }} />
           <button onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition cursor-pointer">
             Tutup
           </button>
@@ -2349,18 +1149,8 @@ function BuktiTransferModal({ payment, invoice, onClose }) {
     total: Number(payment?.jumlah || 0) + Number(payment?.sisa || 0)
   };
 
-  const payObj = payment || (invObj?.lastPayment || (invObj?.payments && invObj.payments[invObj.payments.length - 1])) || {
-    receiptNo: `RCP-${invObj?.id}-01`,
-    tglBayar: invObj?.paid_at || invObj?.tanggal || new Date().toISOString().slice(0, 10),
-    jamBayar: "10:30",
-    approverName: "FINANCE LPK CREATIVA",
-    metode: "Transfer Bank BCA",
-    rekening: "BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN",
-    refNumber: `TRX-${invObj?.id}-8912`,
-    jumlah: Number(invObj?.terbayar || invObj?.total || 0),
-    terminName: Number(invObj?.sisa) > 0 ? "Pembayaran Cicilan" : "Pelunasan (Full Payment)",
-    catatan: `Pelunasan tagihan program pelatihan ${invObj?.program || 'Bahasa Jepang'}`
-  };
+  const payObj = payment || invObj?.lastPayment || invObj?.payments?.at(-1);
+  if (!payObj) return <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-6"><div className="bg-white rounded-2xl p-6"><p>Belum ada record pembayaran server untuk invoice ini.</p><button onClick={onClose} className="mt-4 text-blue-600">Tutup</button></div></div>;
 
   const buktiSrc = payObj.buktiBayar || payObj.buktiFoto || payObj.buktiBayarUrl || "";
   const buktiMime = payObj.proof_mime || payObj.buktiMime || "";
@@ -2427,7 +1217,7 @@ function BuktiTransferModal({ payment, invoice, onClose }) {
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">No. Referensi</span>
               <p className="font-mono font-bold text-slate-700 text-xs mt-0.5 truncate">
-                {payObj.refNumber || `TRX-${invObj.id}`}
+                {payObj.refNumber || "Belum tersedia"}
               </p>
             </div>
           </div>
@@ -2469,11 +1259,11 @@ function BuktiTransferModal({ payment, invoice, onClose }) {
           <div className="p-3 bg-white rounded-xl border border-slate-200 text-slate-600 space-y-1.5 text-[11px]">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-500">Rekening Tujuan:</span>
-              <span className="font-bold text-slate-800">{payObj.rekening || "BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN"}</span>
+              <span className="font-bold text-slate-800">{payObj.rekening || "Belum tersedia"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-500">Petugas Finance Approval:</span>
-              <span className="font-bold text-emerald-700">{payObj.approverName || "FINANCE LPK CREATIVA"}</span>
+              <span className="font-bold text-emerald-700">{payObj.approverName || "Belum tersedia"}</span>
             </div>
             {payObj.catatan && (
               <div className="pt-1.5 border-t border-slate-100 flex items-start gap-2">
@@ -2561,26 +1351,7 @@ function RiwayatBuktiInvoiceModal({ inv, onClose, onOpenPaymentModal, onPaymentP
   const sisaNominal = Number(inv.sisa ?? (totalNominal - terbayarNominal));
 
   // Kumpulkan list pembayaran yang sudah masuk
-  const paymentsList = (inv.payments && inv.payments.length > 0)
-    ? inv.payments
-    : (terbayarNominal > 0 ? [
-      {
-        id: `PAY-${inv.id}-01`,
-        receiptNo: `RCP-${inv.id}-01`,
-        noInv: inv.id,
-        customer: inv.customer,
-        tglBayar: inv.paid_at || inv.tanggal || "2026-10-29",
-        jamBayar: "10:30",
-        approverName: "FINANCE LPK CREATIVA",
-        metode: "Transfer Bank BCA",
-        rekening: "BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN",
-        refNumber: `TRX-${inv.id}-8912`,
-        jumlah: terbayarNominal,
-        sisa: sisaNominal,
-        terminName: sisaNominal > 0 ? "Pembayaran Cicilan ke-1" : "Pelunasan (Full Payment)",
-        statusVerif: "Terverifikasi"
-      }
-    ] : []);
+  const paymentsList = Array.isArray(inv.payments) ? inv.payments : [];
 
   return (
     <>
@@ -2672,13 +1443,14 @@ function RiwayatBuktiInvoiceModal({ inv, onClose, onOpenPaymentModal, onPaymentP
                               {formatRp(Number(p.jumlah || 0))}
                             </p>
                             <p className="text-[10px] text-slate-400 mt-0.5">
-                              {p.tglBayar} {p.jamBayar ? `• ${p.jamBayar} WIB` : ""} &bull; Ref: <span className="font-mono">{p.refNumber || `TRX-${inv.id}`}</span>
+                              {p.tglBayar} {p.jamBayar ? `• ${p.jamBayar} WIB` : ""} &bull; Ref: <span className="font-mono">{p.refNumber || "Belum tersedia"}</span>
                             </p>
                           </div>
                         </div>
 
                         {/* Aksi Tombol Bukti Transfer & Kwitansi */}
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          <button type="button" onClick={() => openOfficialReceipt([p],inv.id)} className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs">Cetak Kwitansi Resmi</button>
                           {canAttachProof && (
                             <label className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-slate-200">
                               <UploadCloud className="w-3.5 h-3.5" />
@@ -2813,7 +1585,7 @@ function PembayaranDetailModal({ item, onClose }) {
                   <p className="font-bold text-slate-800 text-xs">{item.buktiBayar || item.buktiFoto ? "Bukti Transfer" : "Bukti Transfer Belum Tersedia"}</p>
                   <p className="text-[10px] text-slate-400">Klik untuk melihat bukti yang tersimpan</p>
                   <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Terverifikasi Finance
+                    {item.statusVerif || "Status belum tersedia"}
                   </span>
                 </div>
               </div>
@@ -2824,12 +1596,7 @@ function PembayaranDetailModal({ item, onClose }) {
             <button
               type="button"
               onClick={() => {
-                previewReceiptPDF(item, {
-                  id: item.noInv,
-                  customer: item.customer,
-                  program: item.program || "Kelas Pelatihan Bahasa Jepang",
-                  total: Number(item.jumlah || 0) + Number(item.sisa || 0)
-                });
+                openOfficialReceipt([item], item.noInv);
               }}
               className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
             >
@@ -2901,11 +1668,11 @@ function SiswaDetailModal({ item, onClose }) {
               </div>
               <div>
                 <span className="text-[10px] text-emerald-600 font-bold uppercase block">Terbayar</span>
-                <p className="text-xs sm:text-sm font-black text-emerald-600 mt-0.5">{formatRp(item.terbayar || 0)}</p>
+                <p className="text-xs sm:text-sm font-black text-emerald-600 mt-0.5">{item.terbayar == null ? "Belum tersedia" : formatRp(item.terbayar)}</p>
               </div>
               <div>
                 <span className="text-[10px] text-rose-600 font-bold uppercase block">Sisa Piutang</span>
-                <p className="text-xs sm:text-sm font-black text-rose-600 mt-0.5">{formatRp(item.sisa || 0)}</p>
+                <p className="text-xs sm:text-sm font-black text-rose-600 mt-0.5">{item.sisa == null ? "Belum tersedia" : formatRp(item.sisa)}</p>
               </div>
             </div>
           </div>
@@ -3004,7 +1771,7 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
   });
   const [approverName, setApproverName] = useState("FINANCE LPK CREATIVA");
   const [metode, setMetode] = useState("Transfer Bank BCA");
-  const [rekening, setRekening] = useState("BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN");
+  const [rekening, setRekening] = useState(() => [inv.bank_name, inv.account_number, inv.account_holder].filter(Boolean).join(' / '));
   const [refNumber, setRefNumber] = useState("");
   const [catatan, setCatatan] = useState(() => {
     if (hasInstallments && selectedTerminIdx !== null && inv.installments[selectedTerminIdx]) {
@@ -3019,23 +1786,7 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
   const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
   const [previewBuktiItem, setPreviewBuktiItem] = useState(null);
 
-  const pastPayments = (inv.payments && inv.payments.length > 0) ? inv.payments : (
-    currentTerbayar > 0 ? [{
-      id: `PAY-${inv.id}-01`,
-      noInv: inv.id,
-      customer: inv.customer,
-      tglBayar: inv.tanggal || "2026-10-29",
-      jamBayar: "10:15",
-      metode: "Transfer Bank BCA",
-      rekening: "BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN",
-      jumlah: currentTerbayar,
-      sisa: currentSisa,
-      statusVerif: "Terverifikasi",
-      terminName: hasInstallments ? "Cicilan ke-1" : "Pembayaran Sebagian",
-      refNumber: `TRX-${inv.id}-01`,
-      catatan: `Pembayaran cicilan ${inv.customer}`
-    }] : []
-  );
+  const pastPayments = Array.isArray(inv.payments) ? inv.payments : [];
 
   const handleSelectTermin = (idx, inst) => {
     setSelectedTerminIdx(idx);
@@ -3126,10 +1877,10 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
                 <CheckCircle className="w-6 h-6 text-emerald-600" />
               </h3>
               <p className="text-xs text-slate-600 font-medium max-w-sm mt-1.5 leading-relaxed">
-                Tanda bukti valid. Invoice <strong className="font-mono text-slate-800">#{inv.id}</strong> berstatus <strong className="text-emerald-700">Paid ✓</strong> dan kwitansi resmi sedang diterbitkan...
+                Pembayaran invoice <strong className="font-mono text-slate-800">#{inv.id}</strong> tersimpan. Saldo, receipt, dan hasil email mengikuti respons server.
               </p>
               <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-200 shadow-2xs">
-                <Check className="w-4 h-4 text-emerald-600" /> Realisasi & Proyeksi Kas Tersinkronisasi
+                <Check className="w-4 h-4 text-emerald-600" /> Status pembayaran dimuat dari server
               </div>
             </div>
           )}
@@ -3473,7 +2224,7 @@ function CatatPembayaranModal({ inv, onClose, onApprove }) {
                 </span>
               </label>
               <p className="text-[11px] text-emerald-700 ml-6 mt-0.5">
-                Status invoice otomatis tercatat <strong>Paid ✓</strong> dan tersinkronisasi ke laporan Realisasi Keuangan.
+                Saldo invoice dihitung server dari pembayaran terverifikasi. Hasil receipt dan pengiriman email dilaporkan terpisah.
               </p>
             </div>
 
@@ -3568,19 +2319,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
   const [selectedBuktiInv, setSelectedBuktiInv] = useState(null);
 
   // Helper to open kwitansi / receipt
-  const handleReceiptClick = (inv) => {
-    const latestPayment = inv.lastPayment || (inv.payments && inv.payments[inv.payments.length - 1]) || {
-      receiptNo: `RCP-${inv.id}-01`,
-      tglBayar: inv.tanggal || new Date().toISOString().slice(0, 10),
-      jamBayar: "12:00",
-      approverName: "FINANCE LPK CREATIVA",
-      metode: "Transfer Bank BCA",
-      rekening: "BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN",
-      jumlah: Number(inv.terbayar) || Number(inv.total) || 0,
-      catatan: `Pelunasan tagihan pelatihan ${inv.program || 'Bahasa Jepang'}`
-    };
-    previewReceiptPDF(latestPayment, inv);
-  };
+  const handleReceiptClick = inv => openOfficialReceipt(inv.payments || [], inv.id);
 
   const handleProofSaved = (updatedPayment) => {
     onPaymentProofSaved?.(updatedPayment);
@@ -3796,19 +2535,8 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                     const totalVal = Number(inv.total) || 0;
                     const stNorm = normalizeFinanceStatus(inv.status);
 
-                    let terbayarVal = 0;
-                    let sisaVal = totalVal;
-
-                    if (stNorm === "Paid") {
-                      terbayarVal = totalVal;
-                      sisaVal = 0;
-                    } else if (stNorm === "Partially Paid") {
-                      terbayarVal = inv.terbayar != null ? Number(inv.terbayar) : Math.round(totalVal * 0.5);
-                      sisaVal = Math.max(0, totalVal - terbayarVal);
-                    } else {
-                      terbayarVal = inv.terbayar != null ? Number(inv.terbayar) : 0;
-                      sisaVal = Math.max(0, totalVal - terbayarVal);
-                    }
+                    const terbayarVal = Number(inv.terbayar) || 0;
+                    const sisaVal = inv.sisa != null ? Number(inv.sisa) : Math.max(0, totalVal - terbayarVal);
 
                     return (
                       <tr
@@ -3827,7 +2555,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                           </button>
                         </td>
                         <td className="py-3.5 px-4 text-slate-600 font-medium">{inv.tanggal}</td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900">{inv.customer}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900">{inv.customer}<p className="text-xs font-normal text-slate-500">{inv.email || 'Email belum tersedia'}</p><p className="text-xs font-normal text-slate-500">Email: {inv.email_delivery?.status || 'Belum ada percobaan SMTP'}</p></td>
                         <td className="py-3.5 px-4 text-slate-600 text-[11px]">
                           {inv.program || inv.keterangan || "Kelas Intensif Offline"}
                         </td>
@@ -3948,28 +2676,8 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                             {inv.phone && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const p = String(inv.phone || "").replace(/\D/g, "");
-                                  const phone = p.startsWith("0") ? "62" + p.slice(1) : p;
-                                  const statusLink = inv.status_url || `https://creativabridging.com/status-pendaftaran?inv=${inv.id}`;
-                                  const text = encodeURIComponent(
-                                    `Halo Sdr/i *${inv.customer}*,\n\n` +
-                                    `Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n` +
-                                    `Berikut rincian invoice tagihan pendaftaran Anda:\n\n` +
-                                    `• No. Invoice: *${inv.id}*\n` +
-                                    `• Total Biaya: *${formatRp(inv.total)}*\n` +
-                                    `• Rekening Pembayaran Resmi:\n` +
-                                    `  Bank BCA: *1832-918-428*\n` +
-                                    `  a/n *PT CREATIVA BRIDGING INTERN*\n` +
-                                    `• Tenggat Waktu Cicilan 1: *2x24 Jam*\n\n` +
-                                    `Silakan unduh invoice resmi PDF dan cek status melalui portal resmi LPK:\n` +
-                                    `${statusLink}\n\n` +
-                                    `Setelah transfer, mohon kirim bukti pembayaran melalui portal atau balas pesan ini.\n\n` +
-                                    `Salam hangat,\n_Tim Keuangan & Admisi LPK Creativa Bridging International_`
-                                  );
-                                  window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, "_blank");
-                                }}
-                                title="Buka Chat WhatsApp Siswa (Pesan Otomatis Tagihan 2x24 Jam)"
+                                onClick={() => openInvoiceWhatsApp(inv, inv.phone)}
+                                title="Buka Chat WhatsApp Siswa (Tautan Invoice Resmi)"
                                 className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 transition cursor-pointer"
                               >
                                 <MessageCircle className="w-4 h-4" />
@@ -3977,6 +2685,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                             )}
 
                             {/* Preview Invoice Eye Button */}
+                            <InvoiceEmailButton invoiceId={inv.id} recipient={inv.email} latestAttempt={inv.email_delivery} onRefresh={onRefresh} />
                             <button
                               type="button"
                               onClick={() => previewInvoicePDF(inv)}
@@ -4089,7 +2798,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
   const filtered = data.filter(r =>
     (kanal === "Semua Kanal" || r.kanal === kanal) &&
     (status === "Semua Status" || r.statusKirim === status) &&
-    (r.id.toLowerCase().includes(search.toLowerCase()) || r.customer.toLowerCase().includes(search.toLowerCase()))
+    (String(r.id ?? '').toLowerCase().includes(search.toLowerCase()) || String(r.customer ?? '').toLowerCase().includes(search.toLowerCase()))
   );
   const pages = Math.ceil(filtered.length / PER);
   const rows = filtered.slice((page - 1) * PER, page * PER);
@@ -4107,10 +2816,10 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
   };
 
   const stats = [
-    { label: "Total Terkirim", value: data.length, sub: "+12% dari periode lalu", ok: true, Icon: Send, bg: "bg-violet-100", ic: "text-violet-600" },
-    { label: "Via Email", value: data.filter(d => d.kanal === "Email").length, sub: "+8% dari periode lalu", ok: true, Icon: Mail, bg: "bg-blue-100", ic: "text-blue-600" },
-    { label: "Via WhatsApp", value: data.filter(d => d.kanal === "WhatsApp").length, sub: "+20% dari periode lalu", ok: true, Icon: MessageCircle, bg: "bg-emerald-100", ic: "text-emerald-600" },
-    { label: "Gagal Kirim", value: data.filter(d => d.statusKirim === "Gagal").length, sub: "–25% dari periode lalu", ok: false, Icon: AlertTriangle, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
+    { label: "SMTP Accepted", value: data.filter(row => row.statusKirim === "SMTP Accepted").length, sub: "Bukan bukti inbox / baca", ok: true, Icon: Send, bg: "bg-violet-100", ic: "text-violet-600" },
+    { label: "Via Email", value: data.filter(d => d.kanal === "Email").length, sub: "Berdasarkan record server", ok: true, Icon: Mail, bg: "bg-blue-100", ic: "text-blue-600" },
+    { label: "Via WhatsApp", value: data.filter(d => d.kanal === "WhatsApp").length, sub: "Berdasarkan record server", ok: true, Icon: MessageCircle, bg: "bg-emerald-100", ic: "text-emerald-600" },
+    { label: "Gagal Kirim", value: data.filter(d => ["Gagal", "Failed"].includes(d.statusKirim)).length, sub: "Berdasarkan record server", ok: false, Icon: AlertTriangle, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
   ];
 
   return (
@@ -4137,7 +2846,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 font-semibold">Tanggal Kirim</label>
           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>01/05/2024</span><span className="text-slate-400">–</span><span>31/05/2024</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>Sesuai riwayat server</span>
           </div>
         </div>
         <div className="flex flex-col gap-1">
@@ -4151,7 +2860,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
           <label className="text-xs text-slate-500 font-semibold">Status Kirim</label>
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
             className="border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300">
-            {["Semua Status", "Terkirim", "Gagal"].map(s => <option key={s}>{s}</option>)}
+            {["Semua Status", "Pending", "SMTP Accepted", "Failed", "Terkirim", "Gagal"].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -4197,7 +2906,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
             {rows.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-slate-400 font-semibold">Tidak ada data</td></tr>
             ) : rows.map((r, i) => (
-              <tr key={r.id} className={`border-b border-slate-50 hover:bg-violet-50/50 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/30"}`}>
+              <tr key={r.email_attempt_id ? `email-${r.email_attempt_id}` : r.id} className={`border-b border-slate-50 hover:bg-violet-50/50 transition-colors ${i % 2 === 0 ? "" : "bg-slate-50/30"}`}>
                 <td className="px-4 py-3"><span className="text-violet-600 font-bold cursor-pointer hover:underline" onClick={() => setViewItem(r)}>{r.id}</span></td>
                 <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.tglKirim}</td>
                 <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{r.customer}</td>
@@ -4217,25 +2926,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
                   <div className="flex items-center gap-1">
                     {r.kanal === "WhatsApp" && (
                       <button
-                        onClick={() => {
-                          const p = String(r.penerima || "").replace(/\D/g, "");
-                          const phone = p.startsWith("0") ? "62" + p.slice(1) : p;
-                          const cleanId = (r.id || "").replace(/-EML$/, "");
-                          const text = encodeURIComponent(
-                            `Halo Sdr/i *${r.customer}*,\n\n` +
-                            `Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n` +
-                            `Berikut informasi invoice resmi pendaftaran Anda:\n\n` +
-                            `• No. Invoice: *${cleanId}*\n` +
-                            `• Rekening Pembayaran Resmi:\n` +
-                            `  Bank BCA: *1832-918-428*\n` +
-                            `  a/n *PT CREATIVA BRIDGING INTERN*\n` +
-                            `• Tenggat Waktu Cicilan 1: *2x24 Jam*\n\n` +
-                            `Silakan unduh invoice resmi PDF dan cek status melalui link portal:\n` +
-                            `https://creativabridging.com/status-pendaftaran?inv=${cleanId}\n\n` +
-                            `Salam hangat,\n_Tim Keuangan & Admisi LPK Creativa_`
-                          );
-                          window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, "_blank");
-                        }}
+                        onClick={() => openInvoiceWhatsApp(r.invoice, r.penerima)}
                         title="Buka Chat WhatsApp Siswa (Pesan Otomatis Tagihan)"
                         className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-800 transition cursor-pointer"
                       >
@@ -4246,8 +2937,8 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
                       className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition"><Download className="w-4 h-4" /></button>
-                    <button onClick={() => setDelItem(r)} title="Hapus"
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>
+                    {!r.email_attempt_id && <button onClick={() => setDelItem(r)} title="Hapus"
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>
               </tr>
@@ -4261,7 +2952,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
 }
 
 // ─── TAB 2: Pembayaran ────────────────────────────────────────────────────────
-function TabPembayaran({ data, onDelete }) {
+function TabPembayaran({ data, onDelete, onRefresh, invoices, submissions }) {
   const [metode, setMetode] = useState("Semua Metode");
   const [status, setStatus] = useState("Semua Status");
   const [search, setSearch] = useState("");
@@ -4274,7 +2965,7 @@ function TabPembayaran({ data, onDelete }) {
   const filtered = data.filter(r =>
     (metode === "Semua Metode" || r.metode.toLowerCase().includes(metode.toLowerCase().replace("semua metode", ""))) &&
     (status === "Semua Status" || r.statusVerif === status) &&
-    (r.noInv.toLowerCase().includes(search.toLowerCase()) || r.customer.toLowerCase().includes(search.toLowerCase()))
+    (String(r.noInv ?? '').toLowerCase().includes(search.toLowerCase()) || String(r.customer ?? '').toLowerCase().includes(search.toLowerCase()))
   );
   const pages = Math.ceil(filtered.length / PER);
   const rows = filtered.slice((page - 1) * PER, page * PER);
@@ -4291,16 +2982,16 @@ function TabPembayaran({ data, onDelete }) {
     );
   };
 
-  const totalBayar = data.reduce((s, r) => s + r.jumlah, 0);
-  const sudahVerif = data.filter(r => r.statusVerif === "Terverifikasi").reduce((s, r) => s + r.jumlah, 0);
-  const menunggu = data.filter(r => r.statusVerif === "Menunggu").reduce((s, r) => s + r.jumlah, 0);
-  const sisaPiutang = data.reduce((s, r) => s + r.sisa, 0);
+  const totalBayar = data.reduce((s, r) => s + Number(r.jumlah || 0), 0);
+  const sudahVerif = data.filter(r => r.statusVerif === "Terverifikasi").reduce((s, r) => s + Number(r.jumlah || 0), 0);
+  const menunggu = data.filter(r => r.statusVerif === "Menunggu").reduce((s, r) => s + Number(r.jumlah || 0), 0);
+  const sisaPiutang = data.reduce((s, r) => s + Number(r.sisa || 0), 0);
 
   const stats = [
-    { label: "Total Pembayaran", value: totalBayar, ok: true, sub: "+18,6% dari periode lalu", Icon: CreditCard, bg: "bg-violet-100", ic: "text-violet-600" },
-    { label: "Sudah Diverifikasi", value: sudahVerif, ok: true, sub: "+15,3% dari periode lalu", Icon: ShieldCheck, bg: "bg-emerald-100", ic: "text-emerald-600", vc: "text-emerald-600" },
-    { label: "Menunggu Verifikasi", value: menunggu, ok: false, sub: "–8,2% dari periode lalu", Icon: Hourglass, bg: "bg-amber-100", ic: "text-amber-500", vc: "text-amber-600" },
-    { label: "Sisa Piutang", value: sisaPiutang, ok: false, sub: "–5,7% dari periode lalu", Icon: Clock, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
+    { label: "Total Pembayaran", value: totalBayar, ok: true, sub: "Berdasarkan record server", Icon: CreditCard, bg: "bg-violet-100", ic: "text-violet-600" },
+    { label: "Sudah Diverifikasi", value: sudahVerif, ok: true, sub: "Berdasarkan record server", Icon: ShieldCheck, bg: "bg-emerald-100", ic: "text-emerald-600", vc: "text-emerald-600" },
+    { label: "Menunggu Verifikasi", value: menunggu, ok: false, sub: "Berdasarkan record server", Icon: Hourglass, bg: "bg-amber-100", ic: "text-amber-500", vc: "text-amber-600" },
+    { label: "Sisa Piutang", value: sisaPiutang, ok: false, sub: "Berdasarkan record server", Icon: Clock, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
   ];
 
   return (
@@ -4334,7 +3025,7 @@ function TabPembayaran({ data, onDelete }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 font-semibold">Tanggal Bayar</label>
           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>01/05/2024</span><span className="text-slate-400">–</span><span>31/05/2024</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>Sesuai record server</span>
           </div>
         </div>
         <div className="flex flex-col gap-1">
@@ -4376,6 +3067,15 @@ function TabPembayaran({ data, onDelete }) {
         </div>
       </div>
 
+      {submissions.filter(s=>!s.billing_payment_id).length>0 && <div className="p-4 space-y-3 border-b border-slate-100">
+        <p className="text-sm font-bold">Bukti siswa untuk review ? belum menjadi pembayaran billing</p>
+        {submissions.filter(s=>!s.billing_payment_id).map(s=><div key={s.id} className="rounded-xl border border-slate-200 p-3 space-y-2 text-xs">
+          <p>Bukti siswa #{s.id} ? {s.invoice_id} ? {s.customer} ? {formatRp(s.amount)} ? {s.transfer_date} ? Referensi: {s.reference}</p>
+          <p>Review akuntansi: {s.status}. {s.status!=='pending'?'Bukti sudah direview pada akuntansi; perlu rekonsiliasi sebelum dibuat sebagai pembayaran billing.':''}</p>
+          <a href={s.proof_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">Lihat bukti siswa #{s.id}</a>
+          <PaymentReceiptActions payment={{submission_id:s.id,noInv:s.invoice_id,statusVerif:'Menunggu',proof_url:s.proof_url,accounting_reviewed:s.status!=='pending'}} recipient={s.email} onRefresh={onRefresh}/>
+        </div>)}
+      </div>}
       <p className="px-4 pt-4 pb-2 text-sm font-black text-slate-700">Daftar Pembayaran</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -4408,6 +3108,7 @@ function TabPembayaran({ data, onDelete }) {
                       className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-800 transition cursor-pointer">
                       <ImageIcon className="w-4 h-4" />
                     </button>
+                    <PaymentReceiptActions payment={r} recipient={invoices.find(inv=>String(inv.id)===String(r.noInv))?.email} onRefresh={onRefresh}/>
                     <button onClick={() => setViewItem(r)} title="Lihat Detail & Bukti"
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition cursor-pointer"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
@@ -4472,7 +3173,7 @@ function TabSiswa({ data, onDelete }) {
   }).join(", ")})`;
   const top5 = [...data].sort((a, b) => (b.total || 0) - (a.total || 0)).slice(0, 5);
 
-  const totalPiutangSiswa = data.reduce((s, r) => s + (r.sisa != null ? Number(r.sisa) : (r.status === 'Aktif' ? 0 : Number(r.total || 0))), 0);
+  const totalPiutangSiswa = data.every(row => row.sisa != null) ? data.reduce((sum, row) => sum + Number(row.sisa), 0) : null;
   const siswaBerpiutangCount = data.filter(d => (d.sisa || 0) > 0).length;
 
   return (
@@ -4485,17 +3186,17 @@ function TabSiswa({ data, onDelete }) {
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             {[
-              { label: "Total Siswa", value: data.length, sub: "+12% dari periode lalu", ok: true, Icon: Users, bg: "bg-violet-100", ic: "text-violet-600", money: false },
+              { label: "Total Siswa", value: data.length, sub: "Berdasarkan record server", ok: true, Icon: Users, bg: "bg-violet-100", ic: "text-violet-600", money: false },
               { label: "Siswa Aktif", value: aktifCount, sub: `${Math.round(aktifCount / totalCount * 100)}% dari total siswa`, ok: true, Icon: CheckCircle, bg: "bg-emerald-100", ic: "text-emerald-600", money: false },
-              { label: "Siswa Baru", value: baruCount, sub: "+16% dari periode lalu", ok: true, Icon: User, bg: "bg-blue-100", ic: "text-blue-600", money: false },
-              { label: "Piutang Siswa", value: totalPiutangSiswa, sub: `${siswaBerpiutangCount} siswa memiliki sisa tagihan`, ok: totalPiutangSiswa === 0, Icon: Clock, bg: "bg-red-100", ic: "text-red-500", money: true, vc: "text-red-500" },
+              { label: "Siswa Baru", value: baruCount, sub: "Berdasarkan record server", ok: true, Icon: User, bg: "bg-blue-100", ic: "text-blue-600", money: false },
+              { label: "Piutang Siswa", value: totalPiutangSiswa, sub: totalPiutangSiswa == null ? 'Saldo siswa belum tersedia dari server' : `${siswaBerpiutangCount} siswa memiliki sisa tagihan`, ok: totalPiutangSiswa === 0, Icon: Clock, bg: "bg-red-100", ic: "text-red-500", money: true, vc: "text-red-500" },
             ].map(({ label, value, sub, ok, bg, ic, vc, money, Icon }, i) => (
               <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold text-slate-500">{label}</span>
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${bg}`}><Icon className={`w-4 h-4 ${ic}`} /></div>
                 </div>
-                <p className={`${money ? "text-xl" : "text-3xl"} font-black ${vc || "text-slate-800"} leading-tight`}>{money ? formatRp(value) : value}</p>
+                <p className={`${money ? "text-xl" : "text-3xl"} font-black ${vc || "text-slate-800"} leading-tight`}>{value == null ? "Belum tersedia" : money ? formatRp(value) : value}</p>
                 <p className={`text-[11px] mt-1.5 font-semibold flex items-center gap-1 ${ok ? "text-emerald-600" : "text-red-500"}`}>
                   {ok ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}{sub}
                 </p>
@@ -4556,12 +3257,12 @@ function TabSiswa({ data, onDelete }) {
                     </td>
                     <td className="px-4 py-3 text-center font-bold text-slate-700">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-extrabold ${r.jmlInv > 0 ? "bg-blue-50 text-blue-700 border border-blue-200" : "text-slate-400"}`}>
-                        {r.jmlInv || 0}
+                        {r.jmlInv ?? "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{formatRp(r.total || 0)}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{r.total == null ? "—" : formatRp(r.total)}</td>
                     <td className="px-4 py-3 font-bold whitespace-nowrap">
-                      {(r.sisa || 0) > 0 ? (
+                      {r.sisa == null ? <span className="text-slate-400">Belum tersedia</span> : r.sisa > 0 ? (
                         <span className="text-rose-600">{formatRp(r.sisa)}</span>
                       ) : (
                         <span className="text-slate-400 font-normal">Rp 0 (Lunas)</span>
@@ -4926,169 +3627,26 @@ function Sidebar({ invoiceData = [] }) {
 }
 
 // ─── SYNCHRONIZE INVOICE TERKIRIM DENGAN DAFTAR INVOICE ──────────────────────
-function syncTerkirimWithInvoices(currentInvoices, existingTerkirim = []) {
-  if (!Array.isArray(currentInvoices)) return existingTerkirim || [];
-
-  const savedTerkirim = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('saved_custom_terkirim') || '[]') : [];
-
-  return currentInvoices.map((inv, idx) => {
-    const customMatch = savedTerkirim.find(t => t.id === inv.id || t.noInv === inv.id);
-    const existingMatch = Array.isArray(existingTerkirim) ? existingTerkirim.find(t => t.id === inv.id || t.noInv === inv.id) : null;
-    const base = customMatch || existingMatch || {};
-
-    const cleanEmail = inv.email && inv.email !== '-'
-      ? inv.email
-      : `${(inv.customer || 'siswa').toLowerCase().replace(/\s+/g, '.')}@gmail.com`;
-    const cleanPhone = inv.phone && inv.phone !== '-' ? inv.phone : (inv.customer?.toLowerCase().includes("nova") ? "0813-9988-7766" : "0812-7788-9900");
-    const defaultKanal = (inv.customer?.toLowerCase().includes("nova") || inv.phone) ? "WhatsApp" : (idx % 2 === 0 ? "Email" : "WhatsApp");
-    const chosenKanal = base.kanal || defaultKanal;
-    const penerima = base.penerima || (chosenKanal === 'WhatsApp' ? cleanPhone : cleanEmail);
-
-    return {
-      id: inv.id,
-      noInv: inv.id,
-      customer: inv.customer || 'Siswa LPK',
-      tglKirim: base.tglKirim || inv.tanggal || new Date().toISOString().slice(0, 10),
-      kanal: chosenKanal,
-      penerima: penerima,
-      statusKirim: base.statusKirim || 'Terkirim',
-      statusBaca: base.statusBaca || (normalizeFinanceStatus(inv.status) === 'Paid' ? 'Dibaca' : 'Pending'),
-      nominal: Number(inv.total) || 0,
-      terbayar: Number(inv.terbayar) || 0,
-      sisa: Number(inv.sisa) || 0,
-      statusInvoice: normalizeFinanceStatus(inv.status),
-      program: inv.program || inv.keterangan || 'Kelas Intensif Offline'
-    };
-  });
+function syncTerkirimWithInvoices(currentInvoices, existingTerkirim = [], emailAttempts = []) {
+  const emailRows = emailAttempts.map(attempt => ({ id: attempt.invoice_id, noInv: attempt.invoice_id, email_attempt_id: attempt.id,
+    tglKirim: attempt.created_at, kanal: 'Email', penerima: attempt.recipient, statusKirim: attempt.status,
+    statusBaca: 'Belum diketahui', error_message: attempt.error_message }));
+  return serverDeliveryRows(currentInvoices, [...emailRows, ...existingTerkirim]).map(row => ({ ...row,
+    invoice: currentInvoices.find(invoice => String(invoice.id) === String(row.noInv || row.id)),
+    customer: row.customer || currentInvoices.find(invoice => String(invoice.id) === String(row.noInv || row.id))?.customer }));
 }
 
 // ─── SYNCHRONIZE PEMBAYARAN DENGAN DAFTAR INVOICE ─────────────────────────────
 function syncPembayaranWithInvoices(currentInvoices, existingPayments = []) {
-  if (!Array.isArray(currentInvoices)) return existingPayments || [];
-  const result = Array.isArray(existingPayments) ? [...existingPayments] : [];
-
-  currentInvoices.forEach(inv => {
-    const totalVal = Number(inv.total) || 0;
-    const stNorm = normalizeFinanceStatus(inv.status);
-    let terbayarVal = 0;
-    if (stNorm === "Paid") {
-      terbayarVal = totalVal;
-    } else if (stNorm === "Partially Paid") {
-      terbayarVal = inv.terbayar != null ? Number(inv.terbayar) : Math.round(totalVal * 0.5);
-    } else {
-      terbayarVal = inv.terbayar != null ? Number(inv.terbayar) : 0;
-    }
-
-    if (terbayarVal > 0) {
-      const alreadyHas = result.some(p => p.noInv === inv.id || p.id === `PAY-${inv.id}-01`);
-      if (!alreadyHas) {
-        result.unshift({
-          id: `PAY-${inv.id}-01`,
-          noInv: inv.id,
-          customer: inv.customer,
-          tglBayar: inv.tanggal || new Date().toISOString().slice(0, 10),
-          jamBayar: "10:30",
-          metode: "Transfer Bank BCA",
-          rekening: "BCA 1832-918-428 an PT CREATIVA BRIDGING INTERN",
-          jumlah: terbayarVal,
-          sisa: Math.max(0, totalVal - terbayarVal),
-          statusVerif: "Terverifikasi",
-          terminName: stNorm === "Paid" ? "Pelunasan (Full Payment)" : "Cicilan ke-1",
-          refNumber: `TRX-${inv.id}-01`,
-          catatan: `Pembayaran program ${inv.program || 'pelatihan'} an. ${inv.customer}`
-        });
-      }
-    }
-  });
-
-  return result;
+  return serverPaymentRows(currentInvoices, existingPayments);
 }
 
 // ─── SYNCHRONIZE SISWA DENGAN DAFTAR INVOICE & STUDENTS MASTER ────────────────
 function syncSiswaWithInvoices(currentInvoices, baseSiswaList = []) {
-  if (!Array.isArray(currentInvoices)) return baseSiswaList || [];
-
-  const combinedMap = new Map();
-
-  // Only use students returned by the production API/database.
-  (Array.isArray(baseSiswaList) ? baseSiswaList : []).forEach((s, idx) => {
-    const nameKey = (s.nama || s.name || '').trim().toLowerCase();
-    if (nameKey) {
-      combinedMap.set(nameKey, {
-        id: s.id ? (String(s.id).startsWith('SIS-') ? s.id : `SIS-${String(s.id).padStart(3, '0')}`) : `SIS-${String(idx + 1).padStart(3, '0')}`,
-        nama: s.nama || s.name || 'Siswa',
-        pic: s.pic || s.affiliator || 'Siswa Mandiri',
-        telp: s.telp || s.phone || s.kontak || s.no_wa || '0812-7788-9900',
-        email: s.email && s.email !== '-' ? s.email : `${(s.nama || 'siswa').toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-        status: s.status || 'Aktif',
-        program: s.program || 'Kelas Intensif Offline'
-      });
-    }
-  });
-
-  // 2. Pastikan SETIAP siswa yang ada di invoice terdaftar
-  currentInvoices.forEach(inv => {
-    const nameKey = (inv.customer || '').trim().toLowerCase();
-    if (nameKey) {
-      if (!combinedMap.has(nameKey)) {
-        const nextId = `SIS-${String(combinedMap.size + 1).padStart(3, '0')}`;
-        combinedMap.set(nameKey, {
-          id: nextId,
-          nama: inv.customer,
-          pic: 'Siswa Mandiri',
-          telp: inv.phone && inv.phone !== '-' ? inv.phone : (nameKey.includes("nova") ? "0813-9988-7766" : "0812-7788-9900"),
-          email: inv.email && inv.email !== '-' ? inv.email : `${inv.customer.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-          status: 'Aktif',
-          program: inv.program || 'Kelas Intensif Offline'
-        });
-      } else {
-        const existing = combinedMap.get(nameKey);
-        if (inv.phone && inv.phone !== '-') existing.telp = inv.phone;
-        if (inv.email && inv.email !== '-') existing.email = inv.email;
-        if (inv.program) existing.program = inv.program;
-      }
-    }
-  });
-
-  // 3. Hitung agregasi dinamis untuk setiap siswa: jmlInv, totalTagihan, terbayar, sisa
-  const finalSiswa = Array.from(combinedMap.values()).map(s => {
-    const sNameKey = s.nama.trim().toLowerCase();
-    const matchingInvoices = currentInvoices.filter(inv => (inv.customer || '').trim().toLowerCase() === sNameKey);
-
-    const jmlInv = matchingInvoices.length;
-    const totalTagihan = matchingInvoices.reduce((acc, inv) => acc + (Number(inv.total) || 0), 0);
-    const totalTerbayar = matchingInvoices.reduce((acc, inv) => {
-      const st = normalizeFinanceStatus(inv.status);
-      if (st === 'Paid') return acc + (Number(inv.total) || 0);
-      return acc + (Number(inv.terbayar) || 0);
-    }, 0);
-    const totalSisa = Math.max(0, totalTagihan - totalTerbayar);
-
-    let studentStatus = s.status || 'Aktif';
-    if (jmlInv > 0) {
-      if (totalSisa > 0) {
-        studentStatus = 'Prioritas';
-      } else {
-        studentStatus = 'Aktif';
-      }
-    } else {
-      studentStatus = s.status || 'Baru';
-    }
-
-    return {
-      ...s,
-      jmlInv,
-      total: totalTagihan,
-      terbayar: totalTerbayar,
-      sisa: totalSisa,
-      status: studentStatus,
-      invoices: matchingInvoices
-    };
-  });
-
-  finalSiswa.sort((a, b) => b.jmlInv - a.jmlInv || b.total - a.total);
-
-  return finalSiswa;
+  // Billing's mixed student list is display-only; the wizard fetches official accounting identities separately.
+  return baseSiswaList.map(row => ({ ...row, nama: row.nama || row.name || '', pic: row.pic || row.affiliator || '',
+    telp: row.telp || row.phone || row.no_wa || '', email: row.email || '', program: row.program || '',
+    invoices: [], terbayar: row.terbayar ?? null, sisa: row.sisa ?? null }));
 }
 
 export default function InvoicePenagihan() {
@@ -5101,6 +3659,8 @@ export default function InvoicePenagihan() {
   const [pembayaran, setPembayaran] = useState([]);
   const [siswa, setSiswa] = useState([]);
   const [automationLogs, setAutomationLogs] = useState([]);
+  const [submissions,setSubmissions]=useState([]);
+  const manualRequests=useRef(new Map());
   const [rpaStatus, setRpaStatus] = useState({});
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -5118,9 +3678,10 @@ export default function InvoicePenagihan() {
           payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
         }));
         setInvoices(finalInvoices);
+        setSubmissions(res.data.data.student_submissions || []);
 
         // 1. SINKRONISASI INVOICE TERKIRIM
-        const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, res.data.data.terkirim || []);
+        const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, res.data.data.terkirim || [], res.data.data.email_attempts || []);
         setTerkirim(syncedTerkirim);
 
         // 2. SINKRONISASI PEMBAYARAN
@@ -5151,9 +3712,10 @@ export default function InvoicePenagihan() {
         payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
       }));
       setInvoices(finalInvoices);
+      setSubmissions(data.data.student_submissions || []);
 
       // 1. SINKRONISASI INVOICE TERKIRIM
-      const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, data.data.terkirim || []);
+      const syncedTerkirim = syncTerkirimWithInvoices(finalInvoices, data.data.terkirim || [], data.data.email_attempts || []);
       setTerkirim(syncedTerkirim);
 
       // 2. SINKRONISASI PEMBAYARAN
@@ -5174,7 +3736,7 @@ export default function InvoicePenagihan() {
   useEffect(() => {
     const pollInterval = setInterval(() => {
       axios.get('/api/billing.php').then(({ data }) => {
-        if (data.status === 'success' && Array.isArray(data.data?.invoices)) {
+        if (data.status === 'success' && ['invoices','pembayaran','terkirim','siswa'].every(key => Array.isArray(data.data?.[key]))) {
           const serverInvs = data.data.invoices || [];
           const serverPayments = data.data.pembayaran || [];
           const finalInvoices = serverInvs.map(invoice => ({
@@ -5182,6 +3744,10 @@ export default function InvoicePenagihan() {
             payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
           }));
           setInvoices(finalInvoices);
+          setTerkirim(syncTerkirimWithInvoices(finalInvoices, data.data.terkirim, data.data.email_attempts || []));
+          setPembayaran(syncPembayaranWithInvoices(finalInvoices, serverPayments));
+          setSiswa(syncSiswaWithInvoices(finalInvoices, data.data.siswa));
+          setSubmissions(data.data.student_submissions || []);
           setAutomationLogs(Array.isArray(data.data.automation_logs) ? data.data.automation_logs : []);
           setRpaStatus(data.data.rpa_status || {});
         }
@@ -5193,6 +3759,9 @@ export default function InvoicePenagihan() {
   // ── APPROVE PAYMENT & REALIZATION SINKRONISASI ──
   const handleApprovePayment = async (inv, paymentData) => {
     const formData = new FormData();
+    const requestId=manualRequests.current.get(String(inv.id)) || crypto.randomUUID();
+    manualRequests.current.set(String(inv.id),requestId);
+    formData.append('request_id',requestId);
     formData.append('action', 'approve_payment');
     formData.append('invoice_id', String(inv.id));
     formData.append('tglBayar', paymentData.tglBayar);
@@ -5201,92 +3770,21 @@ export default function InvoicePenagihan() {
     formData.append('jumlah', String(paymentData.nominal || 0));
     if (paymentData.buktiFile) formData.append('proof', paymentData.buktiFile);
 
-    const response = await axios.post('/api/billing.php', formData);
-    if (response.data?.status !== 'success' || !response.data?.data) {
-      throw new Error(response.data?.message || 'Pembayaran tidak berhasil disimpan.');
-    }
-
-    const persistedPayment = response.data.data;
-    const addedNominal = Number(paymentData.nominal) || 0;
-    const newTerbayar = Number(persistedPayment.terbayar);
-    const newSisa = Number(persistedPayment.sisa);
-    const newStatus = normalizeFinanceStatus(persistedPayment.status);
-
-    const paymentIndex = (inv.payments?.length || 0) + 1;
-    const receiptNo = `RCP-${inv.id}-${String(persistedPayment.payment_id || paymentIndex).padStart(2, '0')}`;
-    const paymentRecord = {
-      id: `PAY-${persistedPayment.payment_id}`,
-      receiptNo,
-      noInv: inv.id,
-      customer: inv.customer,
-      tglBayar: paymentData.tglBayar,
-      jamBayar: paymentData.jamBayar,
-      approverName: paymentData.approverName || "FINANCE LPK CREATIVA",
-      metode: paymentData.metode,
-      rekening: paymentData.rekening,
-      refNumber: paymentData.refNumber || "",
-      jumlah: addedNominal,
-      sisa: newSisa,
-      buktiBayar: persistedPayment.proof_url || "",
-      proof_mime: persistedPayment.proof_mime || "",
-      buktiMime: persistedPayment.proof_mime || "",
-      catatan: paymentData.catatan || "",
-      statusVerif: "Terverifikasi",
-      approvedAt: `${paymentData.tglBayar} ${paymentData.jamBayar}`,
-      termin: paymentData.terminIndex || null,
-      terminName: paymentData.terminName || null
-    };
-
-    const updatedInvoice = {
-      ...inv,
-      terbayar: newTerbayar,
-      sisa: newSisa,
-      status: newStatus,
-      paid_at: paymentData.tglBayar,
-      payments: [...(inv.payments || []), paymentRecord],
-      lastPayment: paymentRecord
-    };
-
-    // 1. Update React state
-    setInvoices(prev => {
-      const updated = prev.map(item => item.id === inv.id ? updatedInvoice : item);
-      setTerkirim(prevT => syncTerkirimWithInvoices(updated, prevT));
-      setSiswa(prevS => syncSiswaWithInvoices(updated, prevS));
-      return updated;
-    });
-    setPembayaran(prev => [paymentRecord, ...prev]);
-
-    // The persisted billing payment is the source of truth. Do not copy it to
-    // local finance caches, which can fail quota checks and create duplicate
-    // realizations or balances.
-
-    // Trigger SweetAlert with direct Action to open Kwitansi PDF.
-    Swal.fire({
-      icon: "success",
-      title: "✓ Pembayaran Berhasil Disetujui!",
-      html: `
-        <div style="font-size: 13px; text-align: left; line-height: 1.6; color: #334155;">
-          <p><strong>No. Invoice:</strong> ${inv.id}</p>
-          <p><strong>Customer:</strong> ${inv.customer}</p>
-          ${paymentData.terminName ? `<p><strong>Alokasi Termin:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${paymentData.terminName}</span></p>` : ''}
-          <p><strong>Nominal Diterima:</strong> ${formatRp(addedNominal)}</p>
-          <p><strong>Status Tagihan:</strong> <span style="color: ${newStatus === 'Paid' ? '#059669' : '#d97706'}; font-weight: bold;">${newStatus === 'Paid' ? 'LUNAS (Paid)' : 'Sebagian (Partially Paid)'}</span></p>
-          <p><strong>Sisa Piutang:</strong> ${formatRp(newSisa)}</p>
-          <p><strong>No. Kwitansi (Receipt):</strong> <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #0f172a;">${receiptNo}</code></p>
-          <p style="margin-top: 8px; font-size: 12px; color: #64748b;">Proyeksi kas dan Realisasi keuangan di Dashboard telah diperbarui secara otomatis.</p>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "🧾 Buka Kwitansi (Receipt PDF)",
-      confirmButtonColor: "#059669",
-      cancelButtonText: "Selesai",
-      cancelButtonColor: "#64748b",
-      reverseButtons: true
-    }).then((result) => {
-      if (result.isConfirmed) {
-        previewReceiptPDF(paymentRecord, updatedInvoice);
+    let persistedPayment;
+    try {
+      persistedPayment=await reconcilePayment(requestId);
+      if(!persistedPayment){
+        const response=await axios.post('/api/billing.php',formData);
+        if(response.data?.status!=='success' || response.data?.data?.payment_status!=='Verified')throw new Error(response.data?.message || 'Pembayaran belum dikonfirmasi.');
+        persistedPayment=response.data.data;
       }
-    });
+    } catch(error) {
+      try { persistedPayment=await reconcilePayment(requestId); } catch { throw new Error('Hasil pembayaran belum pasti. Periksa server sebelum retry; request pembayaran tetap sama.'); }
+      if(!persistedPayment){if(error.response?.status<500)manualRequests.current.delete(String(inv.id));throw error;}
+    }
+    manualRequests.current.delete(String(inv.id));
+    await fetchData();
+    await showPaymentResult(persistedPayment);
     return true;
   };
 
@@ -5299,62 +3797,12 @@ export default function InvoicePenagihan() {
   };
 
   const handleDelete = async (type, id) => {
-    // 1. Immediately delete from local state
-    if (type === 'invoice') {
-      setInvoices(prev => {
-        const remaining = prev.filter(inv => inv.id !== id);
-        setTerkirim(prevT => prevT.filter(t => t.id !== id && t.noInv !== id));
-        setPembayaran(prevP => prevP.filter(p => p.noInv !== id));
-        setSiswa(prevS => syncSiswaWithInvoices(remaining, prevS));
-        return remaining;
-      });
-
-      // Remove from saved_custom_invoices
-      const savedCustom = JSON.parse(localStorage.getItem('saved_custom_invoices') || '[]');
-      const filteredCustom = savedCustom.filter(s => s.id !== id);
-      localStorage.setItem('saved_custom_invoices', JSON.stringify(filteredCustom));
-
-      // Remove from saved_custom_terkirim
-      const savedTerkirim = JSON.parse(localStorage.getItem('saved_custom_terkirim') || '[]');
-      localStorage.setItem('saved_custom_terkirim', JSON.stringify(savedTerkirim.filter(t => t.id !== id && t.noInv !== id)));
-
-      // Remove from billing_pembayaran_custom
-      const savedPayments = JSON.parse(localStorage.getItem('billing_pembayaran_custom') || '[]');
-      localStorage.setItem('billing_pembayaran_custom', JSON.stringify(savedPayments.filter(p => p.id !== id && p.noInv !== id)));
-
-      // Track in deleted_invoice_ids so default blueprint mock items never reappear
-      const deletedIds = JSON.parse(localStorage.getItem('deleted_invoice_ids') || '[]');
-      if (!deletedIds.includes(id)) {
-        deletedIds.push(id);
-        localStorage.setItem('deleted_invoice_ids', JSON.stringify(deletedIds));
-      }
-    } else if (type === 'terkirim') {
-      setTerkirim(prev => prev.filter(t => t.id !== id));
-    } else if (type === 'pembayaran') {
-      setPembayaran(prev => prev.filter(p => p.id !== id && p.noInv !== id));
-      const savedPayments = JSON.parse(localStorage.getItem('billing_pembayaran_custom') || '[]');
-      localStorage.setItem('billing_pembayaran_custom', JSON.stringify(savedPayments.filter(p => p.id !== id && p.noInv !== id)));
-    } else if (type === 'siswa') {
-      setSiswa(prev => prev.filter(s => s.id !== id && s.nama !== id));
-    }
-
-    // 2. Call backend DELETE
     try {
-      await axios.delete(`/api/billing.php?type=${type}&id=${id}`);
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil Dihapus',
-        text: `Data ${id} telah dihapus permanen.`,
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } catch (e) {
-      console.warn('Backend delete fallback:', e);
-      Swal.fire({
-        icon: 'error',
-        title: 'Gagal Menghapus',
-        text: e.response?.data?.message || e.message || 'Terjadi kesalahan saat menghapus data di server.',
-      });
+      const { data } = await axios.delete(`/api/billing.php?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`);
+      if (data?.status !== 'success') throw new Error(data?.message || 'Penghapusan belum dikonfirmasi server.');
+      await Swal.fire({icon:'success',title:'Berhasil Dihapus',text:`Data ${id} telah dihapus permanen.`,timer:1500,showConfirmButton:false});
+    } catch (error) {
+      await Swal.fire({ icon: 'error', title: 'Data Belum Dihapus', text: error.response?.data?.message || error.message });
     }
 
     // 3. Re-sync data
@@ -5425,7 +3873,7 @@ export default function InvoicePenagihan() {
               onClick={handleSyncWebsite}
               disabled={syncingWeb}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs active:scale-95 cursor-pointer"
-              title="Tarik data pendaftar terbaru dari website creativabridging.com dan buat invoice otomatis"
+              title="Tarik pendaftaran; invoice hanya diterbitkan setelah screening, review, identitas dan charge approved"
             >
               <RefreshCw className={`w-4 h-4 ${syncingWeb ? 'animate-spin' : ''}`} />
               <span>{syncingWeb ? 'Menyinkronkan…' : 'Tarik Data Web (RPA)'}</span>
@@ -5515,7 +3963,7 @@ export default function InvoicePenagihan() {
               </div>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 {rpaStatus?.wa_bot_ready
-                  ? "Robot RPA siap mengirimkan invoice beserta 6 termin cicilan langsung ke WhatsApp calon siswa segera setelah mendaftar."
+                  ? "Kanal WhatsApp tersedia. Invoice hanya disiapkan setelah screening dan review approved, identitas valid, serta harga dan termin disetujui Finance."
                   : "Buka WhatsApp di HP Anda → Perangkat Tertaut → Tautkan Perangkat, lalu scan QR Code agar pesan WA terkirim otomatis tanpa perlu klik manual."}
               </p>
             </div>
@@ -5567,7 +4015,7 @@ export default function InvoicePenagihan() {
               />
             )}
             {activeTab === 1 && <TabInvoiceTerkirim data={terkirim} onDelete={(id) => handleDelete('terkirim', id)} onRefresh={fetchData} />}
-            {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} />}
+            {activeTab === 2 && <TabPembayaran data={pembayaran} onDelete={(id) => handleDelete('pembayaran', id)} onRefresh={fetchData} invoices={invoices} submissions={submissions} />}
             {activeTab === 3 && <div className="p-6"><TabSiswa data={siswa} onDelete={(id) => handleDelete('siswa', id)} /></div>}
             {activeTab === 4 && (
               <TabRiwayatRpa

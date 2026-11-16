@@ -14,7 +14,34 @@ if (!function_exists('rpa_get_secret')) {
             return (string)CREATIVA_WEBHOOK_SECRET;
         }
         $envSecret = getenv('CREATIVA_WEBHOOK_SECRET');
-        return ($envSecret !== false && trim($envSecret) !== '') ? trim($envSecret) : 'CREATIVA_SYNC_SECRET_2026';
+        // Tidak ada nilai default: tanpa konfigurasi, semua akses berbasis secret ditolak (fail closed).
+        return ($envSecret !== false && trim($envSecret) !== '') ? trim($envSecret) : '';
+    }
+}
+
+if (!function_exists('rpa_secret_configured')) {
+    function rpa_secret_configured(): bool {
+        return rpa_get_secret() !== '';
+    }
+}
+
+if (!function_exists('rpa_secret_matches')) {
+    /** Bandingkan secret dari request secara constant-time; selalu false bila secret server belum dikonfigurasi. */
+    function rpa_secret_matches($provided): bool {
+        $expected = rpa_get_secret();
+        $provided = is_string($provided) ? trim($provided) : '';
+        return $expected !== '' && $provided !== '' && hash_equals($expected, $provided);
+    }
+}
+
+if (!function_exists('rpa_upstream_api_key')) {
+    /** API key untuk endpoint creativabridging.com; default memakai secret webhook bersama. */
+    function rpa_upstream_api_key(): string {
+        if (defined('CREATIVABRIDGING_API_KEY') && trim((string)CREATIVABRIDGING_API_KEY) !== '') {
+            return trim((string)CREATIVABRIDGING_API_KEY);
+        }
+        $env = getenv('CREATIVABRIDGING_API_KEY');
+        return ($env !== false && trim($env) !== '') ? trim($env) : rpa_get_secret();
     }
 }
 

@@ -37,7 +37,7 @@
             },
             {
               "name": "X-Worker-Secret",
-              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET}}"
             }
           ]
         },
@@ -155,7 +155,7 @@
             },
             {
               "name": "X-Webhook-Secret",
-              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET}}"
             }
           ]
         },

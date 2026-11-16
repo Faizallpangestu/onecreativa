@@ -9,8 +9,8 @@ services:
       - "${PORT:-3100}:3100"
     environment:
       PORT: 3100
-      WORKER_SECRET: ${WORKER_SECRET:-CREATIVA_SYNC_SECRET_2026}
-      ONECREATIVA_WEBHOOK_SECRET: ${ONECREATIVA_WEBHOOK_SECRET:-CREATIVA_SYNC_SECRET_2026}
+      WORKER_SECRET: ${WORKER_SECRET:?WORKER_SECRET wajib diisi di automation/.env}
+      ONECREATIVA_WEBHOOK_SECRET: ${ONECREATIVA_WEBHOOK_SECRET:?ONECREATIVA_WEBHOOK_SECRET wajib diisi di automation/.env}
       ALLOWED_RENDER_ORIGINS: ${ALLOWED_RENDER_ORIGINS:-https://one.creativabridging.com,http://localhost,http://127.0.0.1}
     networks:
       - creativa-rpa
@@ -32,7 +32,7 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-creativa_rpa_2026_default_enc_key}
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       ONECREATIVA_BASE_URL: ${ONECREATIVA_BASE_URL:-https://one.creativabridging.com}
-      ONECREATIVA_WEBHOOK_SECRET: ${ONECREATIVA_WEBHOOK_SECRET:-CREATIVA_SYNC_SECRET_2026}
+      ONECREATIVA_WEBHOOK_SECRET: ${ONECREATIVA_WEBHOOK_SECRET:?ONECREATIVA_WEBHOOK_SECRET wajib diisi di automation/.env}
       PLAYWRIGHT_WORKER_URL: http://playwright-worker:3100
       WABLAS_DOMAIN: ${WABLAS_DOMAIN:-kudus.wablas.com}
       WABLAS_TOKEN: ${WABLAS_TOKEN:-}

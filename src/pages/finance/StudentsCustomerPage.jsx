@@ -28,7 +28,8 @@ import {
   Zap,
   CheckCircle2,
   Copy,
-  ExternalLink
+  ExternalLink,
+  KeyRound
 } from "lucide-react";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -84,7 +85,8 @@ export default function StudentsCustomerPage() {
           .map((s, i) => {
             const sid = s.id || i + 1;
             const override = customOverrides[sid];
-            if (override) return override;
+            const account = { accountStatus: s.account_status || "none", accountEmail: s.account_email || null };
+            if (override) return { ...override, ...account };
 
             const name = s.name || s.nama_lengkap || "Siswa";
             const nisVal = s.nis || `S-${String(sid).padStart(3, "0")}`;
@@ -104,6 +106,7 @@ export default function StudentsCustomerPage() {
               kota: s.kota || "Kab. Cianjur",
               kode_pos: s.kode_pos || "43211",
               fromWeb: Boolean(s.fromWeb || (nisVal && nisVal.startsWith("TGCJ")) || !s.affiliator || s.affiliator === "-"),
+              ...account,
             };
           });
 
@@ -262,7 +265,7 @@ export default function StudentsCustomerPage() {
   const handleDelete = async (student) => {
     const result = await Swal.fire({
       title: 'Hapus Data Siswa?',
-      html: `Apakah Anda yakin ingin menghapus <b>${student.nama}</b>?<br/><span class="text-xs text-rose-500 font-medium">Data akan langsung terhapus dan hilang dari sistem.</span>`,
+      html: `Apakah Anda yakin ingin menghapus <b>${esc(student.nama)}</b>?<br/><span class="text-xs text-rose-500 font-medium">Data akan langsung terhapus dan hilang dari sistem.</span>`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
@@ -458,6 +461,57 @@ export default function StudentsCustomerPage() {
     }
   };
 
+  // AKN-01: buat akun login siswa / reset password lalu kirim kredensial.
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const handleIssueAccount = async (student) => {
+    const reset = student.accountStatus !== "none";
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: reset ? "Reset password akun siswa?" : "Buat akun siswa?",
+      html: reset
+        ? `Password akun <b>${esc(student.nama)}</b> akan diganti dengan password sementara baru dan dikirim ke email siswa.`
+        : `Akun login untuk <b>${esc(student.nama)}</b> akan dibuat memakai email terdaftar, lalu kredensial dikirim ke email siswa.`,
+      showCancelButton: true,
+      confirmButtonText: reset ? "Reset & Kirim" : "Buat Akun",
+      cancelButtonText: "Batal",
+      customClass: { popup: "rounded-2xl" },
+    });
+    if (!confirm.isConfirmed) return;
+    setBusy(true);
+    try {
+      const res = await axios.post("/api/student_billing.php", { action: "issue_account", student_id: student.id, reset });
+      const acct = res.data?.data || {};
+      if (acct.status === "needs_review") {
+        const reasons = {
+          missing_valid_email: "Email siswa belum valid. Perbaiki data email siswa terlebih dahulu.",
+          email_already_registered: "Email ini sudah dipakai akun lain. Perlu review admin sebelum ditautkan.",
+        };
+        await Swal.fire({ icon: "warning", title: "Akun perlu review", text: reasons[acct.reason] || acct.reason, customClass: { popup: "rounded-2xl" } });
+      } else if (acct.delivery === "sent") {
+        await Swal.fire({ icon: "success", title: reset ? "Password direset" : "Akun siswa dibuat", html: `Kredensial login terkirim ke <b>${esc(acct.email)}</b>.`, customClass: { popup: "rounded-2xl" } });
+      } else {
+        await Swal.fire({
+          icon: "info",
+          title: reset ? "Password direset" : "Akun siswa dibuat",
+          html: `<p class="text-sm mb-3">Email kredensial belum terkirim (${acct.delivery === "failed" ? "SMTP gagal" : "SMTP belum dikonfigurasi"}). Serahkan kredensial ini langsung ke siswa. Password hanya ditampilkan sekali.</p>`
+            + `<div class="text-left text-sm bg-slate-50 border rounded-xl p-3">Email: <b>${esc(acct.email)}</b><br/>Password sementara: <code class="font-bold">${esc(acct.temporary_password)}</code></div>`,
+          customClass: { popup: "rounded-2xl" },
+        });
+      }
+      await fetchStudents(true, false);
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Gagal memproses akun", text: err?.response?.data?.message || err.message, customClass: { popup: "rounded-2xl" } });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ACCOUNT_BADGE = {
+    active: ["Aktif", "bg-emerald-50 text-emerald-700 border-emerald-200"],
+    needs_review: ["Perlu Review", "bg-amber-50 text-amber-700 border-amber-200"],
+    none: ["Belum Ada", "bg-slate-50 text-slate-500 border-slate-200"],
+  };
+
   // Adjusted columns according to requirements
   const columns = [
     { 
@@ -540,6 +594,30 @@ export default function StudentsCustomerPage() {
       accessor: "status", 
       align: "center", 
       render: (r) => <FinanceBadge status={r.status} /> 
+    },
+    {
+      header: "AKUN SISWA",
+      accessor: "accountStatus",
+      align: "center",
+      className: "w-28 min-w-[7rem]",
+      render: (r) => {
+        const [label, cls] = ACCOUNT_BADGE[r.accountStatus] || ACCOUNT_BADGE.none;
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cls}`}>{label}</span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleIssueAccount(r)}
+              className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold text-blue-700 hover:text-blue-900 disabled:opacity-50"
+              title={r.accountStatus === "none" ? "Buat akun login siswa" : "Reset password & kirim ulang kredensial"}
+            >
+              <KeyRound className="w-3 h-3" />
+              {r.accountStatus === "none" ? "Buat Akun" : "Reset"}
+            </button>
+          </div>
+        );
+      }
     },
     { 
       header: "AKSI", 
@@ -662,7 +740,7 @@ export default function StudentsCustomerPage() {
                   </button>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-300">
-                  <span>Secret Key: <code className="text-amber-300 font-mono font-bold bg-slate-900/60 px-1.5 py-0.5 rounded">CREATIVA_SYNC_SECRET_2026</code></span>
+                  <span>Secret Key: <span className="text-amber-300 font-medium">disimpan di konfigurasi server (tidak ditampilkan)</span></span>
                   <span className="text-blue-300 font-medium">Header: <code>X-Webhook-Secret</code></span>
                 </div>
               </div>

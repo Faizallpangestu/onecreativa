@@ -6,14 +6,13 @@
  *
  * Akses wajib menyertakan:
  * - ?id=<invoice_id>&token=<public_token>
- * - ATAU header X-Webhook-Secret / ?api_key=CREATIVA_SYNC_SECRET_2026
+ * - ATAU header X-Webhook-Secret / ?api_key=<CREATIVA_WEBHOOK_SECRET dari config server>
  */
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/rpa_automation.php';
 
 header('Content-Type: text/plain; charset=utf-8');
-$EXPECTED_SECRET = rpa_get_secret();
 
 $invoiceId = trim((string)($_GET['id'] ?? ''));
 $token     = trim((string)($_GET['token'] ?? ''));
@@ -26,7 +25,7 @@ if ($invoiceId === '') {
     exit;
 }
 
-$hasSecretAccess = ($apiKey !== '' && hash_equals($EXPECTED_SECRET, $apiKey));
+$hasSecretAccess = rpa_secret_matches($apiKey);
 
 if (!$hasSecretAccess && $token === '') {
     require_once __DIR__ . '/../config/session.php';

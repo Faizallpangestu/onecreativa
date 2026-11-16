@@ -3,7 +3,11 @@ import { URL } from 'node:url';
 import { chromium } from 'playwright';
 
 const PORT = Number(process.env.PORT || 3100);
-const WORKER_SECRET = process.env.WORKER_SECRET || process.env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.ONECREATIVA_WEBHOOK_SECRET || '';
+if (!WORKER_SECRET) {
+  console.error('WORKER_SECRET / ONECREATIVA_WEBHOOK_SECRET wajib diisi (lihat automation/.env.example).');
+  process.exit(1);
+}
 const ALLOWED_ORIGINS = (process.env.ALLOWED_RENDER_ORIGINS || 'https://one.creativabridging.com,http://localhost,http://127.0.0.1')
   .split(',')
   .map((s) => s.trim().replace(/\/+$/, ''))

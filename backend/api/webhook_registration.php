@@ -13,21 +13,20 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/rpa_automation.php';
 require_once __DIR__ . '/../services/registration_sync.php';
 require_once __DIR__ . '/../services/billing_invoice.php';
-
-$EXPECTED_SECRET = rpa_get_secret();
+require_once __DIR__ . '/../services/student_account.php';
 
 // 1. Health check & Documentation via GET
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $apiKey = $_GET['api_key'] ?? $_GET['secret'] ?? '';
-    $isAuthorized = ($apiKey === $EXPECTED_SECRET);
-    
-    // Hitung status integrasi saat ini
+    $apiKey = $_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['api_key'] ?? $_GET['secret'] ?? '';
+    $isAuthorized = rpa_secret_matches($apiKey);
+
+    // Statistik integrasi hanya untuk pemanggil yang terautentikasi.
     $totalPeserta = 0;
     $totalInvoices = 0;
-    if ($res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM peserta_intensif WHERE source = 'creativabridging.com'")) {
+    if ($isAuthorized && $res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM peserta_intensif WHERE source = 'creativabridging.com'")) {
         $totalPeserta = (int)(mysqli_fetch_assoc($res)['cnt'] ?? 0);
     }
-    if ($res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM billing_invoices")) {
+    if ($isAuthorized && $res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM billing_invoices")) {
         $totalInvoices = (int)(mysqli_fetch_assoc($res)['cnt'] ?? 0);
     }
 
@@ -37,19 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         'layer' => 'Layer 2 (Integrasi Pendaftaran Web & Tagihan Otomatis)',
         'target_website' => 'https://creativabridging.com',
         'authorized' => $isAuthorized,
+        'secret_configured' => rpa_secret_configured(),
         'endpoint' => 'https://one.creativabridging.com/api/webhook_registration.php',
-        'stats' => [
+        'stats' => $isAuthorized ? [
             'web_students_registered' => $totalPeserta,
             'total_billing_invoices' => $totalInvoices
-        ],
+        ] : null,
         'usage' => [
             'method' => 'POST',
             'headers' => [
                 'Content-Type' => 'application/json',
-                'X-Webhook-Secret' => 'CREATIVA_SYNC_SECRET_2026'
+                'X-Webhook-Secret' => '<secret dari Finance/Tim Dev>'
             ],
             'sample_payload' => [
-                'secret' => 'CREATIVA_SYNC_SECRET_2026',
                 'student' => [
                     'id' => 101,
                     'nama' => 'Nama Peserta',
@@ -84,12 +83,21 @@ if (!$providedSecret && !empty($body['api_key'])) {
     $providedSecret = $body['api_key'];
 }
 
-if ($providedSecret !== $EXPECTED_SECRET) {
+if (!rpa_secret_configured()) {
+    http_response_code(503);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Webhook belum dikonfigurasi: set CREATIVA_WEBHOOK_SECRET di config/rpa.local.php atau environment server.'
+    ]);
+    exit;
+}
+
+if (!rpa_secret_matches($providedSecret)) {
     http_response_code(401);
     echo json_encode([
         'status' => 'error',
         'message' => 'Unauthorized: Webhook secret tidak valid atau belum disertakan.',
-        'hint' => 'Sertakan header X-Webhook-Secret: CREATIVA_SYNC_SECRET_2026 atau ?api_key=CREATIVA_SYNC_SECRET_2026'
+        'hint' => 'Sertakan header X-Webhook-Secret dengan secret yang dibagikan Tim Dev.'
     ]);
     exit;
 }
@@ -162,6 +170,7 @@ try {
     $createdInvoices = 0;
 
     $pricingReviews = 0;
+    $createdAccounts = 0;
     $webhookActor = ['id' => 0, 'role' => 'integration', 'name' => 'Registration webhook'];
     foreach ($studentsToProcess as $p) {
         if (!is_array($p)) ac_fail('Data pendaftar tidak valid.');
@@ -254,6 +263,8 @@ try {
         $context['invoice'] = $existingInv;
         return $context;
         });
+        // Kredensial dikirim setelah transaksi pendaftaran commit; password tidak pernah masuk respons.
+        $account = sa_public(sa_deliver($conn, $webhookActor, $outcome['account'] ?? null));
         if ($outcome['student']) { if ($outcome['student_created']) $createdStudents++; else $updatedStudents++; }
         if ($outcome['pricing']['status'] === 'needs_review') $pricingReviews++;
         $result = $outcome['api_result'] ?? [
@@ -264,6 +275,8 @@ try {
             'nominal' => null, 'due_now_nominal' => null, 'installments' => [],
             'pricing_status' => 'needs_review', 'pricing_reason' => $outcome['pricing']['reason'],
         ];
+        $result['account'] = $account;
+        if (($account['status'] ?? '') === 'created') $createdAccounts++;
         if ($result['invoice_created_now']) $createdInvoices++;
         $results[] = $result;
     }
@@ -276,6 +289,7 @@ try {
             'students_created' => $createdStudents,
             'students_updated' => $updatedStudents,
             'invoices_created' => $createdInvoices,
+            'accounts_created' => $createdAccounts,
             'pricing_needs_review' => $pricingReviews
         ],
         'data' => $results

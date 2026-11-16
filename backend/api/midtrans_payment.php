@@ -91,8 +91,7 @@ if (!$state) {
 
 $invoice = $state['invoice'];
 $storedToken = trim((string)($invoice['public_token'] ?? ''));
-$expectedSecret = rpa_get_secret();
-$hasSecretAccess = ($apiKey !== '' && hash_equals($expectedSecret, $apiKey));
+$hasSecretAccess = rpa_secret_matches($apiKey);
 $hasTokenAccess = ($token !== '' && $storedToken !== '' && hash_equals($storedToken, $token));
 
 if (!$hasSecretAccess && !$hasTokenAccess) {

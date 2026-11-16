@@ -6,7 +6,11 @@
  */
 
 define('N8N_RECEIPT_WEBHOOK_URL', 'https://n8n.domain-anda.com/webhook/creativa-phase2-receipt');
-define('CREATIVA_WEBHOOK_SECRET', 'CREATIVA_SYNC_SECRET_2026');
+// WAJIB diisi. Tanpa nilai ini semua endpoint berbasis secret menolak akses (fail closed).
+// Buat secret acak, mis.: php -r "echo bin2hex(random_bytes(32));"
+define('CREATIVA_WEBHOOK_SECRET', '');
+// Opsional: API key endpoint creativabridging.com/api_peserta.php (default memakai CREATIVA_WEBHOOK_SECRET).
+define('CREATIVABRIDGING_API_KEY', '');
 define('CREATIVA_PUBLIC_STATUS_BASE_URL', 'https://creativabridging.com/status-pendaftaran');
 
 // RPA Fase 3: Midtrans Payment Gateway (QRIS & Virtual Account Auto-Reconcile)

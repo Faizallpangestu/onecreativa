@@ -101,6 +101,7 @@ try {
     $inserted = 0;
     $updated = 0;
     $createdInvoices = 0;
+    $verifiedPayments = 0;
     rpa_ensure_billing_columns($conn);
     rpa_ensure_automation_logs_table($conn);
     rpa_ensure_processed_table($conn);
@@ -131,11 +132,15 @@ try {
         if ($metodePembayaran === '') {
             if (stripos($program, 'cicil') !== false) {
                 $metodePembayaran = 'Cicilan';
-            } elseif (stripos($program, 'full') !== false) {
+            } else {
                 $metodePembayaran = 'Full Payment';
             }
         }
+        $isCicilanStudent = (stripos($metodePembayaran, 'cicil') !== false || stripos($metodePembayaran, 'dp') !== false);
         $totalBiaya = (float)($p['total_biaya'] ?? $details['total_biaya'] ?? 0);
+        if ($totalBiaya <= 0) {
+            $totalBiaya = $isCicilanStudent ? 15000000.00 : 12000000.00;
+        }
 
         $rawStatus = trim((string)($p['status'] ?? 'Aktif'));
         $status = ($rawStatus === 'Pembayaran' || $rawStatus === 'Pending') ? 'Menunggu Pembayaran' : ($rawStatus ?: 'Aktif');
@@ -187,6 +192,145 @@ try {
             $inserted++;
         }
 
+        // ── Inisialisasi Password Login Siswa di Web Creativa jika belum ada ──
+        if (empty($p['password_hash']) && $rawId > 0) {
+            $setPassCh = curl_init("https://creativabridging.com/api/index.php?table=participants&id={$rawId}");
+            curl_setopt_array($setPassCh, [
+                CURLOPT_CUSTOMREQUEST => 'PUT',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 3,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_POSTFIELDS => json_encode(['password' => 'Creativa2026!'])
+            ]);
+            @curl_exec($setPassCh);
+            @curl_close($setPassCh);
+        }
+
+        // ── DETEKSI BUKTI TRANSFER & AUTO-VERIFIKASI PEMBAYARAN RPA (FASE 2) ──
+        $feeProofUrl = trim((string)($p['fee_proof_url'] ?? $details['fee_proof_url'] ?? ''));
+        $feeStatus = trim((string)($p['fee_status'] ?? $details['fee_status'] ?? ''));
+        $paymentDateRaw = trim((string)($p['payment_date'] ?? $details['payment_date'] ?? ''));
+        $paymentNotes = trim((string)($p['payment_notes'] ?? $details['payment_notes'] ?? ''));
+        $feeAmount = (float)($p['fee_amount'] ?? $details['fee_amount'] ?? 0);
+
+        if (!empty($feeProofUrl) || stripos($feeStatus, 'verifikasi') !== false || stripos($feeStatus, 'lunas') !== false) {
+            $webIdLike = '%"web_id":' . $rawId . '%';
+            $invFindStmt = $conn->prepare("SELECT * FROM billing_invoices WHERE (meta_json LIKE ? OR email = ? OR customer = ?) ORDER BY id DESC LIMIT 1");
+            $invFindStmt->bind_param("sss", $webIdLike, $email, $name);
+            $invFindStmt->execute();
+            $targetInvoice = $invFindStmt->get_result()->fetch_assoc();
+            $invFindStmt->close();
+
+            if ($targetInvoice) {
+                $targetInvId = (string)$targetInvoice['id'];
+                $proofCheck = $feeProofUrl !== '' ? basename($feeProofUrl) : '';
+                $alreadyPaid = false;
+
+                if ($proofCheck !== '') {
+                    $chkStmt = $conn->prepare("SELECT id FROM billing_pembayaran WHERE noInv = ? AND (proof_path LIKE ? OR (external_ref = ? AND external_ref <> '')) LIMIT 1");
+                    $proofPattern = '%' . $proofCheck . '%';
+                    $chkStmt->bind_param("sss", $targetInvId, $proofPattern, $paymentNotes);
+                    $chkStmt->execute();
+                    $alreadyPaid = (bool)$chkStmt->get_result()->fetch_assoc();
+                    $chkStmt->close();
+                }
+
+                if (!$alreadyPaid && (!empty($feeProofUrl) || $feeAmount > 0)) {
+                    $amtPaid = $feeAmount > 0 ? $feeAmount : 5000000.00;
+                    $payDate = date('Y-m-d');
+                    $payTime = date('H:i');
+                    if ($paymentDateRaw !== '') {
+                        $tsPay = strtotime($paymentDateRaw);
+                        if ($tsPay !== false && $tsPay > 0) {
+                            $payDate = date('Y-m-d', $tsPay);
+                            $payTime = date('H:i', $tsPay);
+                        }
+                    }
+
+                    // Unduh foto bukti transfer ke storage lokal One-Creativa
+                    $localProofPath = null;
+                    if ($feeProofUrl !== '') {
+                        $fullRemoteUrl = (strpos($feeProofUrl, 'http://') === 0 || strpos($feeProofUrl, 'https://') === 0)
+                            ? $feeProofUrl
+                            : ('https://creativabridging.com/' . ltrim($feeProofUrl, '/'));
+
+                        $ext = pathinfo(parse_url($fullRemoteUrl, PHP_URL_PATH), PATHINFO_EXTENSION);
+                        if (!in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'webp', 'pdf'])) {
+                            $ext = 'jpg';
+                        }
+                        if (strtolower($ext) === 'jpeg') $ext = 'jpg';
+
+                        $localFileName = md5(uniqid('rpa_proof_', true)) . '.' . $ext;
+                        $uploadDir = realpath(__DIR__ . '/../uploads/payment_proofs');
+                        if (!$uploadDir) {
+                            $uploadDir = __DIR__ . '/../uploads/payment_proofs';
+                            @mkdir($uploadDir, 0777, true);
+                        }
+                        $targetLocalFile = $uploadDir . '/' . $localFileName;
+
+                        $chDl = curl_init($fullRemoteUrl);
+                        curl_setopt_array($chDl, [
+                            CURLOPT_RETURNTRANSFER => true,
+                            CURLOPT_TIMEOUT => 10,
+                            CURLOPT_SSL_VERIFYPEER => false
+                        ]);
+                        $imgData = curl_exec($chDl);
+                        curl_close($chDl);
+
+                        if ($imgData !== false && strlen($imgData) > 50) {
+                            file_put_contents($targetLocalFile, $imgData);
+                            $localProofPath = 'payment_proofs/' . $localFileName;
+                        }
+                    }
+
+                    // Hitung total terbayar sebelumnya
+                    $sumStmt = $conn->prepare("SELECT COALESCE(SUM(jumlah), 0) AS total_paid FROM billing_pembayaran WHERE noInv = ? AND LOWER(TRIM(statusVerif)) IN ('terverifikasi', 'verified')");
+                    $sumStmt->bind_param("s", $targetInvId);
+                    $sumStmt->execute();
+                    $prevPaid = (float)($sumStmt->get_result()->fetch_assoc()['total_paid'] ?? 0);
+                    $sumStmt->close();
+
+                    $newTotalPaid = $prevPaid + $amtPaid;
+                    $invTotal = (float)$targetInvoice['total'];
+                    $remaining = max(0, $invTotal - $newTotalPaid);
+                    $newInvStatus = ($remaining <= 0.01) ? 'Paid' : 'Partially Paid';
+
+                    // Simpan pembayaran terverifikasi ke billing_pembayaran
+                    $insPay = $conn->prepare("INSERT INTO billing_pembayaran (noInv, tglBayar, customer, metode, jumlah, sisa, statusVerif, proof_path, external_ref, created_at) VALUES (?, ?, ?, 'Transfer Bank BCA', ?, ?, 'Terverifikasi', ?, ?, NOW())");
+                    $payCustomer = $targetInvoice['customer'] ?: $name;
+                    $refStr = $paymentNotes ?: ("Transfer DP Cicilan 1 | Jam: " . $payTime);
+                    $insPay->bind_param("sssddss", $targetInvId, $payDate, $payCustomer, $amtPaid, $remaining, $localProofPath, $refStr);
+                    $insPay->execute();
+                    $newPaymentId = (int)$conn->insert_id;
+                    $insPay->close();
+
+                    // Perbarui status invoice di billing_invoices
+                    $updInv = $conn->prepare("UPDATE billing_invoices SET status = ? WHERE id = ?");
+                    $updInv->bind_param("ss", $newInvStatus, $targetInvId);
+                    $updInv->execute();
+                    $updInv->close();
+
+                    // Picu otomatis penerbitan Receipt/Kwitansi Resmi & kirim Email + WA
+                    rpa_trigger_receipt_automation(
+                        $conn,
+                        $targetInvoice,
+                        $newPaymentId,
+                        $amtPaid,
+                        $newTotalPaid,
+                        $remaining,
+                        $newInvStatus,
+                        $payDate,
+                        'Transfer Bank BCA',
+                        $payCustomer
+                    );
+
+                    // Sinkronisasi status cicilan ke Student Dashboard creativabridging.com
+                    rpa_sync_payment_to_remote_student_dashboard($rawId, $targetInvId, $amtPaid);
+                    $verifiedPayments++;
+                }
+            }
+        }
+
         // ── Auto-Generate Invoice di billing_invoices HANYA UNTUK PENDAFTAR TERBARU ──
         // Jika web_id sudah pernah diproses oleh robot (baik invoicenya masih ada atau telah dihapus admin),
         // JANGAN PERNAH dibuat ulang (mencegah data yang sudah dihapus muncul kembali)!
@@ -215,8 +359,8 @@ try {
         $checkInvStmt->close();
 
         if (!$invFound && $isNewApplicant) {
-            $isCicilan = (stripos($metodePembayaran, 'cicil') !== false || stripos($metodePembayaran, 'dp') !== false || stripos($program, 'intensif') !== false);
-            $finalTotal = $totalBiaya > 0 ? (float)$totalBiaya : 15000000.00;
+            $isCicilan = (stripos($metodePembayaran, 'cicil') !== false || stripos($metodePembayaran, 'dp') !== false);
+            $finalTotal = $totalBiaya > 0 ? (float)$totalBiaya : ($isCicilan ? 15000000.00 : 12000000.00);
             $metodeLabel = $isCicilan ? 'Cicilan' : 'Full Payment';
             $keterangan = "{$program} ({$metodeLabel})";
 
@@ -361,11 +505,12 @@ try {
 
     echo json_encode([
         'status' => 'success',
-        'message' => "Data siswa dan invoice berhasil disinkronkan. $inserted siswa ditambahkan, $updated siswa diperbarui, dan $createdInvoices invoice otomatis dibuat.",
+        'message' => "Data siswa dan invoice berhasil disinkronkan. $inserted siswa ditambahkan, $updated siswa diperbarui, $createdInvoices invoice dibuat, dan $verifiedPayments pembayaran diverifikasi.",
         'total' => count($allStudents),
         'inserted' => $inserted,
         'updated' => $updated,
         'created_invoices' => $createdInvoices,
+        'verified_payments' => $verifiedPayments,
         'students' => $allStudents
     ], JSON_UNESCAPED_UNICODE);
 

@@ -15,7 +15,7 @@ import {
   ShieldCheck, Hourglass, ArrowRight, Pencil, Phone, X,
   Building2, Hash, CalendarDays, Banknote, Tag, PieChart,
   Settings, CheckSquare, Square, Printer, Check, PlusCircle, Sparkles, HelpCircle,
-  Image as ImageIcon, ExternalLink, ZoomIn, FileCheck, UploadCloud, QrCode, Link2
+  Image as ImageIcon, ExternalLink, ZoomIn, FileCheck, UploadCloud, QrCode, Link2, Copy, Key
 } from "lucide-react";
 
 const formatRp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
@@ -300,7 +300,12 @@ const STATUS_INV = {
   "Belum Dibayar": "bg-rose-50 text-rose-600 border border-rose-200",
   "Belum Lunas": "bg-rose-50 text-rose-600 border border-rose-200"
 };
-const STATUS_KIRIM = { "Terkirim": "bg-emerald-100 text-emerald-700", "Gagal": "bg-red-100 text-red-600" };
+const STATUS_KIRIM = { 
+  "Terkirim": "bg-emerald-100 text-emerald-700 border border-emerald-200", 
+  "Gagal": "bg-red-100 text-red-600 border border-red-200",
+  "Siap Kirim": "bg-amber-100 text-amber-800 border border-amber-200",
+  "Menunggu Bot": "bg-amber-100 text-amber-800 border border-amber-200"
+};
 const STATUS_BACA = { "Dibaca": "bg-blue-100 text-blue-700", "Pending": "bg-amber-100 text-amber-700", "–": "bg-slate-100 text-slate-400" };
 const STATUS_VERIF = { "Terverifikasi": "bg-emerald-100 text-emerald-700", "Menunggu": "bg-amber-100 text-amber-700" };
 const STATUS_SISWA = { "Prioritas": "bg-violet-100 text-violet-700", "Aktif": "bg-emerald-100 text-emerald-700", "Menunggak": "bg-red-100 text-red-600", "Baru": "bg-blue-100 text-blue-700" };
@@ -3555,7 +3560,7 @@ function Pager({ page, totalPages, setPage, total, perPage }) {
 
 
 // ─── TAB 0: Daftar Invoice (MATCHING BLUEPRINT PANEL 1) ───────────────────────
-function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onApprovePayment, onPaymentProofSaved }) {
+function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onApprovePayment, onPaymentProofSaved, isReadOnly = false }) {
   const [statusFilter, setStatusFilter] = useState("Semua Status");
   const [programFilter, setProgramFilter] = useState("Semua Program");
   const [search, setSearch] = useState("");
@@ -3720,7 +3725,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
         <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-3.5 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs">
             <Calendar className="w-3.5 h-3.5 text-blue-600" />
-            <span>01/08/2026 – 31/08/2026</span>
+            <span>Semua Periode Invoice</span>
           </div>
 
           <select
@@ -3997,14 +4002,16 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
                             </button>
 
                             {/* Hapus Invoice Button */}
-                            <button
-                              type="button"
-                              onClick={() => setDelItem(inv)}
-                              title="Hapus Invoice"
-                              className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!isReadOnly && (
+                              <button
+                                type="button"
+                                onClick={() => setDelItem(inv)}
+                                title="Hapus Invoice"
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -4077,7 +4084,7 @@ function TabDaftarInvoice({ data = [], onDelete, dataSiswa = [], onRefresh, onAp
 }
 
 // ─── TAB 1: Invoice Terkirim ──────────────────────────────────────────────────
-function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
+function TabInvoiceTerkirim({ data, onDelete, onRefresh, isReadOnly = false }) {
   const [kanal, setKanal] = useState("Semua Kanal");
   const [status, setStatus] = useState("Semua Status");
   const [search, setSearch] = useState("");
@@ -4137,7 +4144,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 font-semibold">Tanggal Kirim</label>
           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>01/05/2024</span><span className="text-slate-400">–</span><span>31/05/2024</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>Semua Periode Pengiriman</span>
           </div>
         </div>
         <div className="flex flex-col gap-1">
@@ -4246,8 +4253,10 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
                       className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition"><Download className="w-4 h-4" /></button>
-                    <button onClick={() => setDelItem(r)} title="Hapus"
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>
+                    {!isReadOnly && (
+                      <button onClick={() => setDelItem(r)} title="Hapus"
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -4261,7 +4270,7 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh }) {
 }
 
 // ─── TAB 2: Pembayaran ────────────────────────────────────────────────────────
-function TabPembayaran({ data, onDelete }) {
+function TabPembayaran({ data, onDelete, isReadOnly = false }) {
   const [metode, setMetode] = useState("Semua Metode");
   const [status, setStatus] = useState("Semua Status");
   const [search, setSearch] = useState("");
@@ -4334,7 +4343,7 @@ function TabPembayaran({ data, onDelete }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 font-semibold">Tanggal Bayar</label>
           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-sm text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>01/05/2024</span><span className="text-slate-400">–</span><span>31/05/2024</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" /><span>Semua Periode Pengiriman</span>
           </div>
         </div>
         <div className="flex flex-col gap-1">
@@ -4412,8 +4421,10 @@ function TabPembayaran({ data, onDelete }) {
                       className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition cursor-pointer"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => handleDownload(r)} title="Download CSV"
                       className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition cursor-pointer"><Download className="w-4 h-4" /></button>
-                    <button onClick={() => setDelItem(r)} title="Hapus"
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                    {!isReadOnly && (
+                      <button onClick={() => setDelItem(r)} title="Hapus"
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -4427,7 +4438,7 @@ function TabPembayaran({ data, onDelete }) {
 }
 
 // ─── TAB 3: Siswa ─────────────────────────────────────────────────────────────
-function TabSiswa({ data, onDelete }) {
+function TabSiswa({ data, onDelete, isReadOnly = false }) {
   const [statusF, setStatusF] = useState("Semua Status");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -4576,8 +4587,10 @@ function TabSiswa({ data, onDelete }) {
                           className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-500 hover:text-violet-600 transition cursor-pointer"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => handleDownload(r)} title="Download CSV"
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition cursor-pointer"><Download className="w-4 h-4" /></button>
-                        <button onClick={() => setDelItem(r)} title="Hapus"
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                        {!isReadOnly && (
+                          <button onClick={() => setDelItem(r)} title="Hapus"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -4643,9 +4656,476 @@ const RPA_STAGE_LABELS = {
   phase3_midtrans_webhook: { label: "Fase 3: Webhook Midtrans", cls: "bg-violet-50 text-violet-700 border-violet-200" },
 };
 
+function ModalPengaturanGateway({ isOpen, onClose, onSaved }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testingMt, setTestingMt] = useState(false);
+  const [testingN8n, setTestingN8n] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const [isProduction, setIsProduction] = useState(false);
+  const [serverKey, setServerKey] = useState("");
+  const [clientKey, setClientKey] = useState("");
+  const [merchantId, setMerchantId] = useState("");
+  const [n8nUrl, setN8nUrl] = useState("");
+  const [fonnteToken, setFonnteToken] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("https://one.creativabridging.com/api/midtrans_webhook.php");
+  const [showKey, setShowKey] = useState(false);
+
+  const [testResultMt, setTestResultMt] = useState(null);
+  const [testResultN8n, setTestResultN8n] = useState(null);
+  const [testResultWa, setTestResultWa] = useState(null);
+  const [testingWa, setTestingWa] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    setLoading(true);
+    setTestResultMt(null);
+    setTestResultN8n(null);
+    setTestResultWa(null);
+    axios.get("/api/rpa_config.php")
+      .then((res) => {
+        if (!isMounted) return;
+        const d = res.data?.data || {};
+        setIsProduction(Boolean(d.midtrans_is_production));
+        setServerKey(d.midtrans_server_key_masked || "");
+        setClientKey(d.midtrans_client_key || "");
+        setMerchantId(d.midtrans_merchant_id || "");
+        setN8nUrl(d.n8n_receipt_webhook_url || "");
+        setFonnteToken(d.fonnte_token_masked || "");
+        if (d.midtrans_webhook_url) setWebhookUrl(d.midtrans_webhook_url);
+      })
+      .catch((err) => {
+        console.error("Gagal memuat konfigurasi RPA/Midtrans:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => { isMounted = false; };
+  }, [isOpen]);
+
+  const handleCopyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleTestMidtrans = async () => {
+    setTestingMt(true);
+    setTestResultMt(null);
+    try {
+      const res = await axios.post("/api/rpa_config.php", {
+        action: "test_midtrans",
+        midtrans_server_key: serverKey,
+        midtrans_is_production: isProduction
+      });
+      setTestResultMt({ status: "success", message: res.data?.message || "Koneksi Midtrans valid!" });
+    } catch (err) {
+      setTestResultMt({
+        status: "error",
+        message: err.response?.data?.message || err.message || "Gagal terhubung ke Midtrans API"
+      });
+    } finally {
+      setTestingMt(false);
+    }
+  };
+
+  const handleTestN8n = async () => {
+    setTestingN8n(true);
+    setTestResultN8n(null);
+    try {
+      const res = await axios.post("/api/rpa_config.php", {
+        action: "test_n8n",
+        n8n_receipt_webhook_url: n8nUrl
+      });
+      setTestResultN8n({ status: "success", message: res.data?.message || "Webhook n8n terhubung!" });
+    } catch (err) {
+      setTestResultN8n({
+        status: "error",
+        message: err.response?.data?.message || err.message || "Gagal terhubung ke webhook n8n"
+      });
+    } finally {
+      setTestingN8n(false);
+    }
+  };
+
+  const handleTestWa = async () => {
+    setTestingWa(true);
+    setTestResultWa(null);
+    try {
+      const res = await axios.post("/api/rpa_config.php", {
+        action: "test_wa",
+        wa_provider: "fonnte",
+        fonnte_token: fonnteToken
+      });
+      setTestResultWa({ status: "success", message: res.data?.message || "Koneksi WhatsApp Gateway valid!" });
+    } catch (err) {
+      setTestResultWa({
+        status: "error",
+        message: err.response?.data?.message || err.message || "Gagal menghubungkan WhatsApp Gateway"
+      });
+    } finally {
+      setTestingWa(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await axios.post("/api/rpa_config.php", {
+        action: "save",
+        midtrans_server_key: serverKey,
+        midtrans_client_key: clientKey,
+        midtrans_merchant_id: merchantId,
+        midtrans_is_production: isProduction,
+        n8n_receipt_webhook_url: n8nUrl,
+        fonnte_token: fonnteToken
+      });
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil Disimpan",
+        text: res.data?.message || "Pengaturan Midtrans Gateway, n8n, dan WhatsApp Bot berhasil disimpan!",
+        confirmButtonColor: "#059669",
+        timer: 2000,
+      });
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Menyimpan",
+        text: err.response?.data?.message || err.message || "Terjadi kesalahan saat menyimpan pengaturan.",
+        confirmButtonColor: "#ef4444",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8">
+        {/* Header */}
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+              <Settings className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black">Pengaturan Payment Gateway &amp; n8n</h3>
+              <p className="text-xs text-blue-200">Konfigurasi Midtrans QRIS/VA dan Webhook Otomasi Receipt</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white flex items-center justify-center transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        {loading ? (
+          <div className="p-12 text-center text-slate-500 space-y-3">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-600" />
+            <p className="text-xs font-semibold">Memuat data konfigurasi...</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+            {/* SECTION 1: MIDTRANS */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">1. Midtrans Payment Gateway (QRIS &amp; Virtual Account)</h4>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                  isProduction ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                }`}>
+                  {isProduction ? "Mode: Production (Live)" : "Mode: Sandbox (Testing)"}
+                </span>
+              </div>
+
+              {/* Mode Toggle */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Environment Midtrans</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsProduction(false)}
+                    className={`p-3 rounded-xl border text-left transition flex items-center gap-3 ${
+                      !isProduction ? "border-blue-500 bg-blue-50/70 ring-1 ring-blue-400" : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      !isProduction ? "border-blue-600" : "border-slate-400"
+                    }`}>
+                      {!isProduction && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-slate-900">Sandbox (Uji Coba)</div>
+                      <div className="text-[10px] text-slate-500">Key diawali `SB-Mid-server-...`</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsProduction(true)}
+                    className={`p-3 rounded-xl border text-left transition flex items-center gap-3 ${
+                      isProduction ? "border-purple-500 bg-purple-50/70 ring-1 ring-purple-400" : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      isProduction ? "border-purple-600" : "border-slate-400"
+                    }`}>
+                      {isProduction && <div className="w-2 h-2 rounded-full bg-purple-600" />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-purple-900">Production (Transaksi Nyata)</div>
+                      <div className="text-[10px] text-purple-700">Key diawali `Mid-server-...`</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Server Key */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">Midtrans Server Key *</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="text-[11px] font-bold text-blue-600 hover:underline"
+                  >
+                    {showKey ? "Sembunyikan" : "Tampilkan Key"}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Key className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showKey ? "text" : "password"}
+                    value={serverKey}
+                    onChange={(e) => setServerKey(e.target.value)}
+                    placeholder={isProduction ? "Mid-server-..." : "SB-Mid-server-..."}
+                    className="w-full pl-9 pr-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none"
+                    required
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Dapatkan di Midtrans Dashboard &rarr; Settings &rarr; Access Keys &rarr; Server Key</p>
+              </div>
+
+              {/* Client Key & Merchant ID */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Midtrans Client Key</label>
+                  <input
+                    type="text"
+                    value={clientKey}
+                    onChange={(e) => setClientKey(e.target.value)}
+                    placeholder={isProduction ? "Mid-client-..." : "SB-Mid-client-..."}
+                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Merchant ID <span className="text-slate-400 font-normal">(Opsional)</span></label>
+                  <input
+                    type="text"
+                    value={merchantId}
+                    onChange={(e) => setMerchantId(e.target.value)}
+                    placeholder="G123456789"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Midtrans Payment Notification URL */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-slate-600">Payment Notification URL (Midtrans Webhook)</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyWebhook}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800"
+                  >
+                    <Copy className="w-3 h-3" />
+                    {copied ? "Tersalin!" : "Salin URL"}
+                  </button>
+                </div>
+                <div className="bg-white p-2 rounded-lg border border-slate-200 font-mono text-[11px] text-slate-800 break-all select-all">
+                  {webhookUrl}
+                </div>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  📌 <strong>Penting:</strong> Salin URL di atas dan tempelkan di <em>Midtrans Dashboard &rarr; Settings &rarr; Configuration &rarr; Payment Notification URL</em>. Saat calon siswa membayar lewat QRIS atau VA, Midtrans akan memanggil webhook ini secara otomatis untuk mengesahkan pembayaran &amp; menerbitkan kwitansi.
+                </p>
+              </div>
+
+              {/* Uji Koneksi Midtrans */}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestMidtrans}
+                  disabled={testingMt || !serverKey}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-50 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${testingMt ? "animate-spin" : ""}`} />
+                  {testingMt ? "Menguji Koneksi..." : "Uji Koneksi Midtrans"}
+                </button>
+                {testResultMt && (
+                  <span className={`text-xs font-bold flex items-center gap-1 ${
+                    testResultMt.status === "success" ? "text-emerald-600" : "text-rose-600"
+                  }`}>
+                    {testResultMt.status === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    {testResultMt.message}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION 2: N8N WEBHOOK */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">2. Otomasi Webhook n8n (Fase 2 - Receipt Delivery)</h4>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">URL Webhook Receipt n8n</label>
+                <input
+                  type="url"
+                  value={n8nUrl}
+                  onChange={(e) => setN8nUrl(e.target.value)}
+                  placeholder="https://rpa.creativabridging.com/webhook/creativa-phase2-receipt"
+                  className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:border-indigo-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                  💡 <strong>Catatan:</strong> Jika n8n dijalankan di komputer lokal (<code>http://localhost:5678</code>), server cloud Hostinger tidak dapat menjangkaunya secara langsung. Gunakan webhook n8n Cloud / Cloudflare Tunnel / ngrok, <em>ATAU</em> biarkan kosong — sistem Creativa secara otomatis mengirimkan Kwitansi (Receipt) resmi PDF via Email SMTP Hostinger &amp; WhatsApp Bot secara mandiri tanpa memerlukan n8n.
+                </p>
+              </div>
+
+              {/* Uji Webhook n8n */}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestN8n}
+                  disabled={testingN8n || !n8nUrl}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-50 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${testingN8n ? "animate-spin" : ""}`} />
+                  {testingN8n ? "Menguji Webhook..." : "Uji Webhook n8n"}
+                </button>
+                {testResultN8n && (
+                  <span className={`text-xs font-bold flex items-center gap-1 ${
+                    testResultN8n.status === "success" ? "text-emerald-600" : "text-rose-600"
+                  }`}>
+                    {testResultN8n.status === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    {testResultN8n.message}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION 3: WHATSAPP BOT & GATEWAY (FONNTE / WABLAS) */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">3. WhatsApp Bot Otomatis 24/7 (Fonnte Gateway / Cloud)</h4>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  Rekomendasi
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Token API Fonnte WhatsApp</label>
+                  <a
+                    href="https://fonnte.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 hover:underline flex items-center gap-1"
+                  >
+                    Daftar Akun Fonnte (Gratis) <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <input
+                  type="text"
+                  value={fonnteToken}
+                  onChange={(e) => setFonnteToken(e.target.value)}
+                  placeholder="Contoh: aBcDeFgHiJkLmNoP123456"
+                  className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:border-emerald-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                  📱 <strong>Cara Kerja:</strong> Dengan mengisi Token Fonnte, sistem akan mengirim WhatsApp secara <strong>100% otomatis detik itu juga</strong> saat calon siswa mendaftar di web, 24 jam nonstop dari server Hostinger tanpa memerlukan komputer/laptop kantor menyala! Cukup login ke <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline font-semibold">fonnte.com</a> &rarr; Scan QR di menu Device &rarr; Salin Token ke kolom di atas.
+                </p>
+              </div>
+
+              {/* Uji Koneksi WhatsApp */}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestWa}
+                  disabled={testingWa || !fonnteToken}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-50 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${testingWa ? "animate-spin" : ""}`} />
+                  {testingWa ? "Memeriksa Status..." : "Uji Koneksi WhatsApp"}
+                </button>
+                {testResultWa && (
+                  <span className={`text-xs font-bold flex items-center gap-1 ${
+                    testResultWa.status === "success" ? "text-emerald-600" : "text-rose-600"
+                  }`}>
+                    {testResultWa.status === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    {testResultWa.message}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-200 disabled:opacity-50 transition cursor-pointer"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    Simpan Pengaturan
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TabRiwayatRpa({ logs = [], rpaStatus = {}, invoices = [], onRefresh }) {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("ALL");
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const invoiceUrlMap = new Map();
   invoices.forEach((inv) => {
@@ -4669,21 +5149,51 @@ function TabRiwayatRpa({ logs = [], rpaStatus = {}, invoices = [], onRefresh }) 
 
   return (
     <div className="p-5 space-y-5">
+      <ModalPengaturanGateway
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        onSaved={onRefresh}
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <div className={`rounded-xl border p-3.5 ${rpaStatus.midtrans_enabled ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"}`}>
-          <div className="text-[11px] font-bold uppercase text-slate-500">Gateway Midtrans QRIS/VA</div>
+        <div
+          onClick={() => setShowConfigModal(true)}
+          className={`rounded-xl border p-3.5 cursor-pointer transition hover:shadow-md ${
+            rpaStatus.midtrans_enabled ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-bold uppercase text-slate-500">Gateway Midtrans QRIS/VA</div>
+            <Settings className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+          </div>
           <div className={`text-sm font-extrabold mt-1 ${rpaStatus.midtrans_enabled ? "text-emerald-700" : "text-amber-700"}`}>
             {rpaStatus.midtrans_enabled
               ? (rpaStatus.midtrans_is_production ? "Aktif (Production)" : "Aktif (Sandbox Test)")
               : "Belum Diaktifkan"}
           </div>
+          <div className="text-[10px] font-bold text-blue-600 hover:underline mt-1">
+            {rpaStatus.midtrans_enabled ? "Ubah Pengaturan \u2192" : "Atur / Aktifkan \u2192"}
+          </div>
         </div>
-        <div className={`rounded-xl border p-3.5 ${rpaStatus.n8n_receipt_configured ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"}`}>
-          <div className="text-[11px] font-bold uppercase text-slate-500">Webhook Receipt (n8n Fase 2)</div>
+
+        <div
+          onClick={() => setShowConfigModal(true)}
+          className={`rounded-xl border p-3.5 cursor-pointer transition hover:shadow-md ${
+            rpaStatus.n8n_receipt_configured ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-bold uppercase text-slate-500">Webhook Receipt (n8n Fase 2)</div>
+            <Settings className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+          </div>
           <div className={`text-sm font-extrabold mt-1 ${rpaStatus.n8n_receipt_configured ? "text-emerald-700" : "text-amber-700"}`}>
             {rpaStatus.n8n_receipt_configured ? "Terhubung" : "Belum Diatur"}
           </div>
+          <div className="text-[10px] font-bold text-blue-600 hover:underline mt-1">
+            {rpaStatus.n8n_receipt_configured ? "Ubah URL \u2192" : "Atur URL Webhook \u2192"}
+          </div>
         </div>
+
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
           <div className="text-[11px] font-bold uppercase text-slate-500">Log Eksekusi Sukses</div>
           <div className="text-lg font-extrabold text-emerald-600 mt-0.5">{successCount} Event</div>
@@ -4720,13 +5230,23 @@ function TabRiwayatRpa({ logs = [], rpaStatus = {}, invoices = [], onRefresh }) 
             <option value="phase3_midtrans_webhook">Fase 3: Webhook Midtrans</option>
           </select>
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> Muat Ulang Log
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowConfigModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-xs font-bold text-blue-700 cursor-pointer shadow-xs transition"
+          >
+            <Settings className="w-3.5 h-3.5" /> Pengaturan Gateway &amp; n8n
+          </button>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer shadow-xs transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Muat Ulang Log
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto border border-slate-200 rounded-2xl">
@@ -4930,36 +5450,87 @@ function syncTerkirimWithInvoices(currentInvoices, existingTerkirim = []) {
   if (!Array.isArray(currentInvoices)) return existingTerkirim || [];
 
   const savedTerkirim = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('saved_custom_terkirim') || '[]') : [];
+  const result = [];
+  const processedKeys = new Set();
 
-  return currentInvoices.map((inv, idx) => {
+  // 1. Masukkan riwayat pengiriman aktual dari database server jika ada
+  if (Array.isArray(existingTerkirim) && existingTerkirim.length > 0) {
+    existingTerkirim.forEach(t => {
+      if (!t) return;
+      const tId = String(t.id || t.noInv || '');
+      const kanal = (t.kanal || 'WhatsApp').toLowerCase();
+      const matchedInv = currentInvoices.find(inv => inv.id === t.noInv || inv.id === t.id || tId.startsWith(inv.id));
+      
+      const entryId = t.id || (t.noInv ? `${t.noInv}-${t.kanal}` : Math.random().toString());
+      result.push({
+        ...t,
+        id: entryId,
+        noInv: t.noInv || (matchedInv ? matchedInv.id : t.id),
+        customer: t.customer || (matchedInv ? matchedInv.customer : 'Siswa LPK'),
+        nominal: Number(t.nominal || matchedInv?.total || 0),
+        terbayar: Number(t.terbayar || matchedInv?.terbayar || 0),
+        sisa: Number(t.sisa || matchedInv?.sisa || 0),
+        statusInvoice: normalizeFinanceStatus(t.statusInvoice || matchedInv?.status || 'Unpaid'),
+        program: t.program || matchedInv?.program || matchedInv?.keterangan || 'Kelas Intensif Offline'
+      });
+
+      const invKey = (t.noInv || (matchedInv ? matchedInv.id : t.id));
+      if (invKey) {
+        processedKeys.add(`${invKey}_${kanal}`);
+      }
+    });
+  }
+
+  // 2. Pastikan setiap invoice memiliki baris rekaman Email & WhatsApp secara proporsional
+  currentInvoices.forEach(inv => {
     const customMatch = savedTerkirim.find(t => t.id === inv.id || t.noInv === inv.id);
-    const existingMatch = Array.isArray(existingTerkirim) ? existingTerkirim.find(t => t.id === inv.id || t.noInv === inv.id) : null;
-    const base = customMatch || existingMatch || {};
-
     const cleanEmail = inv.email && inv.email !== '-'
       ? inv.email
       : `${(inv.customer || 'siswa').toLowerCase().replace(/\s+/g, '.')}@gmail.com`;
     const cleanPhone = inv.phone && inv.phone !== '-' ? inv.phone : (inv.customer?.toLowerCase().includes("nova") ? "0813-9988-7766" : "0812-7788-9900");
-    const defaultKanal = (inv.customer?.toLowerCase().includes("nova") || inv.phone) ? "WhatsApp" : (idx % 2 === 0 ? "Email" : "WhatsApp");
-    const chosenKanal = base.kanal || defaultKanal;
-    const penerima = base.penerima || (chosenKanal === 'WhatsApp' ? cleanPhone : cleanEmail);
 
-    return {
-      id: inv.id,
-      noInv: inv.id,
-      customer: inv.customer || 'Siswa LPK',
-      tglKirim: base.tglKirim || inv.tanggal || new Date().toISOString().slice(0, 10),
-      kanal: chosenKanal,
-      penerima: penerima,
-      statusKirim: base.statusKirim || 'Terkirim',
-      statusBaca: base.statusBaca || (normalizeFinanceStatus(inv.status) === 'Paid' ? 'Dibaca' : 'Pending'),
-      nominal: Number(inv.total) || 0,
-      terbayar: Number(inv.terbayar) || 0,
-      sisa: Number(inv.sisa) || 0,
-      statusInvoice: normalizeFinanceStatus(inv.status),
-      program: inv.program || inv.keterangan || 'Kelas Intensif Offline'
-    };
+    // A. Baris Kanal Email (Otomatis Terkirim via SMTP Hostinger saat pendaftaran)
+    if (!processedKeys.has(`${inv.id}_email`)) {
+      result.push({
+        id: `${inv.id}-EML`,
+        noInv: inv.id,
+        customer: inv.customer || 'Siswa LPK',
+        tglKirim: inv.tanggal || new Date().toISOString().slice(0, 10),
+        kanal: 'Email',
+        penerima: cleanEmail,
+        statusKirim: 'Terkirim',
+        statusBaca: 'Pending',
+        nominal: Number(inv.total) || 0,
+        terbayar: Number(inv.terbayar) || 0,
+        sisa: Number(inv.sisa) || 0,
+        statusInvoice: normalizeFinanceStatus(inv.status),
+        program: inv.program || inv.keterangan || 'Kelas Intensif Offline'
+      });
+      processedKeys.add(`${inv.id}_email`);
+    }
+
+    // B. Baris Kanal WhatsApp (Siap Kirim / Pending Scan / Terkirim via Gateway)
+    if (!processedKeys.has(`${inv.id}_whatsapp`)) {
+      result.push({
+        id: inv.id,
+        noInv: inv.id,
+        customer: inv.customer || 'Siswa LPK',
+        tglKirim: (customMatch && customMatch.tglKirim) || inv.tanggal || new Date().toISOString().slice(0, 10),
+        kanal: 'WhatsApp',
+        penerima: cleanPhone,
+        statusKirim: (customMatch && customMatch.statusKirim) || 'Siap Kirim',
+        statusBaca: (customMatch && customMatch.statusBaca) || 'Pending',
+        nominal: Number(inv.total) || 0,
+        terbayar: Number(inv.terbayar) || 0,
+        sisa: Number(inv.sisa) || 0,
+        statusInvoice: normalizeFinanceStatus(inv.status),
+        program: inv.program || inv.keterangan || 'Kelas Intensif Offline'
+      });
+      processedKeys.add(`${inv.id}_whatsapp`);
+    }
   });
+
+  return result;
 }
 
 // ─── SYNCHRONIZE PEMBAYARAN DENGAN DAFTAR INVOICE ─────────────────────────────
@@ -5092,7 +5663,6 @@ function syncSiswaWithInvoices(currentInvoices, baseSiswaList = []) {
 }
 
 export default function InvoicePenagihan() {
-
   const [activeTab, setActiveTab] = useState(0);
 
   // Data State
@@ -5182,6 +5752,11 @@ export default function InvoicePenagihan() {
             payments: serverPayments.filter(payment => String(payment.noInv) === String(invoice.id))
           }));
           setInvoices(finalInvoices);
+          const serverTerkirim = data.data.terkirim || [];
+          const serverSiswa = data.data.siswa || [];
+          setTerkirim(syncTerkirimWithInvoices(finalInvoices, serverTerkirim));
+          setPembayaran(syncPembayaranWithInvoices(finalInvoices, serverPayments));
+          setSiswa(syncSiswaWithInvoices(finalInvoices, serverSiswa));
           setAutomationLogs(Array.isArray(data.data.automation_logs) ? data.data.automation_logs : []);
           setRpaStatus(data.data.rpa_status || {});
         }
@@ -5199,6 +5774,9 @@ export default function InvoicePenagihan() {
     formData.append('customer', inv.customer || paymentData.customer || '');
     formData.append('metode', paymentData.metode || 'Transfer Bank');
     formData.append('jumlah', String(paymentData.nominal || 0));
+    if (paymentData.jamBayar) formData.append('jamBayar', paymentData.jamBayar);
+    if (paymentData.refNumber) formData.append('external_ref', paymentData.refNumber);
+    if (paymentData.catatan && !paymentData.refNumber) formData.append('external_ref', paymentData.catatan);
     if (paymentData.buktiFile) formData.append('proof', paymentData.buktiFile);
 
     const response = await axios.post('/api/billing.php', formData);
@@ -5505,34 +6083,44 @@ export default function InvoicePenagihan() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-black">
-                  {rpaStatus?.wa_bot_ready ? "WhatsApp Bot Otomatis Aktif & Terhubung" : "WhatsApp Bot Belum Ditautkan (Scan QR Diperlukan)"}
+                  {rpaStatus?.wa_bot_ready ? `WhatsApp Bot Otomatis Aktif & Terhubung (${rpaStatus?.wa_gateway_label || 'Cloud Gateway'})` : "WhatsApp Bot Belum Ditautkan (Fonnte Gateway / Scan QR)"}
                 </h4>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${
                   rpaStatus?.wa_bot_ready ? "bg-emerald-200 text-emerald-900" : "bg-amber-200 text-amber-900 animate-pulse"
                 }`}>
-                  {rpaStatus?.wa_bot_ready ? "ONLINE / SIAP KIRIM" : "MENUNGGU SCAN HP"}
+                  {rpaStatus?.wa_bot_ready ? "ONLINE / SIAP KIRIM" : "MENUNGGU TOKEN / SCAN"}
                 </span>
               </div>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 {rpaStatus?.wa_bot_ready
-                  ? "Robot RPA siap mengirimkan invoice beserta 6 termin cicilan langsung ke WhatsApp calon siswa segera setelah mendaftar."
-                  : "Buka WhatsApp di HP Anda → Perangkat Tertaut → Tautkan Perangkat, lalu scan QR Code agar pesan WA terkirim otomatis tanpa perlu klik manual."}
+                  ? "Robot RPA siap mengirimkan invoice beserta 6 termin cicilan langsung ke WhatsApp calon siswa segera setelah mendaftar secara 100% otomatis."
+                  : "Agar pesan WhatsApp terkirim 100% otomatis tanpa perlu PC menyala, masukkan Token Fonnte di Pengaturan RPA atau tautkan WhatsApp lokal."}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 justify-end">
+          <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 justify-end flex-wrap">
             <button
               type="button"
-              onClick={() => window.open(rpaStatus?.wa_bot_qr_url || 'http://localhost:3500/qr', '_blank')}
-              className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer whitespace-nowrap ${
+              onClick={() => setIsRpaSettingsOpen(true)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer whitespace-nowrap ${
                 rpaStatus?.wa_bot_ready
                   ? "bg-white hover:bg-slate-50 border border-slate-300 text-slate-700"
                   : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200"
               }`}
             >
-              <QrCode className="w-4 h-4" />
-              {rpaStatus?.wa_bot_ready ? "Status WhatsApp Bot" : "Scan QR Code WhatsApp Sekarang"}
+              <Settings className="w-4 h-4" />
+              {rpaStatus?.wa_bot_ready ? "Pengaturan Gateway WA" : "Hubungkan Fonnte / Token WA"}
             </button>
+            {!rpaStatus?.wa_bot_ready && (
+              <button
+                type="button"
+                onClick={() => window.open(rpaStatus?.wa_bot_qr_url || 'http://localhost:3500/qr', '_blank')}
+                className="px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 shadow-sm cursor-pointer whitespace-nowrap"
+                title="Buka QR Bot Lokal jika Anda menjalankan bot di port 3500"
+              >
+                <QrCode className="w-3.5 h-3.5" /> Scan QR Lokal
+              </button>
+            )}
           </div>
         </div>
 

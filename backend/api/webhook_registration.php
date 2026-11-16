@@ -199,8 +199,10 @@ try {
         $skema = (stripos($metodeRaw, 'cicil') !== false || stripos($metodeRaw, 'dp') !== false) ? 'cicilan' : 'full';
         $metodeLabel = $skema === 'cicilan' ? 'Cicilan' : 'Full Payment';
 
-        // Biaya Program Resmi Creativa
-        $programAmount = 15000000.00;
+        // Biaya Program Resmi Creativa:
+        // Intensif Offline Full Payment = Rp 12.000.000,00 (1x termin)
+        // Intensif Offline Cicilan = Rp 15.000.000,00 (6x termin)
+        $programAmount = ($skema === 'cicilan') ? 15000000.00 : 12000000.00;
         if (stripos($program, 'kaigo') !== false || stripos($program, 'talang') !== false) {
             $programAmount = 17760000.00;
         } elseif (stripos($program, 'sotsugyousei') !== false) {
@@ -208,7 +210,7 @@ try {
         } elseif (stripos($program, 'reguler') !== false) {
             $programAmount = 5000000.00;
         }
-        if (!empty($p['nominal']) && is_numeric($p['nominal'])) {
+        if (!empty($p['nominal']) && is_numeric($p['nominal']) && (float)$p['nominal'] > 0) {
             $programAmount = (float)$p['nominal'];
         } elseif (!empty($p['total_biaya']) && is_numeric($p['total_biaya']) && (float)$p['total_biaya'] > 0) {
             $programAmount = (float)$p['total_biaya'];
@@ -382,14 +384,28 @@ try {
             $invoiceCreatedNow = true;
 
             // ── C. Auto-Log ke Riwayat Pengiriman (billing_terkirim) ──
-            $kanal = ($phone && $phone !== '-') ? 'WhatsApp' : 'Email';
-            $penerima = $kanal === 'WhatsApp' ? $phone : ($email ?: '-');
-            $initDeliveryStatus = $deliveryModePending ? 'Menunggu Bot' : 'Terkirim';
-            $deliveryStatus = $initDeliveryStatus;
-            $terkirimStmt = $conn->prepare("INSERT INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW())");
-            $terkirimStmt->bind_param("ssssss", $invoiceId, $todayDate, $name, $kanal, $penerima, $initDeliveryStatus);
-            $terkirimStmt->execute();
-            $terkirimStmt->close();
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $eId = $invoiceId . '-EML';
+                $eStmt = $conn->prepare("REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, 'Email', ?, 'Terkirim', 'Pending', NOW())");
+                if ($eStmt) {
+                    $eStmt->bind_param("ssss", $eId, $todayDate, $name, $email);
+                    $eStmt->execute();
+                    $eStmt->close();
+                }
+            }
+
+            if (!empty($phone) && $phone !== '-') {
+                $wInitStatus = $deliveryModePending ? 'Menunggu Bot' : 'Siap Kirim';
+                $wStmt = $conn->prepare("REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES (?, ?, ?, 'WhatsApp', ?, ?, 'Pending', NOW())");
+                if ($wStmt) {
+                    $wStmt->bind_param("sssss", $invoiceId, $todayDate, $name, $phone, $wInitStatus);
+                    $wStmt->execute();
+                    $wStmt->close();
+                }
+                $deliveryStatus = $wInitStatus;
+            } else {
+                $deliveryStatus = 'Terkirim';
+            }
         }
 
         $needsDelivery = !$deliveryModePending && (

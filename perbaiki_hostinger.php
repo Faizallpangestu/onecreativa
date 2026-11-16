@@ -276,14 +276,78 @@ if (isset($conn) && $conn) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ");
     mysqli_query($conn, "
-        CREATE TABLE IF NOT EXISTS `budget_realizations` (
-          `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-          `budget_request_id` INT UNSIGNED NOT NULL,
-          `amount` DECIMAL(15,2) NOT NULL,
-          `status` VARCHAR(30) NOT NULL DEFAULT 'recorded',
-          `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE IF NOT EXISTS `billing_invoices` (
+          `id` VARCHAR(50) NOT NULL PRIMARY KEY,
+          `tanggal` VARCHAR(50) DEFAULT NULL,
+          `customer` VARCHAR(255) DEFAULT NULL,
+          `email` VARCHAR(255) DEFAULT NULL,
+          `phone` VARCHAR(50) DEFAULT NULL,
+          `total` DECIMAL(15,2) DEFAULT 0.00,
+          `status` VARCHAR(50) DEFAULT 'Belum Lunas',
+          `jatuhTempo` VARCHAR(50) DEFAULT NULL,
+          `keterangan` TEXT DEFAULT NULL,
+          `meta_json` LONGTEXT DEFAULT NULL,
+          `public_token` VARCHAR(64) DEFAULT NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ");
+    mysqli_query($conn, "
+        CREATE TABLE IF NOT EXISTS `billing_pembayaran` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `noInv` VARCHAR(50) DEFAULT NULL,
+          `tglBayar` VARCHAR(50) DEFAULT NULL,
+          `customer` VARCHAR(255) DEFAULT NULL,
+          `metode` VARCHAR(50) DEFAULT NULL,
+          `jumlah` DECIMAL(15,2) DEFAULT 0.00,
+          `sisa` DECIMAL(15,2) DEFAULT 0.00,
+          `statusVerif` VARCHAR(50) DEFAULT 'Menunggu',
+          `proof_path` VARCHAR(255) NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ");
+    mysqli_query($conn, "
+        CREATE TABLE IF NOT EXISTS `billing_terkirim` (
+          `id` VARCHAR(50) NOT NULL PRIMARY KEY,
+          `tglKirim` VARCHAR(50) DEFAULT NULL,
+          `customer` VARCHAR(255) DEFAULT NULL,
+          `kanal` VARCHAR(50) DEFAULT NULL,
+          `penerima` VARCHAR(255) DEFAULT NULL,
+          `statusKirim` VARCHAR(50) DEFAULT NULL,
+          `statusBaca` VARCHAR(50) DEFAULT NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ");
+    mysqli_query($conn, "
+        CREATE TABLE IF NOT EXISTS `billing_siswa` (
+          `id` VARCHAR(50) NOT NULL PRIMARY KEY,
+          `nama` VARCHAR(255) NOT NULL,
+          `pic` VARCHAR(255) DEFAULT NULL,
+          `telp` VARCHAR(50) DEFAULT NULL,
+          `email` VARCHAR(255) DEFAULT NULL,
+          `status` VARCHAR(50) DEFAULT 'Baru',
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ");
+
+    // Sinkronisasi data invoice yang ada ke billing_terkirim (Email & WhatsApp)
+    $invQuery = mysqli_query($conn, "SELECT * FROM billing_invoices");
+    if ($invQuery) {
+        while ($invRow = mysqli_fetch_assoc($invQuery)) {
+            $invId = $invRow['id'];
+            $cust = mysqli_real_escape_string($conn, $invRow['customer'] ?? '');
+            $eml = mysqli_real_escape_string($conn, $invRow['email'] ?? '');
+            $phn = mysqli_real_escape_string($conn, $invRow['phone'] ?? '');
+            $tgl = mysqli_real_escape_string($conn, $invRow['tanggal'] ?? date('Y-m-d'));
+
+            if (!empty($eml) && $eml !== '-') {
+                $eId = $invId . '-EML';
+                mysqli_query($conn, "REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES ('$eId', '$tgl', '$cust', 'Email', '$eml', 'Terkirim', 'Pending', NOW())");
+            }
+            if (!empty($phn) && $phn !== '-') {
+                mysqli_query($conn, "REPLACE INTO billing_terkirim (id, tglKirim, customer, kanal, penerima, statusKirim, statusBaca, created_at) VALUES ('$invId', '$tgl', '$cust', 'WhatsApp', '$phn', 'Siap Kirim', 'Pending', NOW())");
+            }
+        }
+    }
 
     // Cek dan lengkapi kolom finance_records untuk penggajian & anggaran
     $chkSalRec = mysqli_query($conn, "SHOW COLUMNS FROM `finance_records` LIKE 'salary_request_id'");
@@ -404,6 +468,34 @@ if (isset($conn) && $conn) {
         }
         echo "<p style='color:green'>✔ Akun <code>admin@onecreativa.com</code> terpisah sebagai <b>Administrator Sistem (Super Admin)</b>.</p>";
     }
+
+    // C. Pastikan Akun Mitra Telkom University (Role Khusus Mitra)
+    $chkRoleTelu = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM roles WHERE name = 'mitra_telu' LIMIT 1"));
+    if (!$chkRoleTelu) {
+        mysqli_query($conn, "INSERT INTO roles (name) VALUES ('mitra_telu')");
+        $teluRoleId = (int)mysqli_insert_id($conn);
+    } else {
+        $teluRoleId = (int)$chkRoleTelu['id'];
+    }
+
+    $teluEmail = 'telu@creativabridging.com';
+    $teluPassHash = password_hash('TeluCreativa2026!', PASSWORD_DEFAULT);
+    $chkUserTelu = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM users WHERE LOWER(email) = LOWER('$teluEmail') LIMIT 1"));
+    if (!$chkUserTelu) {
+        mysqli_query($conn, "INSERT INTO users (email, password_hash, role_id, is_active, created_at, updated_at) VALUES ('$teluEmail', '$teluPassHash', $teluRoleId, 1, NOW(), NOW())");
+        $teluUserId = (int)mysqli_insert_id($conn);
+    } else {
+        $teluUserId = (int)$chkUserTelu['id'];
+        mysqli_query($conn, "UPDATE users SET role_id = $teluRoleId, is_active = 1, password_hash = '$teluPassHash' WHERE id = $teluUserId");
+    }
+
+    $chkEmpTelu = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM employees WHERE user_id = $teluUserId LIMIT 1"));
+    if (!$chkEmpTelu) {
+        mysqli_query($conn, "INSERT INTO employees (user_id, employee_code, full_name, gender, position, work_type, join_date, created_at, updated_at) VALUES ($teluUserId, 'TELU-001', 'Mitra Telkom University', 'Laki-laki', 'PIC Kerjasama Telkom University', 'WFO', CURDATE(), NOW(), NOW())");
+    } else {
+        mysqli_query($conn, "UPDATE employees SET full_name = 'Mitra Telkom University', position = 'PIC Kerjasama Telkom University' WHERE id = " . (int)$chkEmpTelu['id']);
+    }
+    echo "<p style='color:green'>✔ Akun Mitra Telkom University (<code>$teluEmail</code>) siap digunakan dengan Role: <b>mitra_telu</b> (Akses khusus: Dashboard & Invoice Penagihan saja).</p>";
 
     // Cek apakah masih ada karyawan lain yang relasi akunnya putus
     $orphanCheck = mysqli_query($conn, "

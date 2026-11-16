@@ -3,6 +3,11 @@
  * Shared helper untuk RPA Invoice & Receipt Automation (Fase 1 & Fase 2)
  */
 
+$rpaConfig = __DIR__ . '/../config/rpa_config.php';
+if (is_file($rpaConfig)) {
+    include_once $rpaConfig;
+}
+
 $rpaLocalConfig = __DIR__ . '/../config/rpa.local.php';
 if (is_file($rpaLocalConfig)) {
     include_once $rpaLocalConfig;
@@ -20,6 +25,10 @@ if (!function_exists('rpa_get_secret')) {
 
 if (!function_exists('rpa_get_receipt_webhook_url')) {
     function rpa_get_receipt_webhook_url(): string {
+        $stored = function_exists('rpa_load_stored_settings') ? rpa_load_stored_settings() : [];
+        if (!empty($stored['n8n_receipt_webhook_url']) && trim((string)$stored['n8n_receipt_webhook_url']) !== '') {
+            return trim((string)$stored['n8n_receipt_webhook_url']);
+        }
         if (defined('N8N_RECEIPT_WEBHOOK_URL') && trim((string)N8N_RECEIPT_WEBHOOK_URL) !== '') {
             return trim((string)N8N_RECEIPT_WEBHOOK_URL);
         }
@@ -39,7 +48,7 @@ if (!function_exists('rpa_base_api_url')) {
             }
             return "{$scheme}://{$host}{$scriptDir}";
         }
-        return 'https://one.creativabridging.com/api';
+        return 'https://creativabridging.com/api';
     }
 }
 
@@ -188,6 +197,10 @@ if (!function_exists('rpa_sync_invoices_to_remote_student_dashboard')) {
     function rpa_sync_invoices_to_remote_student_dashboard(int $rawId, string $invoiceId, float $total, array $installments, string $invoiceUrl): void {
         if ($rawId <= 0) return;
 
+        $isMultiple = count($installments) > 1;
+        $tipePembayaran = $isMultiple ? 'cicilan' : 'fullpayment';
+        $metodePembayaran = $isMultiple ? 'Cicilan' : 'Full Payment';
+
         // 1. Update participant di creativabridging.com
         $ch = curl_init("https://creativabridging.com/api/index.php?table=participants&id={$rawId}");
         curl_setopt_array($ch, [
@@ -197,7 +210,8 @@ if (!function_exists('rpa_sync_invoices_to_remote_student_dashboard')) {
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => json_encode([
                 'total_biaya' => $total,
-                'tipe_pembayaran' => 'cicilan',
+                'tipe_pembayaran' => $tipePembayaran,
+                'metode_pembayaran' => $metodePembayaran,
                 'fee_status' => 'Pending'
             ])
         ]);
@@ -214,19 +228,20 @@ if (!function_exists('rpa_sync_invoices_to_remote_student_dashboard')) {
             return; // Sudah ada, tidak perlu insert ulang
         }
 
-        // 3. Masukkan 6 termin cicilan ke tabel invoices di creativabridging.com
-        foreach ($installments as $idx => $inst) {
-            $itemNo = $idx + 1;
+        // 3. Masukkan termin cicilan / full payment ke tabel invoices di creativabridging.com
+        if (!$isMultiple) {
+            // Full Payment: Masukkan 1 record resmi saja (nominal 12jt)
+            $inst = $installments[0] ?? [];
             $payload = [
                 'participant_id' => $rawId,
-                'nomor_invoice' => "{$invoiceId}-{$itemNo}",
-                'keterangan' => $inst['deskripsi'] ?? "Cicilan {$itemNo}",
-                'nominal' => (float)($inst['nominal'] ?? 0),
+                'nomor_invoice' => $invoiceId,
+                'keterangan' => 'Full Payment',
+                'nominal' => $total > 0 ? $total : (float)($inst['nominal'] ?? 12000000.00),
                 'status' => 'Menunggu',
-                'tipe' => 'Cicilan',
+                'tipe' => 'Full Payment',
                 'tanggal_tagihan' => $inst['jatuhTempo'] ?? date('Y-m-d'),
                 'invoice_url' => $invoiceUrl,
-                'catatan' => $idx === 0 ? 'Tenggat waktu pembayaran 2x24 jam' : 'Pembayaran Termin Ke-' . $itemNo
+                'catatan' => 'Tenggat waktu pembayaran 2x24 jam'
             ];
 
             $iCh = curl_init("https://creativabridging.com/api/index.php?table=invoices");
@@ -239,6 +254,33 @@ if (!function_exists('rpa_sync_invoices_to_remote_student_dashboard')) {
             ]);
             curl_exec($iCh);
             curl_close($iCh);
+        } else {
+            // Cicilan: Masukkan setiap termin (6 termin)
+            foreach ($installments as $idx => $inst) {
+                $itemNo = $idx + 1;
+                $payload = [
+                    'participant_id' => $rawId,
+                    'nomor_invoice' => "{$invoiceId}-{$itemNo}",
+                    'keterangan' => $inst['deskripsi'] ?? "Cicilan {$itemNo}",
+                    'nominal' => (float)($inst['nominal'] ?? 0),
+                    'status' => 'Menunggu',
+                    'tipe' => 'Cicilan',
+                    'tanggal_tagihan' => $inst['jatuhTempo'] ?? date('Y-m-d'),
+                    'invoice_url' => $invoiceUrl,
+                    'catatan' => $idx === 0 ? 'Tenggat waktu pembayaran 2x24 jam' : 'Pembayaran Termin Ke-' . $itemNo
+                ];
+
+                $iCh = curl_init("https://creativabridging.com/api/index.php?table=invoices");
+                curl_setopt_array($iCh, [
+                    CURLOPT_POST => true,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 6,
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                    CURLOPT_POSTFIELDS => json_encode($payload)
+                ]);
+                curl_exec($iCh);
+                curl_close($iCh);
+            }
         }
     }
 }
@@ -349,19 +391,37 @@ if (!function_exists('rpa_dispatch_webhook')) {
 
 if (!function_exists('rpa_get_midtrans_config')) {
     function rpa_get_midtrans_config(): array {
-        $serverKey = defined('MIDTRANS_SERVER_KEY')
-            ? trim((string)MIDTRANS_SERVER_KEY)
-            : trim((string)(getenv('MIDTRANS_SERVER_KEY') ?: ''));
-        $clientKey = defined('MIDTRANS_CLIENT_KEY')
-            ? trim((string)MIDTRANS_CLIENT_KEY)
-            : trim((string)(getenv('MIDTRANS_CLIENT_KEY') ?: ''));
+        $stored = function_exists('rpa_load_stored_settings') ? rpa_load_stored_settings() : [];
 
-        $isProdRaw = defined('MIDTRANS_IS_PRODUCTION')
-            ? MIDTRANS_IS_PRODUCTION
-            : getenv('MIDTRANS_IS_PRODUCTION');
-        $isProduction = is_bool($isProdRaw)
-            ? $isProdRaw
-            : in_array(strtolower(trim((string)$isProdRaw)), ['1', 'true', 'yes', 'on'], true);
+        $serverKey = !empty($stored['midtrans_server_key'])
+            ? trim((string)$stored['midtrans_server_key'])
+            : (defined('MIDTRANS_SERVER_KEY')
+                ? trim((string)MIDTRANS_SERVER_KEY)
+                : trim((string)(getenv('MIDTRANS_SERVER_KEY') ?: '')));
+
+        $clientKey = !empty($stored['midtrans_client_key'])
+            ? trim((string)$stored['midtrans_client_key'])
+            : (defined('MIDTRANS_CLIENT_KEY')
+                ? trim((string)MIDTRANS_CLIENT_KEY)
+                : trim((string)(getenv('MIDTRANS_CLIENT_KEY') ?: '')));
+
+        $merchantId = !empty($stored['midtrans_merchant_id'])
+            ? trim((string)$stored['midtrans_merchant_id'])
+            : (defined('MIDTRANS_MERCHANT_ID')
+                ? trim((string)MIDTRANS_MERCHANT_ID)
+                : trim((string)(getenv('MIDTRANS_MERCHANT_ID') ?: '')));
+
+        $isProduction = false;
+        if (isset($stored['midtrans_is_production'])) {
+            $isProduction = (bool)$stored['midtrans_is_production'];
+        } else {
+            $isProdRaw = defined('MIDTRANS_IS_PRODUCTION')
+                ? MIDTRANS_IS_PRODUCTION
+                : getenv('MIDTRANS_IS_PRODUCTION');
+            $isProduction = is_bool($isProdRaw)
+                ? $isProdRaw
+                : in_array(strtolower(trim((string)$isProdRaw)), ['1', 'true', 'yes', 'on'], true);
+        }
 
         $isConfigured = $serverKey !== ''
             && stripos($serverKey, 'YOUR_SERVER_KEY') === false
@@ -371,6 +431,7 @@ if (!function_exists('rpa_get_midtrans_config')) {
         return [
             'server_key' => $serverKey,
             'client_key' => $clientKey,
+            'merchant_id' => $merchantId,
             'is_production' => $isProduction,
             'is_configured' => $isConfigured,
             'snap_url' => $isProduction
@@ -554,7 +615,9 @@ if (!function_exists('rpa_trigger_receipt_automation')) {
         $fmtAmt = 'Rp ' . number_format($amtNumeric, 0, ',', '.');
         $fmtPaid = 'Rp ' . number_format($paidTotalNumeric, 0, ',', '.');
         $fmtRem = 'Rp ' . number_format($remNumeric, 0, ',', '.');
-        $studentPortalUrl = 'https://creativabridging.com/siswa/dashboard';
+        $rawPhone = trim((string)($invoice['phone'] ?? ''));
+        $receiptDownloadUrl = $urls['receipt_url'] . '&print=1';
+        $studentPortalUrl = 'https://creativabridging.com/login?role=siswa';
         $waReceiptMsg =
             "Halo *{$customer}*,\n\n" .
             "Pembayaran Anda telah *TERVERIFIKASI* oleh sistem *LPK Creativa Bridging International*.\n\n" .
@@ -565,7 +628,11 @@ if (!function_exists('rpa_trigger_receipt_automation')) {
             "• Total Terbayar: *{$fmtPaid}*\n" .
             "• Sisa Tagihan: *{$fmtRem}*\n" .
             "• Status Invoice: *{$status}*\n\n" .
-            "🧾 *Unduh Kwitansi/Receipt Resmi:*\n{$urls['receipt_url']}\n\n" .
+            "🧾 *Unduh Kwitansi/Receipt Resmi (PDF):*\n{$receiptDownloadUrl}\n\n" .
+            "🔑 *Akses Student Dashboard Anda:*\n" .
+            "• Link Login: https://creativabridging.com/login\n" .
+            "• Email: *{$emailAddr}*\n" .
+            "• Password Sementara: Nomor WhatsApp Anda (*{$rawPhone}*) atau *Creativa2026!*\n\n" .
             "🌐 *Pantau Status Cicilan di Student Dashboard:*\n{$studentPortalUrl}\n\n" .
             "Terima kasih atas kepercayaannya! 🙏";
 
@@ -583,9 +650,16 @@ if (!function_exists('rpa_trigger_receipt_automation')) {
             . "<tr><td><strong>Terbilang</strong></td><td><em>" . htmlspecialchars($terbilang) . "</em></td></tr>"
             . "<tr><td><strong>Sisa Tagihan</strong></td><td><strong>" . htmlspecialchars($fmtRem) . "</strong> (" . htmlspecialchars($status) . ")</td></tr>"
             . "</table>"
-            . "<p style='margin:18px 0;text-align:center;'>"
-            . "<a href='" . htmlspecialchars($urls['receipt_url']) . "' target='_blank' style='background:#065f46;color:#ffffff;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin:4px 6px;'>Unduh Receipt Resmi (PDF)</a>"
-            . "<a href='https://creativabridging.com/siswa/dashboard' target='_blank' style='background:#163660;color:#ffffff;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin:4px 6px;'>Buka Student Dashboard</a>"
+            . "<div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:18px 0;text-align:left;'>"
+            . "<p style='margin:0 0 8px;font-size:13px;color:#166534;font-weight:bold;'>🔑 AKSES STUDENT DASHBOARD ANDA</p>"
+            . "<p style='margin:4px 0;font-size:13px;color:#14532d;'><strong>Link Login:</strong> <a href='https://creativabridging.com/login' style='color:#15803d;font-weight:bold;'>creativabridging.com/login</a></p>"
+            . "<p style='margin:4px 0;font-size:13px;color:#14532d;'><strong>Email Login:</strong> " . htmlspecialchars($emailAddr) . "</p>"
+            . "<p style='margin:4px 0;font-size:13px;color:#14532d;'><strong>Password Sementara:</strong> Nomor WhatsApp (" . htmlspecialchars($rawPhone ?: 'No. WA Anda') . ") atau <strong>Creativa2026!</strong></p>"
+            . "<p style='margin:6px 0 0;font-size:11px;color:#16a34a;'><em>Gunakan akun ini untuk masuk ke dashboard siswa, mengecek histori termin, dan mengunduh Invoice maupun Kwitansi resmi kapan pun.</em></p>"
+            . "</div>"
+            . "<p style='margin:20px 0;text-align:center;'>"
+            . "<a href='" . htmlspecialchars($receiptDownloadUrl) . "' target='_blank' style='background:#065f46;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin:4px 6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);'>Unduh Receipt Resmi (PDF)</a>"
+            . "<a href='https://creativabridging.com/login' target='_blank' style='background:#163660;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin:4px 6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);'>Masuk ke Portal Siswa (Login)</a>"
             . "</p>"
             . "</div>";
 
@@ -622,9 +696,43 @@ if (!function_exists('rpa_trigger_receipt_automation')) {
             $receiptEmailSent = rpa_send_smtp_email($emailAddr, $customer, $emailSubject, $emailHtml);
         }
 
-        // Kirim WhatsApp Receipt via Creativa WhatsApp Bot (port 3500)
+        // Kirim WhatsApp Receipt via Gateway (Fonnte / Wablas) atau Local Bot (port 3500)
         $receiptWaSent = false;
-        if (!empty($waPhone)) {
+        $storedReceiptCfg = function_exists('rpa_load_stored_settings') ? rpa_load_stored_settings() : [];
+        $rFonnteToken = trim((string)($storedReceiptCfg['fonnte_token'] ?? (getenv('FONNTE_TOKEN') ?: (defined('FONNTE_TOKEN') ? FONNTE_TOKEN : ''))));
+        $rWablasToken = trim((string)($storedReceiptCfg['wablas_token'] ?? (getenv('WABLAS_TOKEN') ?: (defined('WABLAS_TOKEN') ? WABLAS_TOKEN : ''))));
+        $rWablasDomain = trim((string)($storedReceiptCfg['wablas_domain'] ?? (getenv('WABLAS_DOMAIN') ?: (defined('WABLAS_DOMAIN') ? WABLAS_DOMAIN : 'kudus.wablas.com'))));
+
+        if (!empty($rFonnteToken) && !empty($waPhone)) {
+            $ch = curl_init("https://api.fonnte.com/send");
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_HTTPHEADER => ['Authorization: ' . $rFonnteToken],
+                CURLOPT_POSTFIELDS => ['target' => $waPhone, 'message' => $waReceiptMsg],
+            ]);
+            $wres = curl_exec($ch);
+            $wcode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $receiptWaSent = ($wcode >= 200 && $wcode < 300);
+        } elseif (!empty($rWablasToken) && !empty($waPhone)) {
+            $ch = curl_init("https://{$rWablasDomain}/api/send-message");
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: ' . $rWablasToken,
+                    'Content-Type: application/json',
+                ],
+                CURLOPT_POSTFIELDS => json_encode(['phone' => $waPhone, 'message' => $waReceiptMsg]),
+            ]);
+            $wres = curl_exec($ch);
+            $wcode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $receiptWaSent = ($wcode >= 200 && $wcode < 300);
+        } elseif (!empty($waPhone)) {
             $ch = curl_init("http://127.0.0.1:3500/send-message");
             curl_setopt_array($ch, [
                 CURLOPT_POST => true,
@@ -709,33 +817,54 @@ if (!function_exists('rpa_send_invoice_notifications')) {
         $waPhone = rpa_format_wa_phone($phone);
         $dueDateTime = date('d F Y, H:i', strtotime($dueDate)) . ' WIB';
 
+        $isCicilan = count($installments) > 1;
+
         // 1. Susun Pesan WhatsApp
         $instText = "";
-        foreach ($installments as $inst) {
-            $instText .= "\n  • " . ($inst['deskripsi'] ?? 'Cicilan') . ": *Rp " . number_format((float)($inst['nominal'] ?? 0), 0, ',', '.') . "*";
-            if (!empty($inst['jatuhTempo'])) {
-                $instText .= " (Jatuh tempo: " . date('d/m/Y', strtotime($inst['jatuhTempo'])) . ")";
+        if ($isCicilan) {
+            foreach ($installments as $inst) {
+                $instText .= "\n  • " . ($inst['deskripsi'] ?? 'Cicilan') . ": *Rp " . number_format((float)($inst['nominal'] ?? 0), 0, ',', '.') . "*";
+                if (!empty($inst['jatuhTempo'])) {
+                    $instText .= " (Jatuh tempo: " . date('d/m/Y', strtotime($inst['jatuhTempo'])) . ")";
+                }
             }
+            $tenggatWa = "⏰ *Tenggat Waktu Pembayaran Cicilan 1:*\n👉 *2x24 Jam* (Maksimal: {$dueDateTime})";
+            $rincianLabelWa = "• Rincian Cicilan:{$instText}";
+            $instTableHeader = "Rincian Termin Cicilan";
+            $instHeaderCol = "Termin";
+            $tenggatEmail = "<p style='margin:3px 0;font-size:13px;color:#b91c1c;'><strong>Tenggat Waktu Cicilan 1:</strong> 2x24 Jam (" . htmlspecialchars($dueDateTime) . ")</p>";
+        } else {
+            $tglJt = !empty($installments[0]['jatuhTempo']) ? date('d/m/Y', strtotime($installments[0]['jatuhTempo'])) : date('d/m/Y', strtotime('+2 days'));
+            $tenggatWa = "⏰ *Tenggat Waktu Pembayaran (Full Payment):*\n👉 *2x24 Jam* (Maksimal: {$dueDateTime})";
+            $rincianLabelWa = "• Skema Pembayaran: *Full Payment (Rp " . number_format($total, 0, ',', '.') . ")* (Jatuh tempo: {$tglJt})";
+            $instTableHeader = "Rincian Pembayaran";
+            $instHeaderCol = "Keterangan";
+            $tenggatEmail = "<p style='margin:3px 0;font-size:13px;color:#b91c1c;'><strong>Tenggat Waktu Pembayaran (Full Payment):</strong> 2x24 Jam (" . htmlspecialchars($dueDateTime) . ")</p>";
         }
 
         $waMsg = "Halo Sdr/i *{$name}*,\n\n"
             . "Terima kasih telah mendaftar di *LPK Creativa Bridging International*!\n"
             . "Pendaftaran Anda untuk program *{$program}* telah kami terima.\n\n"
-            . "📋 *Rincian Tagihan & Termin Pembayaran:*\n"
+            . "📋 *Rincian Tagihan & Pembayaran:*\n"
             . "• No. Invoice: *{$invoiceId}*\n"
             . "• Total Biaya: *Rp " . number_format($total, 0, ',', '.') . "*\n"
-            . "• Rincian Cicilan:{$instText}\n\n"
-            . "⏰ *Tenggat Waktu Pembayaran Cicilan 1:*\n"
-            . "👉 *2x24 Jam* (Maksimal: {$dueDateTime})\n\n"
+            . "{$rincianLabelWa}\n\n"
+            . "{$tenggatWa}\n\n"
             . "💳 *Rekening Pembayaran Resmi LPK:*\n"
             . "• Bank: *BCA*\n"
             . "• No. Rekening: *1832-918-428*\n"
             . "• Atas Nama: *PT CREATIVA BRIDGING INTERN*\n\n"
+            . "🔑 *Akses Student Dashboard Anda:*\n"
+            . "• Link Login: https://creativabridging.com/login\n"
+            . "• Email: *{$email}*\n"
+            . "• Password Login: Nomor WhatsApp Anda (*{$phone}*) atau *Creativa2026!*\n\n"
             . "📄 *Unduh Lembar Invoice Resmi (PDF):*\n"
-            . "{$invoiceUrl}\n\n"
-            . "🌐 *Akses Student Dashboard & Cek Cicilan:*\n"
-            . "https://creativabridging.com/siswa/dashboard\n\n"
-            . "Setelah transfer, Anda dapat langsung mengunggah bukti bayar melalui link dashboard di atas atau membalas pesan WhatsApp ini.\n\n"
+            . "{$invoiceUrl}&print=1\n\n"
+            . "📌 *Langkah Pembayaran & Konfirmasi:*\n"
+            . "1. Lakukan transfer ke rekening BCA resmi di atas.\n"
+            . "2. Masuk ke link Student Dashboard di atas lalu buka tab 'Pembayaran'.\n"
+            . "3. Klik 'Konfirmasi & Upload Bukti Transfer' lalu masukkan tanggal, jam, nomor transaksi (No Trx) dan upload foto bukti transfer.\n"
+            . "4. Sistem RPA kami akan otomatis memverifikasi dan menerbitkan Kwitansi/Receipt Resmi ke Email & WhatsApp Anda.\n\n"
             . "Salam hangat,\n"
             . "_Tim Keuangan & Admisi LPK Creativa Bridging International_";
 
@@ -746,8 +875,9 @@ if (!function_exists('rpa_send_invoice_notifications')) {
             $jt = !empty($inst['jatuhTempo']) ? date('d/m/Y', strtotime($inst['jatuhTempo'])) : '-';
             $bg = $idx === 0 ? "#eff6ff" : ($idx % 2 === 0 ? "#ffffff" : "#f8fafc");
             $highlight = $idx === 0 ? " <span style='background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:bold;'>2x24 Jam</span>" : "";
+            $labelInst = $isCicilan ? ($inst['deskripsi'] ?? 'Cicilan') : 'Full Payment';
             $instRows .= "<tr style='background:{$bg};border-bottom:1px solid #e2e8f0;'>"
-                . "<td style='padding:10px 14px;font-weight:600;color:#1e293b;'>" . htmlspecialchars($inst['deskripsi'] ?? 'Cicilan') . "{$highlight}</td>"
+                . "<td style='padding:10px 14px;font-weight:600;color:#1e293b;'>" . htmlspecialchars($labelInst) . "{$highlight}</td>"
                 . "<td style='padding:10px 14px;color:#475569;'>" . htmlspecialchars($jt) . "</td>"
                 . "<td style='padding:10px 14px;text-align:right;font-weight:bold;color:#1e293b;'>Rp {$nom}</td>"
                 . "</tr>";
@@ -766,21 +896,28 @@ if (!function_exists('rpa_send_invoice_notifications')) {
             . "<div style='background:#f8fafc;border-left:4px solid #2563eb;padding:12px 16px;margin:16px 0;border-radius:4px;'>"
             . "<p style='margin:3px 0;font-size:13px;'><strong>No. Invoice:</strong> " . htmlspecialchars($invoiceId) . "</p>"
             . "<p style='margin:3px 0;font-size:13px;'><strong>Total Biaya:</strong> Rp " . number_format($total, 0, ',', '.') . "</p>"
-            . "<p style='margin:3px 0;font-size:13px;color:#b91c1c;'><strong>Tenggat Waktu Cicilan 1:</strong> 2x24 Jam (" . htmlspecialchars($dueDateTime) . ")</p>"
+            . "{$tenggatEmail}"
             . "</div>"
-            . "<h3 style='font-size:14px;color:#0f172a;margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.5px;'>Rincian Termin Cicilan</h3>"
+            . "<h3 style='font-size:14px;color:#0f172a;margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.5px;'>{$instTableHeader}</h3>"
             . "<table style='width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;'>"
             . "<thead><tr style='background:#f1f5f9;color:#475569;text-align:left;border-bottom:2px solid #cbd5e1;'>"
-            . "<th style='padding:8px 14px;'>Termin</th><th style='padding:8px 14px;'>Jatuh Tempo</th><th style='padding:8px 14px;text-align:right;'>Nominal</th></tr></thead>"
+            . "<th style='padding:8px 14px;'>{$instHeaderCol}</th><th style='padding:8px 14px;'>Jatuh Tempo</th><th style='padding:8px 14px;text-align:right;'>Nominal</th></tr></thead>"
             . "<tbody>{$instRows}</tbody></table>"
             . "<div style='background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:20px 0;text-align:center;'>"
-            . "<p style='margin:0 0 6px;font-size:13px;color:#1e40af;font-weight:600;'>REKENING PEMBAYARAN RESMI</p>"
+            . "<p style='margin:0 0 6px;font-size:13px;color:#1e40af;font-weight:600;'>REKENING PEMBAYARAN RESMI LPK</p>"
             . "<p style='margin:0;font-size:18px;font-weight:bold;color:#1e3a8a;'>Bank BCA: 1832-918-428</p>"
             . "<p style='margin:4px 0 0;font-size:12px;color:#3b82f6;'>a/n PT CREATIVA BRIDGING INTERN</p>"
             . "</div>"
+            . "<div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;'>"
+            . "<p style='margin:0 0 8px;font-size:13px;color:#166534;font-weight:bold;'>🔑 AKSES STUDENT DASHBOARD ANDA</p>"
+            . "<p style='margin:4px 0;font-size:13px;color:#14532d;'><strong>Link Login:</strong> <a href='https://creativabridging.com/login' style='color:#15803d;font-weight:bold;'>creativabridging.com/login</a></p>"
+            . "<p style='margin:4px 0;font-size:13px;color:#14532d;'><strong>Email Login:</strong> " . htmlspecialchars($email) . "</p>"
+            . "<p style='margin:4px 0;font-size:13px;color:#14532d;'><strong>Kata Sandi:</strong> Nomor WhatsApp (" . htmlspecialchars($phone) . ") atau <strong>Creativa2026!</strong></p>"
+            . "<p style='margin:6px 0 0;font-size:11px;color:#16a34a;'><em>Gunakan akun ini untuk masuk ke portal siswa, mengecek rincian termin, dan mengunggah bukti transfer Anda.</em></p>"
+            . "</div>"
             . "<div style='text-align:center;margin:24px 0 12px;'>"
-            . "<a href='" . htmlspecialchars($invoiceUrl) . "' target='_blank' style='background:#2563eb;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:13px;display:inline-block;margin:6px 6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);'>📄 Unduh Lembar Invoice PDF</a>"
-            . "<a href='https://creativabridging.com/siswa/dashboard' target='_blank' style='background:#0f172a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:13px;display:inline-block;margin:6px 6px;'>🌐 Buka Student Dashboard</a>"
+            . "<a href='" . htmlspecialchars($invoiceUrl) . "&print=1' target='_blank' style='background:#2563eb;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:13px;display:inline-block;margin:6px 6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);'>📄 Unduh Lembar Invoice PDF</a>"
+            . "<a href='https://creativabridging.com/login' target='_blank' style='background:#0f172a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:13px;display:inline-block;margin:6px 6px;'>🌐 Masuk ke Portal Siswa (Login)</a>"
             . "</div>"
             . "<p style='font-size:12px;color:#94a3b8;text-align:center;margin-top:20px;'>Email ini dikirim secara otomatis oleh Sistem RPA One-Creativa.</p>"
             . "</div></div></body></html>";
@@ -789,9 +926,10 @@ if (!function_exists('rpa_send_invoice_notifications')) {
         $emailSent = rpa_send_smtp_email($email, $name, $emailSubject, $emailHtml);
 
         // Kirim WA via Wablas atau Fonnte jika token tersedia
-        $envWablasToken = getenv('WABLAS_TOKEN') ?: (defined('WABLAS_TOKEN') ? WABLAS_TOKEN : '');
-        $envWablasDomain = getenv('WABLAS_DOMAIN') ?: (defined('WABLAS_DOMAIN') ? WABLAS_DOMAIN : 'kudus.wablas.com');
-        $envFonnteToken = getenv('FONNTE_TOKEN') ?: (defined('FONNTE_TOKEN') ? FONNTE_TOKEN : '');
+        $storedPhase1Cfg = function_exists('rpa_load_stored_settings') ? rpa_load_stored_settings() : [];
+        $envWablasToken = trim((string)($storedPhase1Cfg['wablas_token'] ?? (getenv('WABLAS_TOKEN') ?: (defined('WABLAS_TOKEN') ? WABLAS_TOKEN : ''))));
+        $envWablasDomain = trim((string)($storedPhase1Cfg['wablas_domain'] ?? (getenv('WABLAS_DOMAIN') ?: (defined('WABLAS_DOMAIN') ? WABLAS_DOMAIN : 'kudus.wablas.com'))));
+        $envFonnteToken = trim((string)($storedPhase1Cfg['fonnte_token'] ?? (getenv('FONNTE_TOKEN') ?: (defined('FONNTE_TOKEN') ? FONNTE_TOKEN : ''))));
 
         $waSent = false;
         if (!empty($envWablasToken) && !empty($waPhone)) {

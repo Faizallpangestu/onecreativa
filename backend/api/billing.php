@@ -298,18 +298,35 @@ if ($method === 'GET') {
     }
 
     $mtCfg = rpa_get_midtrans_config();
+    $storedCfg = rpa_load_stored_settings();
+    $fonnteToken = trim((string)($storedCfg['fonnte_token'] ?? (defined('FONNTE_TOKEN') ? FONNTE_TOKEN : getenv('FONNTE_TOKEN'))));
+    $wablasToken = trim((string)($storedCfg['wablas_token'] ?? (defined('WABLAS_TOKEN') ? WABLAS_TOKEN : getenv('WABLAS_TOKEN'))));
+
     $waBotReady = false;
-    $ch = curl_init("http://127.0.0.1:3500/health");
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 1,
-        CURLOPT_CONNECTTIMEOUT => 1,
-    ]);
-    $hres = curl_exec($ch);
-    curl_close($ch);
-    if ($hres) {
-        $hj = json_decode($hres, true);
-        $waBotReady = !empty($hj['isBotReady']);
+    $waGatewayLabel = 'WhatsApp Gateway Belum Dikonfigurasi';
+
+    if (!empty($fonnteToken)) {
+        $waBotReady = true;
+        $waGatewayLabel = 'Fonnte Gateway (Cloud 24/7)';
+    } elseif (!empty($wablasToken)) {
+        $waBotReady = true;
+        $waGatewayLabel = 'Wablas Gateway (Cloud 24/7)';
+    } else {
+        $ch = curl_init("http://127.0.0.1:3500/health");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 1,
+            CURLOPT_CONNECTTIMEOUT => 1,
+        ]);
+        $hres = curl_exec($ch);
+        curl_close($ch);
+        if ($hres) {
+            $hj = json_decode($hres, true);
+            $waBotReady = !empty($hj['isBotReady']);
+            if ($waBotReady) {
+                $waGatewayLabel = 'Local WhatsApp Bot (Port 3500)';
+            }
+        }
     }
 
     $data['rpa_status'] = [
@@ -317,6 +334,7 @@ if ($method === 'GET') {
         'midtrans_is_production' => $mtCfg['is_production'],
         'n8n_receipt_configured' => rpa_get_receipt_webhook_url() !== '',
         'wa_bot_ready' => $waBotReady,
+        'wa_gateway_label' => $waGatewayLabel,
         'wa_bot_qr_url' => 'http://localhost:3500/qr',
     ];
 
@@ -398,6 +416,11 @@ if ($method === 'POST') {
         if ($amount === '0.00') ac_fail('Nominal pembayaran harus lebih dari nol.');
         $method = ac_text($body['metode'] ?? 'Transfer Bank', 'Metode pembayaran', 50);
         $customer = ac_text($body['customer'] ?? '', 'Nama pembayar', 255);
+        $externalRef = trim((string)($body['external_ref'] ?? $body['refNumber'] ?? $body['catatan'] ?? ''));
+        $jamBayar = trim((string)($body['jamBayar'] ?? ''));
+        if ($jamBayar !== '' && strpos($paymentDate, ':') === false) {
+            $paymentDate .= ' ' . $jamBayar;
+        }
 
         $conn->begin_transaction();
         $proofPath = null;
@@ -424,8 +447,8 @@ if ($method === 'POST') {
             $remaining = max(0, $total - $newPaid);
             $status = $remaining === 0 ? 'Paid' : 'Partially Paid';
             $proofPath = billing_store_payment_proof($_FILES['proof'] ?? null);
-            ac_query($conn, "INSERT INTO billing_pembayaran(noInv,tglBayar,customer,metode,jumlah,sisa,statusVerif,proof_path) VALUES(?,?,?,?,?,?, 'Terverifikasi',?)",
-                [$invoiceId, $paymentDate, $customer, $method, $amount, ac_decimal($remaining), $proofPath]);
+            ac_query($conn, "INSERT INTO billing_pembayaran(noInv,tglBayar,customer,metode,jumlah,sisa,statusVerif,proof_path,external_ref) VALUES(?,?,?,?,?,?, 'Terverifikasi',?,?)",
+                [$invoiceId, $paymentDate, $customer, $method, $amount, ac_decimal($remaining), $proofPath, $externalRef]);
             $paymentId = (int)$conn->insert_id;
             ac_query($conn, 'UPDATE billing_invoices SET status=? WHERE id=?', [$status, $invoiceId]);
             ac_audit($conn, $actor, 'billing_payment', (string)$paymentId, 'verified', [

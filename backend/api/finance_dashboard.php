@@ -504,6 +504,7 @@ try {
                         'related_proj_number' => $termId,
                         'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
                         'parent_invoice_id' => $inv['id'],
+                        'invoice_date' => $inv['transaction_date'],
                         'created_at' => $inv['created_at'],
                     ];
                     if ($terminStatus === 'paid') {
@@ -536,6 +537,7 @@ try {
                             'related_proj_number' => $termId,
                             'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
                             'parent_invoice_id' => $inv['id'],
+                            'invoice_date' => $inv['transaction_date'],
                         ];
                         $realizationItems[] = $pendingReal;
                     }
@@ -565,6 +567,7 @@ try {
                             'related_proj_number' => $termId,
                             'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
                             'parent_invoice_id' => $inv['id'],
+                            'invoice_date' => $inv['transaction_date'],
                         ];
                         $realizationItems[] = $realTerm;
                     }

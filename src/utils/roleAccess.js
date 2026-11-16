@@ -3,9 +3,10 @@ export const SYSTEM_ROLES = [
   { value: "hr", label: "HRD", description: "Kelola karyawan, absensi, dan perhitungan gaji.", menu: "Menu HRD", path: "/menu-hrd" },
   { value: "ga", label: "GA", description: "Kelola aset, fasilitas, dan maintenance.", menu: "Menu GA", path: "/menu-ga" },
   { value: "finance", label: "Finance", description: "Kelola transaksi, invoice, dan keuangan.", menu: "Dashboard Finance", path: "/dashboard-finance" },
+  { value: "mitra_telu", label: "Mitra Tel-U", description: "Akses invoice dan dashboard Telkom University.", menu: "Invoice Penagihan", path: "/invoice-penagihan" },
 ];
 
-export const SYSTEM_LOGIN_ROLES = ["admin", "super_admin", "hr", "hrd", "hr_admin", "manager", "ga", "finance", "finance_admin", "lpk"];
+export const SYSTEM_LOGIN_ROLES = ["admin", "super_admin", "hr", "hrd", "hr_admin", "manager", "ga", "finance", "finance_admin", "lpk", "mitra", "mitra_telu"];
 export const LMS_ACCOUNT_ROLES = ["sensei", "sensei_intensif", "peserta_intensif"];
 
 export function isSystemLoginRole(role) {
@@ -39,6 +40,8 @@ export function getRoleLandingPath(role) {
     ga: "/menu-ga",
     finance: "/dashboard-finance",
     finance_admin: "/dashboard-finance",
+    mitra: "/invoice-penagihan",
+    mitra_telu: "/invoice-penagihan",
     admin: "/dashboard",
     super_admin: "/dashboard",
     lpk: "/dashboard-creativa",

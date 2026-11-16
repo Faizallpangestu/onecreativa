@@ -1,0 +1,7 @@
+{
+  "midtrans_server_key": "Mid-server-Ems6wximYeuQ-MhX.FSj46Qv",
+  "midtrans_client_key": "Mid-client-LILBagcdYUvoYqBx",
+  "midtrans_merchant_id": "",
+  "midtrans_is_production": true,
+  "n8n_receipt_webhook_url": "http://localhost:5678/webhook/creativa-phase2-receipt"
+}

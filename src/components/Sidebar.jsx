@@ -64,6 +64,7 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
   const isSuperAdmin = role === "super_admin" || role === "owner" || role === "director" || role === "direktur";
   const isGA = role === "ga";
   const isAdmin = role === "admin" || isSuperAdmin || role === "lpk";
+  const isMitra = role === "mitra" || role === "mitra_telu";
 
   const menuGroups = [
     {
@@ -941,7 +942,25 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
     },
   ];
 
-  const displayedGroups = isFinanceMode ? financeModularGroups : menuGroups;
+  const mitraGroups = [
+    {
+      category: "PORTAL MITRA KERJASAMA",
+      items: [
+        {
+          label: "Dashboard",
+          path: "/dashboard-finance",
+          icon: <LayoutGrid className="h-5 w-5" strokeWidth={1.8} />,
+        },
+        {
+          label: "Invoice Penagihan",
+          path: "/invoice-penagihan",
+          icon: <FileText className="h-5 w-5" strokeWidth={1.8} />,
+        },
+      ],
+    },
+  ];
+
+  const displayedGroups = isMitra ? mitraGroups : (isFinanceMode ? financeModularGroups : menuGroups);
 
   const handleLogout = () => {
     logoutUser();

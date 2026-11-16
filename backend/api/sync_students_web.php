@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/api_session_guard.php';
 require_once __DIR__ . '/../services/rpa_automation.php';
 require_once __DIR__ . '/../services/registration_sync.php';
+require_once __DIR__ . '/../services/student_account.php';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -19,7 +20,7 @@ try {
     }
 
     $secretHeader = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['secret'] ?? ''));
-    $actor = $secretHeader !== '' && hash_equals(rpa_get_secret(), $secretHeader)
+    $actor = rpa_secret_matches($secretHeader)
         ? ['id' => 0, 'role' => 'integration', 'name' => 'Registration sync']
         : api_session_guard($conn, 'prepare');
 
@@ -63,7 +64,10 @@ try {
 
     // 2. Fallback ke api_peserta.php jika endpoint utama gagal
     if (!is_array($remoteData)) {
-        $fallbackRes = $fetchJson("https://creativabridging.com/api_peserta.php?api_key=CREATIVA_SYNC_SECRET_2026");
+        $upstreamKey = rpa_upstream_api_key();
+        $fallbackRes = $upstreamKey === ''
+            ? ['ok' => false, 'error' => 'CREATIVABRIDGING_API_KEY belum dikonfigurasi', 'data' => null]
+            : $fetchJson('https://creativabridging.com/api_peserta.php?api_key=' . rawurlencode($upstreamKey));
         if (!$fallbackRes['ok'] || !isset($fallbackRes['data']['data']) || !is_array($fallbackRes['data']['data'])) {
             error_log('Student sync upstream request failed: ' . ($primaryRes['error'] ?: $fallbackRes['error']));
             throw new RuntimeException('Data siswa dari web pendaftaran gagal diambil. Silakan coba lagi.');
@@ -102,11 +106,13 @@ try {
         }
     }
 
-    $inserted = 0; $updated = 0; $reviews = []; $createdInvoices = 0;
+    $inserted = 0; $updated = 0; $reviews = []; $createdInvoices = 0; $createdAccounts = 0;
     foreach ($remoteData as $p) {
         if (!is_array($p)) ac_fail('Data pendaftar tidak valid.');
         $result = registration_process($conn, $actor, $p, 'sync', fn(array $context) => registration_auto_issue($conn, $actor, $context, date('Y-m-d')));
         if (!empty($result['invoice_issue']['created_now'])) $createdInvoices++;
+        $account = sa_deliver($conn, $actor, $result['account'] ?? null);
+        if (($account['status'] ?? '') === 'created') $createdAccounts++;
         // No automatic resend on replay. Notification history is owned by its channel sender.
         if ($result['student']) { if ($result['student_created']) $inserted++; else $updated++; }
         if ($result['pricing']['status'] === 'needs_review') $reviews[] = ['student_id' => $result['student']['id'] ?? null, 'enrollment_id' => $result['enrollment']['id'] ?? null, 'pricing_status' => 'needs_review', 'reason' => $result['pricing']['reason']];
@@ -122,11 +128,12 @@ try {
 
     echo json_encode([
         'status' => 'success',
-        'message' => "Data siswa dan invoice berhasil disinkronkan. $inserted siswa ditambahkan, $updated siswa diperbarui, dan $createdInvoices invoice otomatis dibuat.",
+        'message' => "Data siswa dan invoice berhasil disinkronkan. $inserted siswa ditambahkan, $updated siswa diperbarui, $createdInvoices invoice otomatis dibuat, dan $createdAccounts akun siswa dibuat.",
         'total' => count($allStudents),
         'inserted' => $inserted,
         'updated' => $updated,
         'created_invoices' => $createdInvoices,
+        'created_accounts' => $createdAccounts,
         'students' => $allStudents,
         'pricing_needs_review' => count($reviews),
         'pricing_reviews' => $reviews

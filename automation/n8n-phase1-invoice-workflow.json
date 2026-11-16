@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json.body || $input.first().json;\nconst s = raw.student || raw.participant || raw;\nconst digits = String(s.phone || s.no_wa || s.noWhatsapp || '').replace(/[^0-9]/g, '');\nconst waPhone = digits.startsWith('0') ? '62' + digits.slice(1) : digits;\n\nreturn [{\n  json: {\n    secret: $env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026',\n    defer_delivery_log: false,\n    student: {\n      id: Number(s.id || s.web_id || 0),\n      nama: String(s.nama || s.name || s.namaLengkap || '').trim(),\n      phone: waPhone || String(s.phone || ''),\n      email: String(s.email || '').trim(),\n      noKtp: String(s.noKtp || s.no_ktp || '').trim(),\n      program: String(s.program || s.programMinat || 'Intensif Offline').trim(),\n      metodePembayaran: String(s.metodePembayaran || s.metode_pembayaran || s.tipe_pembayaran || 'Full Payment').trim(),\n      kotaDomisili: String(s.kotaDomisili || s.kota || 'Cianjur').trim(),\n      lokasiTinggal: String(s.lokasiTinggal || '').trim(),\n      batch: String(s.batch || 'Batch 2').trim(),\n      status: 'Pending',\n      screening: raw.screening || s.screening || null\n    }\n  }\n}];"
+        "jsCode": "const raw = $input.first().json.body || $input.first().json;\nconst s = raw.student || raw.participant || raw;\nconst digits = String(s.phone || s.no_wa || s.noWhatsapp || '').replace(/[^0-9]/g, '');\nconst waPhone = digits.startsWith('0') ? '62' + digits.slice(1) : digits;\n\nreturn [{\n  json: {\n    secret: $env.ONECREATIVA_WEBHOOK_SECRET,\n    defer_delivery_log: false,\n    student: {\n      id: Number(s.id || s.web_id || 0),\n      nama: String(s.nama || s.name || s.namaLengkap || '').trim(),\n      phone: waPhone || String(s.phone || ''),\n      email: String(s.email || '').trim(),\n      noKtp: String(s.noKtp || s.no_ktp || '').trim(),\n      program: String(s.program || s.programMinat || 'Intensif Offline').trim(),\n      metodePembayaran: String(s.metodePembayaran || s.metode_pembayaran || s.tipe_pembayaran || 'Full Payment').trim(),\n      kotaDomisili: String(s.kotaDomisili || s.kota || 'Cianjur').trim(),\n      lokasiTinggal: String(s.lokasiTinggal || '').trim(),\n      batch: String(s.batch || 'Batch 2').trim(),\n      status: 'Pending',\n      screening: raw.screening || s.screening || null\n    }\n  }\n}];"
       },
       "id": "node-normalize",
       "name": "2. Normalisasi Data & Skema",
@@ -37,7 +37,7 @@
             },
             {
               "name": "X-Webhook-Secret",
-              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET}}"
             }
           ]
         },
@@ -95,7 +95,7 @@
             },
             {
               "name": "X-Worker-Secret",
-              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET}}"
             }
           ]
         },
@@ -213,7 +213,7 @@
             },
             {
               "name": "X-Webhook-Secret",
-              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET || 'CREATIVA_SYNC_SECRET_2026'}}"
+              "value": "={{$env.ONECREATIVA_WEBHOOK_SECRET}}"
             }
           ]
         },

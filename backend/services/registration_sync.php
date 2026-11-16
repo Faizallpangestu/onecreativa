@@ -140,6 +140,9 @@ function registration_auto_issue(mysqli $db, array $actor, array $context, strin
         $channel = !empty($invoice['phone']) && $invoice['phone'] !== '-' ? 'WhatsApp' : 'Email';
         ac_query($db, "INSERT INTO billing_terkirim(id,tglKirim,customer,kanal,penerima,statusKirim,statusBaca,created_at) VALUES(?,?,?,?,?,'Menunggu Bot','Pending',NOW())", [$invoice['id'], $date, $invoice['customer'], $channel, $channel === 'WhatsApp' ? $invoice['phone'] : $invoice['email']]);
     }
+    // AKN-01: akun siswa dibuat setelah invoice resmi terbit (alur to-be notulen 31 Okt 2026).
+    require_once __DIR__.'/student_account.php';
+    $context['account'] = sa_provision($db, $actor, (int)$context['student']['id']);
     return $context;
 }
 function registration_process(mysqli $db, array $actor, array $input, string $channel, ?callable $publish = null): array {

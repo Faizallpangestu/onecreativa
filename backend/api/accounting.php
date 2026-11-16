@@ -100,6 +100,16 @@ try{
                 $studentPricingRow['pricing_reason'] = $decision['reason'];
             }
             unset($studentPricingRow);
+            // AKN-01: status akun login siswa untuk halaman Data Siswa Finance.
+            require_once __DIR__.'/../services/student_account.php';
+            $accountMap = sa_status_map($conn, array_column($students, 'id'));
+            foreach ($students as &$studentAccountRow) {
+                $acct = $accountMap[(int)$studentAccountRow['id']] ?? ['status' => 'none'];
+                $studentAccountRow['account_status'] = $acct['status'];
+                $studentAccountRow['account_email'] = $acct['email'] ?? null;
+                $studentAccountRow['account_last_login'] = $acct['last_login_at'] ?? null;
+            }
+            unset($studentAccountRow);
             $accounts = [];
             if (ac_table($conn, 'accounts')) {
                 $hasJl = ac_table($conn, 'journal_lines') && ac_table($conn, 'journal_entries');

@@ -17,7 +17,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/rpa_automation.php';
 
-$EXPECTED_SECRET = rpa_get_secret();
 
 function compute_installments_progress(array $meta, float $totalInvoice, float $paidTotal, string $fallbackDueDate): array {
     return rpa_compute_installments_due($meta, $totalInvoice, $paidTotal, $fallbackDueDate)['installments'];
@@ -29,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // ── A. Endpoint Cron n8n: Daftar cicilan jatuh tempo H-3 (wajib X-Webhook-Secret) ──
     if ($action === 'due_installments') {
         $providedSecret = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['api_key'] ?? $_GET['secret'] ?? ''));
-        if ($providedSecret === '' || !hash_equals($EXPECTED_SECRET, $providedSecret)) {
+        if (!rpa_secret_matches($providedSecret)) {
             http_response_code(401);
             echo json_encode(['status' => 'error', 'message' => 'Unauthorized webhook secret.']);
             exit;
@@ -313,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $providedSecret = (string)$body['secret'];
     }
 
-    if ($providedSecret === '' || !hash_equals($EXPECTED_SECRET, $providedSecret)) {
+    if (!rpa_secret_matches($providedSecret)) {
         http_response_code(401);
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized webhook secret.']);
         exit;

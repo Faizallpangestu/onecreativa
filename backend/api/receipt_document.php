@@ -6,7 +6,7 @@
  *
  * Akses wajib menyertakan:
  * - ?payment_id=<id>&token=<public_token> (atau ?id=<invoice_id>&token=<public_token>)
- * - ATAU header X-Webhook-Secret / ?api_key=CREATIVA_SYNC_SECRET_2026
+ * - ATAU header X-Webhook-Secret / ?api_key=<CREATIVA_WEBHOOK_SECRET dari config server>
  * - ATAU session aktif Finance / Admin ERP
  */
 
@@ -14,7 +14,6 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/billing_receipts.php';
 
 header('Content-Type: text/plain; charset=utf-8');
-$EXPECTED_SECRET = rpa_get_secret();
 
 $paymentId = (int)($_GET['payment_id'] ?? 0);
 $invoiceId = trim((string)($_GET['id'] ?? $_GET['invoice_id'] ?? ''));
@@ -28,7 +27,7 @@ if ($paymentId <= 0 && $invoiceId === '') {
     exit;
 }
 
-$hasSecretAccess = ($apiKey !== '' && hash_equals($EXPECTED_SECRET, $apiKey));
+$hasSecretAccess = rpa_secret_matches($apiKey);
 if (!$hasSecretAccess && $token === '') {
     require_once __DIR__ . '/../config/session.php';
     $erpActor = session_actor($conn);

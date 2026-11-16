@@ -31,7 +31,7 @@ function billing_check(bool $ok, string $message): void {
 }
 try {
     $conn->query('CREATE TABLE roles(id TINYINT UNSIGNED PRIMARY KEY,name VARCHAR(50)) ENGINE=InnoDB');
-    $conn->query('CREATE TABLE users(id INT UNSIGNED PRIMARY KEY,email VARCHAR(191),password_hash VARCHAR(255),role_id TINYINT UNSIGNED,is_active TINYINT DEFAULT 1) ENGINE=InnoDB');
+    $conn->query('CREATE TABLE users(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,email VARCHAR(191) UNIQUE,password_hash VARCHAR(255),role_id TINYINT UNSIGNED,is_active TINYINT DEFAULT 1,last_login_at TIMESTAMP NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
     $conn->query('CREATE TABLE employees(id INT UNSIGNED PRIMARY KEY,user_id INT UNSIGNED,full_name VARCHAR(150),employee_code VARCHAR(20),position VARCHAR(100),gender VARCHAR(20),photo_url VARCHAR(255)) ENGINE=InnoDB');
     $conn->query('CREATE TABLE peserta_intensif(id INT AUTO_INCREMENT PRIMARY KEY,nama_lengkap VARCHAR(255),email VARCHAR(255),no_wa VARCHAR(50),total_biaya DECIMAL(15,2),program VARCHAR(150),kota VARCHAR(100),nis VARCHAR(50),source VARCHAR(50),status VARCHAR(50)) ENGINE=InnoDB');
     $conn->query("CREATE TABLE billing_invoices(id VARCHAR(50) PRIMARY KEY,tanggal VARCHAR(50),customer VARCHAR(255),email VARCHAR(255),phone VARCHAR(50),total DECIMAL(15,2),status VARCHAR(50),jatuhTempo VARCHAR(50),keterangan TEXT,meta_json LONGTEXT,public_token VARCHAR(64),created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB");

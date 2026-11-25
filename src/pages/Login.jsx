@@ -62,7 +62,7 @@ export default function Login() {
       .then(() => axios.get("/api/session.php", { signal: request.signal }))
       .then(({ data }) => {
         if (!request.signal.aborted) {
-          navigate(getRoleLandingPath(sessionUser(data).role_name), { replace: true });
+          window.location.href = getRoleLandingPath(sessionUser(data).role_name);
         }
       })
       .catch((error) => {
@@ -90,16 +90,22 @@ export default function Login() {
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
         let redirectPath = searchParams.get("redirect");
+        const defaultLanding = getRoleLandingPath(res.data.user.role_name);
+        const normRole = (res.data.user.role_name || "").toLowerCase();
+        const isEmployeeRole = ["karyawan", "employee", "staff"].includes(normRole);
+        const isAdminTarget = redirectPath === "/dashboard" || redirectPath?.startsWith("/menu-admin") || redirectPath?.startsWith("/menu-hrd") || redirectPath?.startsWith("/menu-finance") || redirectPath?.startsWith("/menu-ga");
+
         if (
           !redirectPath ||
           redirectPath === "/home" ||
           !redirectPath.startsWith("/") ||
           redirectPath.startsWith("//") ||
-          redirectPath.startsWith("/login")
+          redirectPath.startsWith("/login") ||
+          (isEmployeeRole && isAdminTarget)
         ) {
-          redirectPath = getRoleLandingPath(res.data.user.role_name);
+          redirectPath = defaultLanding;
         }
-        navigate(redirectPath);
+        window.location.href = redirectPath;
       } else {
         setError(res.data.message || "Email atau password salah");
       }
@@ -238,9 +244,8 @@ export default function Login() {
                     setSelectedLang(lang.name);
                     setShowLangMenu(false);
                   }}
-                  className={`w-full text-left px-3 py-1.5 text-xs font-bold flex items-center justify-between hover:bg-blue-50 transition-colors cursor-pointer ${
-                    selectedLang === lang.name ? "text-blue-600 bg-blue-50/50" : "text-slate-700"
-                  }`}
+                  className={`w-full text-left px-3 py-1.5 text-xs font-bold flex items-center justify-between hover:bg-blue-50 transition-colors cursor-pointer ${selectedLang === lang.name ? "text-blue-600 bg-blue-50/50" : "text-slate-700"
+                    }`}
                 >
                   <span>{lang.name}</span>
                   {selectedLang === lang.name && <Check className="w-3.5 h-3.5 text-blue-600" />}
@@ -428,10 +433,10 @@ export default function Login() {
               </div>
 
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug mb-1">
-                Login to ONE Creativa
+                Portal HRIS Kantor
               </h2>
               <p className="text-[11px] sm:text-xs text-slate-500 font-medium leading-relaxed max-w-[290px]">
-                Akses seluruh layanan portal dengan satu akun terpadu Anda.
+                Khusus Manajemen Kantor: Admin HRIS, HRD, GA, Finance, &amp; Karyawan.
               </p>
             </div>
 
@@ -640,6 +645,18 @@ export default function Login() {
                   <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
                 </svg>
                 <span>Microsoft</span>
+              </button>
+            </div>
+
+            {/* Switch to LMS Portal link */}
+            <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+              <p className="text-[11px] text-slate-500 mb-1.5">Ingin login Siswa, Sensei, atau Admin LMS?</p>
+              <button
+                type="button"
+                onClick={() => navigate("/lms-login")}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+              >
+                <span>Masuk ke Portal LMS LPK Creativa &rarr;</span>
               </button>
             </div>
           </div>

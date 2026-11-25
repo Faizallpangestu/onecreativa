@@ -63,7 +63,7 @@ function ac_ready(mysqli $db): void {
 function ac_can(mysqli $db, array $actor, string $permission): bool {
     $role = strtolower(trim($actor['role'] ?? ''));
     $email = strtolower(trim($actor['email'] ?? ''));
-    if (in_array($role, ['super_admin', 'owner'], true) || $email === 'muhammadfaizal.mf10@gmail.com') {
+    if (in_array($role, ['super_admin', 'owner'], true)) {
         return true;
     }
     $permissionRole=$role==='finance_admin'?'finance':$role;

@@ -580,9 +580,9 @@ function AdjustInflowModal({ item, onClose, onSave, banks = [], coaAccounts = []
   const [adjustedBy, setAdjustedBy] = useState(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
-      return u.name || u.full_name || u.username || 'Admin Finance (Faizal)';
+      return u.name || u.full_name || u.username || 'Admin Finance';
     } catch {
-      return 'Admin Finance (Faizal)';
+      return 'Admin Finance';
     }
   });
 

@@ -39,16 +39,10 @@ if (!function_exists('rpa_get_receipt_webhook_url')) {
 
 if (!function_exists('rpa_base_api_url')) {
     function rpa_base_api_url(): string {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
-        if ($host !== '' && (str_contains($host, 'one.creativabridging.com') || str_contains($host, 'localhost') || str_contains($host, '127.0.0.1'))) {
-            $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api')), '/');
-            if ($scriptDir === '' || $scriptDir === '.') {
-                $scriptDir = '/api';
-            }
-            return "{$scheme}://{$host}{$scriptDir}";
+        if (defined('CREATIVA_PUBLIC_API_URL') && CREATIVA_PUBLIC_API_URL !== '') {
+            return rtrim((string)CREATIVA_PUBLIC_API_URL, '/');
         }
-        return 'https://creativabridging.com/api';
+        return 'https://one.creativabridging.com/api';
     }
 }
 
@@ -116,6 +110,12 @@ if (!function_exists('rpa_ensure_billing_columns')) {
                 @mysqli_query($conn, "ALTER TABLE `billing_invoices` ADD COLUMN `{$col}` {$def}");
             }
         }
+        foreach (['proof_path' => 'VARCHAR(255) NULL', 'external_ref' => 'VARCHAR(255) NULL'] as $col => $def) {
+            $chk = @mysqli_query($conn, "SHOW COLUMNS FROM `billing_pembayaran` LIKE '{$col}'");
+            if ($chk && mysqli_num_rows($chk) === 0) {
+                @mysqli_query($conn, "ALTER TABLE `billing_pembayaran` ADD COLUMN `{$col}` {$def}");
+            }
+        }
     }
 }
 
@@ -181,7 +181,7 @@ if (!function_exists('rpa_build_public_urls')) {
         $invoiceUrl = "{$baseApi}/invoice_document.php?id={$invEncoded}&token={$tokEncoded}";
         $statusUrl = rpa_public_status_base_url() . "?inv={$invEncoded}&token={$tokEncoded}";
         $receiptUrl = $paymentId !== null && $paymentId > 0
-            ? "{$baseApi}/receipt_document.php?payment_id={$paymentId}&token={$tokEncoded}"
+            ? "{$baseApi}/receipt_document.php?id={$invEncoded}&payment_id={$paymentId}&token={$tokEncoded}"
             : "{$baseApi}/receipt_document.php?id={$invEncoded}&token={$tokEncoded}";
         return [
             'invoice_url' => $invoiceUrl,
@@ -289,6 +289,22 @@ if (!function_exists('rpa_sync_payment_to_remote_student_dashboard')) {
     function rpa_sync_payment_to_remote_student_dashboard(int $rawId, string $invoiceId, float $amountPaid): void {
         if ($rawId <= 0) return;
 
+        // 1. Update status di tabel participants (creativabridging.com)
+        $pCh = curl_init("https://creativabridging.com/api/index.php?table=participants&id={$rawId}");
+        curl_setopt_array($pCh, [
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 6,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode([
+                'fee_status' => 'Lunas Cicilan',
+                'payment_status' => 'partially_paid'
+            ])
+        ]);
+        curl_exec($pCh);
+        curl_close($pCh);
+
+        // 2. Update status tiap installment invoice di tabel invoices (creativabridging.com)
         $ch = curl_init("https://creativabridging.com/api/index.php?table=invoices&participant_id={$rawId}");
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6]);
         $res = curl_exec($ch);
@@ -535,7 +551,7 @@ if (!function_exists('rpa_send_smtp_email')) {
             'port' => (int)(getenv('CREATIVA_SMTP_PORT') ?: 465),
             'encryption' => getenv('CREATIVA_SMTP_ENCRYPTION') ?: 'ssl',
             'username' => getenv('CREATIVA_SMTP_USERNAME') ?: 'finance@creativabridging.com',
-            'password' => getenv('CREATIVA_SMTP_PASSWORD') ?: '',
+            'password' => getenv('CREATIVA_SMTP_PASSWORD') ?: 'Cr34t!v425',
             'from_email' => getenv('CREATIVA_SMTP_FROM_EMAIL') ?: 'finance@creativabridging.com',
             'from_name' => getenv('CREATIVA_SMTP_FROM_NAME') ?: 'LPK Creativa Bridging International',
         ];
@@ -1020,5 +1036,84 @@ if (!function_exists('rpa_send_invoice_notifications')) {
         ];
     }
 }
+
+if (!function_exists('rpa_get_next_invoice_id')) {
+    /**
+     * Menghasilkan ID Invoice resmi LPK secara aman dan berurutan monoton.
+     * Tidak akan pernah reset ke 0001 meskipun invoice lama dihapus, dan tidak akan bentrok dengan riwayat pembayaran.
+     */
+    function rpa_get_next_invoice_id(mysqli $conn, string $prefix): string {
+        @mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `rpa_invoice_sequences` (
+            `prefix` VARCHAR(32) NOT NULL PRIMARY KEY,
+            `last_seq` INT NOT NULL DEFAULT 0,
+            `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // 1. Ambil sequence yang tersimpan di rpa_invoice_sequences
+        $storedSeq = 0;
+        $seqRes = @mysqli_query($conn, "SELECT last_seq FROM rpa_invoice_sequences WHERE prefix = '{$prefix}' LIMIT 1");
+        if ($seqRes && $row = mysqli_fetch_assoc($seqRes)) {
+            $storedSeq = (int)($row['last_seq'] ?? 0);
+        }
+
+        // 2. Scan nomor invoice tertinggi di billing_invoices
+        $maxInv = 0;
+        $q1 = @mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 50");
+        if ($q1) {
+            while ($r = mysqli_fetch_assoc($q1)) {
+                $tail = substr((string)$r['id'], strlen($prefix));
+                if (ctype_digit($tail)) {
+                    $maxInv = max($maxInv, (int)$tail);
+                }
+            }
+        }
+
+        // 3. Scan nomor invoice tertinggi di billing_pembayaran
+        $maxPay = 0;
+        $q2 = @mysqli_query($conn, "SELECT noInv FROM billing_pembayaran WHERE noInv LIKE '{$prefix}%' ORDER BY id DESC LIMIT 50");
+        if ($q2) {
+            while ($r = mysqli_fetch_assoc($q2)) {
+                $tail = substr((string)$r['noInv'], strlen($prefix));
+                if (ctype_digit($tail)) {
+                    $maxPay = max($maxPay, (int)$tail);
+                }
+            }
+        }
+
+        // 4. Scan nomor invoice tertinggi di billing_terkirim
+        $maxDeliv = 0;
+        $q3 = @mysqli_query($conn, "SELECT id FROM billing_terkirim WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 50");
+        if ($q3) {
+            while ($r = mysqli_fetch_assoc($q3)) {
+                $rawId = preg_replace('/-[A-Z0-9]+$/', '', (string)$r['id']);
+                $tail = substr($rawId, strlen($prefix));
+                if (ctype_digit($tail)) {
+                    $maxDeliv = max($maxDeliv, (int)$tail);
+                }
+            }
+        }
+
+        // 5. Scan nomor invoice tertinggi di rpa_processed_registrations
+        $maxProc = 0;
+        $q4 = @mysqli_query($conn, "SELECT invoice_id FROM rpa_processed_registrations WHERE invoice_id LIKE '{$prefix}%' ORDER BY web_id DESC LIMIT 50");
+        if ($q4) {
+            while ($r = mysqli_fetch_assoc($q4)) {
+                $tail = substr((string)$r['invoice_id'], strlen($prefix));
+                if (ctype_digit($tail)) {
+                    $maxProc = max($maxProc, (int)$tail);
+                }
+            }
+        }
+
+        $highest = max($storedSeq, $maxInv, $maxPay, $maxDeliv, $maxProc);
+        $nextSeq = $highest + 1;
+
+        // Simpan sequence baru secara atomik
+        @mysqli_query($conn, "INSERT INTO rpa_invoice_sequences (prefix, last_seq, updated_at) VALUES ('{$prefix}', {$nextSeq}, NOW()) ON DUPLICATE KEY UPDATE last_seq = GREATEST(last_seq, {$nextSeq}), updated_at = NOW()");
+
+        return $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+    }
+}
+
 
 

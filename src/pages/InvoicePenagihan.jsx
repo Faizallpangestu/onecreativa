@@ -18,7 +18,10 @@ import {
   Image as ImageIcon, ExternalLink, ZoomIn, FileCheck, UploadCloud, QrCode, Link2, Copy, Key
 } from "lucide-react";
 
-const formatRp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID");
+const formatRp = (n) => {
+  const val = Number(n);
+  return "Rp " + (Number.isFinite(val) ? val.toLocaleString("id-ID") : "0");
+};
 
 const MONTHS_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agust", "Sep", "Okt", "Nov", "Des"];
 const MONTHS_UPPER_ID = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
@@ -4113,8 +4116,14 @@ function TabInvoiceTerkirim({ data, onDelete, onRefresh, isReadOnly = false }) {
     );
   };
 
+  const uniqueInvoicesCount = new Set(
+    data
+      .map(d => String(d.id || '').replace(/-(EML|WA)$/i, '').trim())
+      .filter(Boolean)
+  ).size;
+
   const stats = [
-    { label: "Total Terkirim", value: data.length, sub: "+12% dari periode lalu", ok: true, Icon: Send, bg: "bg-violet-100", ic: "text-violet-600" },
+    { label: "Total Terkirim", value: uniqueInvoicesCount, sub: "+12% dari periode lalu", ok: true, Icon: Send, bg: "bg-violet-100", ic: "text-violet-600" },
     { label: "Via Email", value: data.filter(d => d.kanal === "Email").length, sub: "+8% dari periode lalu", ok: true, Icon: Mail, bg: "bg-blue-100", ic: "text-blue-600" },
     { label: "Via WhatsApp", value: data.filter(d => d.kanal === "WhatsApp").length, sub: "+20% dari periode lalu", ok: true, Icon: MessageCircle, bg: "bg-emerald-100", ic: "text-emerald-600" },
     { label: "Gagal Kirim", value: data.filter(d => d.statusKirim === "Gagal").length, sub: "–25% dari periode lalu", ok: false, Icon: AlertTriangle, bg: "bg-red-100", ic: "text-red-500", vc: "text-red-500" },
@@ -4300,10 +4309,10 @@ function TabPembayaran({ data, onDelete, isReadOnly = false }) {
     );
   };
 
-  const totalBayar = data.reduce((s, r) => s + r.jumlah, 0);
-  const sudahVerif = data.filter(r => r.statusVerif === "Terverifikasi").reduce((s, r) => s + r.jumlah, 0);
-  const menunggu = data.filter(r => r.statusVerif === "Menunggu").reduce((s, r) => s + r.jumlah, 0);
-  const sisaPiutang = data.reduce((s, r) => s + r.sisa, 0);
+  const totalBayar = data.reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
+  const sudahVerif = data.filter(r => r.statusVerif === "Terverifikasi").reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
+  const menunggu = data.filter(r => r.statusVerif === "Menunggu").reduce((s, r) => s + (Number(r.jumlah) || 0), 0);
+  const sisaPiutang = data.reduce((s, r) => s + (Number(r.sisa) || 0), 0);
 
   const stats = [
     { label: "Total Pembayaran", value: totalBayar, ok: true, sub: "+18,6% dari periode lalu", Icon: CreditCard, bg: "bg-violet-100", ic: "text-violet-600" },
@@ -5940,6 +5949,7 @@ export default function InvoicePenagihan() {
   };
 
   const [showBuatRoot, setShowBuatRoot] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [syncingWeb, setSyncingWeb] = useState(false);
 
   const handleSyncWebsite = async () => {
@@ -6074,34 +6084,27 @@ export default function InvoicePenagihan() {
             ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
             : "bg-amber-50/90 border-amber-300 text-amber-950"
         }`}>
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+          <div className="flex items-center gap-3.5">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
               rpaStatus?.wa_bot_ready ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
             }`}>
               <MessageCircle className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm font-black">
-                  {rpaStatus?.wa_bot_ready ? `WhatsApp Bot Otomatis Aktif & Terhubung (${rpaStatus?.wa_gateway_label || 'Cloud Gateway'})` : "WhatsApp Bot Belum Ditautkan (Fonnte Gateway / Scan QR)"}
-                </h4>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${
-                  rpaStatus?.wa_bot_ready ? "bg-emerald-200 text-emerald-900" : "bg-amber-200 text-amber-900 animate-pulse"
-                }`}>
-                  {rpaStatus?.wa_bot_ready ? "ONLINE / SIAP KIRIM" : "MENUNGGU TOKEN / SCAN"}
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                {rpaStatus?.wa_bot_ready
-                  ? "Robot RPA siap mengirimkan invoice beserta 6 termin cicilan langsung ke WhatsApp calon siswa segera setelah mendaftar secara 100% otomatis."
-                  : "Agar pesan WhatsApp terkirim 100% otomatis tanpa perlu PC menyala, masukkan Token Fonnte di Pengaturan RPA atau tautkan WhatsApp lokal."}
-              </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-black">
+                {rpaStatus?.wa_bot_ready ? `WhatsApp Bot Otomatis Aktif & Terhubung (${rpaStatus?.wa_gateway_label || 'Fonnte Gateway (Cloud 24/7)'})` : "WhatsApp Bot Belum Ditautkan (Fonnte Gateway / Scan QR)"}
+              </h4>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${
+                rpaStatus?.wa_bot_ready ? "bg-emerald-200 text-emerald-900" : "bg-amber-200 text-amber-900 animate-pulse"
+              }`}>
+                {rpaStatus?.wa_bot_ready ? "ONLINE / SIAP KIRIM" : "MENUNGGU TOKEN / SCAN"}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 justify-end flex-wrap">
             <button
               type="button"
-              onClick={() => setIsRpaSettingsOpen(true)}
+              onClick={() => setShowConfigModal(true)}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer whitespace-nowrap ${
                 rpaStatus?.wa_bot_ready
                   ? "bg-white hover:bg-slate-50 border border-slate-300 text-slate-700"
@@ -6173,7 +6176,12 @@ export default function InvoicePenagihan() {
           <Sidebar invoiceData={invoices} />
         )}
 
-        {/* Modal Buat Invoice (Root trigger) */}
+        {/* Modal Pengaturan Gateway (Midtrans, Webhook, Fonnte Token) */}
+        <ModalPengaturanGateway
+          isOpen={showConfigModal}
+          onClose={() => setShowConfigModal(false)}
+          onSaved={fetchData}
+        />
         {showBuatRoot && (
           <BuatInvoiceWizardModal
             onClose={() => setShowBuatRoot(false)}

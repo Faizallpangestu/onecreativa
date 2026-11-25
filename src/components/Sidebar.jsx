@@ -57,13 +57,14 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
 
   const role = normalizeRole(user?.role_name);
   const isEmployee = role === "employee" || role === "karyawan" || role === "staff";
-  const isPesertaIntensif = role === "peserta_intensif" || role === "peserta_matching" || role === "peserta_mendang" || role === "peserta_alumni" || role === "peserta_nenkin";
+  const isPesertaIntensif = role === "peserta_intensif" || role === "peserta_matching" || role === "peserta_mendang" || role === "peserta_alumni" || role === "peserta_nenkin" || role === "siswa";
   const isSensei = role === "sensei" || role === "sensei_intensif" || user?.is_sensei === true;
   const isHR = role === "hr" || role === "manager" || role === "hrd";
   const isFinance = role === "finance" || role === "finance_admin";
   const isSuperAdmin = role === "super_admin" || role === "owner" || role === "director" || role === "direktur";
   const isGA = role === "ga";
-  const isAdmin = role === "admin" || isSuperAdmin || role === "lpk";
+  const isAdminLms = role === "admin_lms" || role === "lms_admin" || role === "lpk" || role === "akademik" || role === "admin_akademik";
+  const isAdmin = (role === "admin" || isSuperAdmin) && !isAdminLms;
   const isMitra = role === "mitra" || role === "mitra_telu";
 
   const menuGroups = [
@@ -87,335 +88,6 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
           icon: (
             <SidebarIcon>
               <path d="M4 4h6v6H4V4Zm10 0h6v10h-6V4ZM4 14h6v6H4v-6Zm10 4h6v2h-6v-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        // ==================== SIDEBAR SISWA ====================
-        {
-          label: "Dashboard",
-          path: "/dashboard-siswa-intensif",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Absensi",
-          path: "/lms/absensi",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kelas Saya",
-          path: "/lms/kelas-saya",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Materi",
-          path: "/lms/materi",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Tugas",
-          path: "/lms/tugas",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="10 9 9 9 8 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Quiz",
-          path: "/lms/quiz",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <circle cx="12" cy="8" r="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Ujian Kompetensi",
-          path: "/lms/ukom",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Nilai",
-          path: "/lms/nilai",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M18 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 20V4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6 20v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kalender",
-          path: "/lms/kalender",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kaiwa dengan AI",
-          path: "/lms/latihan-kaiwa",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kotoba",
-          path: "/lms/kotoba",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5" />
-              <text x="12" y="16" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold" fontFamily="sans-serif">あ</text>
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Pengumuman",
-          path: "/lms/pengumuman",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Diskusi",
-          path: "/lms/diskusi",
-          hidden: !isPesertaIntensif,
-          icon: (
-            <SidebarIcon>
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-
-        // ==================== SIDEBAR SENSEI ====================
-        {
-          label: "Dashboard",
-          path: "/dashboard-sensei",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Absensi",
-          path: "/sensei/kehadiran",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kelas Saya",
-          path: "/lms/kelas-saya",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Materi",
-          path: "/lms/materi",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Tugas",
-          path: "/lms/tugas",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Quiz",
-          path: "/lms/quiz",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <circle cx="12" cy="8" r="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Ujian Kompetensi",
-          path: "/lms/ukom",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Nilai",
-          path: "/lms/nilai",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M18 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 20V4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6 20v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kalender",
-          path: "/lms/kalender",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Kotoba",
-          path: "/lms/kotoba",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Pengumuman",
-          path: "/lms/pengumuman",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Diskusi",
-          path: "/lms/diskusi",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Siswa",
-          path: "/lpk-intensif",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="9" cy="10" r="2" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M15 8h2M15 12h2M6 16h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Leaderboard",
-          path: "/lms/leaderboard",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Laporan",
-          path: "/daily-report-karyawan",
-          hidden: !isSensei,
-          icon: (
-            <SidebarIcon>
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 11h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </SidebarIcon>
           ),
         },
@@ -752,71 +424,6 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
       ]
     },
     {
-      category: "LPK CREATIVA",
-      items: [
-        {
-          label: "Hak Akses",
-          hidden: !(isSuperAdmin || isFinance),
-          icon: (
-            <SidebarIcon>
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-          subItems: [
-            { label: "Akses Sensei", path: "/access-rights-sensei" },
-            { label: "Akses Siswa", path: "/access-rights-siswa" }
-          ]
-        },
-        {
-          label: "LMS",
-          hidden: !(isSuperAdmin || isFinance),
-          icon: (
-            <SidebarIcon>
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-          subItems: [
-            { label: "Agenda", path: "/lms/agenda" },
-            { label: "Kelas Saya", path: "/lms/kelas-saya" },
-            { label: "Daftar Kelas", path: "/lms/classes" },
-            { label: "Materi", path: "/lms/materi" },
-            { label: "Kalender Pertemuan", path: "/lms/kalender" },
-            { label: "Tugas", path: "/lms/tugas" },
-            { label: "Quiz", path: "/lms/quiz" },
-            { label: "Ujian Kompetensi", path: "/lms/ukom" },
-            { label: "Nilai", path: "/lms/nilai" },
-            { label: "Papan Peringkat", path: "/lms/leaderboard" },
-            { label: "Pengumuman", path: "/lms/pengumuman" },
-            { label: "Diskusi", path: "/lms/diskusi" }
-          ]
-        },
-        {
-          label: "Matching Job",
-          path: "/matching-job",
-          hidden: !(isSuperAdmin || isFinance),
-          icon: (
-            <SidebarIcon>
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M3.27 6.96L12 12.01l8.73-5.05" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 22.08V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        },
-        {
-          label: "Nenkin",
-          path: "/nenkin",
-          hidden: !(isSuperAdmin || isFinance),
-          icon: (
-            <SidebarIcon>
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </SidebarIcon>
-          ),
-        }
-      ]
-    },
-    {
       category: "SETTINGS",
       items: [
         {
@@ -960,7 +567,970 @@ export default function Sidebar({ isOpen, setIsOpen, appearance }) {
     },
   ];
 
-  const displayedGroups = isMitra ? mitraGroups : (isFinanceMode ? financeModularGroups : menuGroups);
+  // ==================== SIDEBAR ADMIN LMS ====================
+  const adminLmsGroups = [
+    {
+      category: "",
+      items: [
+        {
+          label: "Dashboard LMS",
+          path: "/dashboard-creativa",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 4h6v6H4V4Zm10 0h6v10h-6V4ZM4 14h6v6H4v-6Zm10 4h6v2h-6v-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "AKADEMIK",
+      items: [
+        {
+          label: "Program",
+          path: "/lms/program",
+          icon: (
+            <SidebarIcon>
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Batch (Angkatan)",
+          path: "/lms/batch",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Data Siswa",
+          path: "/lms/siswa",
+          icon: (
+            <SidebarIcon>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Sensei (Pengajar)",
+          path: "/lms/sensei",
+          icon: (
+            <SidebarIcon>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Kelas & Rombel",
+          path: "/lms/classes",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Enrollment Siswa",
+          path: "/lms/enrollment",
+          icon: (
+            <SidebarIcon>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="8.5" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+              <polyline points="17 11 19 13 23 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "KURIKULUM",
+      items: [
+        {
+          label: "Course",
+          path: "/lms/courses",
+          icon: (
+            <SidebarIcon>
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Module (Bab Minna)",
+          path: "/lms/modules",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="7" y1="8" x2="17" y2="8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <line x1="7" y1="12" x2="17" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <line x1="7" y1="16" x2="13" y2="16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Lesson (Topik)",
+          path: "/lms/lessons",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Materi Pembelajaran",
+          path: "/lms/materi",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Learning Path",
+          path: "/lms/learning-path",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Can-do / Kompetensi",
+          path: "/lms/can-do",
+          icon: (
+            <SidebarIcon>
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PEMBELAJARAN",
+      items: [
+        {
+          label: "Agenda",
+          path: "/lms/agenda",
+          icon: (
+            <SidebarIcon>
+              <path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Kalender",
+          path: "/lms/kalender",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Tugas",
+          path: "/lms/tugas",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Quiz",
+          path: "/lms/quiz",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="8" r="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Ujian Kompetensi",
+          path: "/lms/ukom",
+          icon: (
+            <SidebarIcon>
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Kotoba (Kosakata)",
+          path: "/lms/kotoba",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.5" />
+              <text x="12" y="16" textAnchor="middle" fill="currentColor" fontSize="11" fontWeight="bold" fontFamily="sans-serif">あ</text>
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Percakapan (Kaiwa) ⭐",
+          path: "/lms/kaiwa",
+          highlight: true,
+          icon: (
+            <SidebarIcon>
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="8" y1="23" x2="16" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PENILAIAN",
+      items: [
+        {
+          label: "Gradebook",
+          path: "/lms/gradebook",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="9" y1="7" x2="16" y2="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <line x1="9" y1="11" x2="16" y2="11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Nilai Siswa",
+          path: "/lms/nilai",
+          icon: (
+            <SidebarIcon>
+              <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Kompetensi Siswa",
+          path: "/lms/kompetensi-nilai",
+          icon: (
+            <SidebarIcon>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Activity Completion",
+          path: "/lms/activity-completion",
+          icon: (
+            <SidebarIcon>
+              <polyline points="9 11 12 14 22 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Course Completion",
+          path: "/lms/course-completion",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="8" r="6" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "ANALYTICS",
+      items: [
+        {
+          label: "Progress Siswa",
+          path: "/lms/analytics-siswa",
+          icon: (
+            <SidebarIcon>
+              <line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Progress Kelas",
+          path: "/lms/analytics-kelas",
+          icon: (
+            <SidebarIcon>
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 12A10 10 0 0 0 12 2v10z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Kompetensi",
+          path: "/lms/analytics-kompetensi",
+          icon: (
+            <SidebarIcon>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Analitik Percakapan (Kaiwa)",
+          path: "/lms/analytics-kaiwa",
+          icon: (
+            <SidebarIcon>
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Laporan Akademik",
+          path: "/lms/laporan-akademik",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "KOMUNIKASI",
+      items: [
+        {
+          label: "Pengumuman",
+          path: "/lms/pengumuman",
+          icon: (
+            <SidebarIcon>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Forum Diskusi",
+          path: "/lms/diskusi",
+          icon: (
+            <SidebarIcon>
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PENGATURAN LMS",
+      items: [
+        {
+          label: "Konfigurasi LMS",
+          path: "/lms/settings",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Level & Rubrik",
+          path: "/lms/rubrik",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="9" y1="21" x2="9" y2="9" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Integrasi & Percakapan",
+          path: "/lms/ai-settings",
+          icon: (
+            <SidebarIcon>
+              <line x1="4" y1="21" x2="4" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="4" y1="10" x2="4" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="21" x2="12" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="8" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="20" y1="21" x2="20" y2="16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="20" y1="12" x2="20" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="1" y1="14" x2="7" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="9" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="17" y1="16" x2="23" y2="16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Log Aktivitas",
+          path: "/lms/audit-log",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+              <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    }
+  ];
+
+  // ==================== SIDEBAR SENSEI ====================
+  const senseiGroups = [
+    {
+      category: "",
+      items: [
+        {
+          label: "Dashboard Sensei",
+          path: "/dashboard-sensei",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 4h6v6H4V4Zm10 0h6v10h-6V4ZM4 14h6v6H4v-6Zm10 4h6v2h-6v-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "KELAS SAYA",
+      items: [
+        {
+          label: "Daftar Kelas",
+          path: "/lms/classes",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Jadwal Mengajar",
+          path: "/lms/agenda",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "SISWA BINAAN",
+      items: [
+        {
+          label: "Data Siswa",
+          path: "/lpk-intensif",
+          icon: (
+            <SidebarIcon>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Presensi / Absensi",
+          path: "/lpk-absensi-siswa",
+          icon: (
+            <SidebarIcon>
+              <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Catatan Perkembangan Siswa",
+          path: "/lms/siswa-notes",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PEMBELAJARAN",
+      items: [
+        {
+          label: "Course & Modul",
+          path: "/lms/courses",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Materi Ajar",
+          path: "/lms/materi",
+          icon: (
+            <SidebarIcon>
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Tugas Siswa",
+          path: "/lms/tugas",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Bank Quiz",
+          path: "/lms/quiz",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="8" r="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Ujian Kompetensi",
+          path: "/lms/ukom",
+          icon: (
+            <SidebarIcon>
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Bank Kotoba",
+          path: "/lms/kotoba",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.5" />
+              <text x="12" y="16" textAnchor="middle" fill="currentColor" fontSize="11" fontWeight="bold" fontFamily="sans-serif">あ</text>
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Latihan Kaiwa AI Siswa ⭐",
+          path: "/lms/kaiwa",
+          highlight: true,
+          icon: (
+            <SidebarIcon>
+              <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="4" y="8" width="16" height="12" rx="4" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="9" cy="13" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+              <path d="M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PENILAIAN",
+      items: [
+        {
+          label: "Input Nilai",
+          path: "/lpk-nilai",
+          icon: (
+            <SidebarIcon>
+              <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Gradebook Kelas",
+          path: "/lms/gradebook",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Evaluasi Kaiwa AI Siswa",
+          path: "/lms/evaluasi-kaiwa",
+          icon: (
+            <SidebarIcon>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Capaian Can-do",
+          path: "/lms/can-do",
+          icon: (
+            <SidebarIcon>
+              <polyline points="9 11 12 14 22 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "KALENDER & AGENDA",
+      items: [
+        {
+          label: "Kalender Akademik",
+          path: "/lms/kalender",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Agenda Mengajar",
+          path: "/lms/agenda",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+              <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PENGUMUMAN & DISKUSI",
+      items: [
+        {
+          label: "Buat Pengumuman",
+          path: "/lms/pengumuman",
+          icon: (
+            <SidebarIcon>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Forum Diskusi Kelas",
+          path: "/lms/diskusi",
+          icon: (
+            <SidebarIcon>
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "LAPORAN MENGAJAR",
+      items: [
+        {
+          label: "Rekap Nilai & Progres Siswa",
+          path: "/lms/laporan-akademik",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    }
+  ];
+
+  // ==================== SIDEBAR SISWA ====================
+  const siswaGroups = [
+    {
+      category: "",
+      items: [
+        {
+          label: "Dashboard Siswa",
+          path: "/dashboard-siswa-intensif",
+          icon: (
+            <SidebarIcon>
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "KELAS SAYA",
+      items: [
+        {
+          label: "Informasi Kelas & Sensei",
+          path: "/lms/kelas-saya",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Silabus & Jadwal Belajar",
+          path: "/lms/agenda",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "BELAJAR",
+      items: [
+        {
+          label: "Course Saya",
+          path: "/lms/courses",
+          icon: (
+            <SidebarIcon>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Materi Belajar",
+          path: "/lms/materi",
+          icon: (
+            <SidebarIcon>
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Listening (Choukai)",
+          path: "/lms/listening",
+          icon: (
+            <SidebarIcon>
+              <path d="M3 18v-6a9 9 0 0 1 18 0v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Reading (Dokkai)",
+          path: "/lms/reading",
+          icon: (
+            <SidebarIcon>
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Writing (Sakubun)",
+          path: "/lms/writing",
+          icon: (
+            <SidebarIcon>
+              <path d="M12 19l7-7 3 3-7 7-3-3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 2l7.586 7.586" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="11" cy="11" r="2" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Speaking (Hanashikata)",
+          path: "/lms/speaking",
+          icon: (
+            <SidebarIcon>
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="8" y1="23" x2="16" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Kotoba (Kosakata & Kanji)",
+          path: "/lms/kotoba",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.5" />
+              <text x="12" y="16" textAnchor="middle" fill="currentColor" fontSize="11" fontWeight="bold" fontFamily="sans-serif">あ</text>
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Percakapan (Kaiwa) ⭐",
+          path: "/lms/kaiwa",
+          highlight: true,
+          icon: (
+            <SidebarIcon>
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="8" y1="23" x2="16" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "ASSESSMENT",
+      items: [
+        {
+          label: "Tugas Mandiri",
+          path: "/lms/tugas",
+          icon: (
+            <SidebarIcon>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Quiz Harian",
+          path: "/lms/quiz",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="8" r="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Ujian Kompetensi (JLPT/JFT)",
+          path: "/lms/ukom",
+          icon: (
+            <SidebarIcon>
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PROGRES SAYA",
+      items: [
+        {
+          label: "Nilai Saya",
+          path: "/lms/nilai-siswa",
+          icon: (
+            <SidebarIcon>
+              <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Capaian Can-do",
+          path: "/lms/can-do",
+          icon: (
+            <SidebarIcon>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Learning Progress",
+          path: "/lms/learning-progress",
+          icon: (
+            <SidebarIcon>
+              <line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Riwayat Percakapan (Kaiwa)",
+          path: "/lms/kaiwa?tab=history",
+          icon: (
+            <SidebarIcon>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+              <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "KALENDER",
+      items: [
+        {
+          label: "Jadwal & Deadline Tugas",
+          path: "/lms/kalender",
+          icon: (
+            <SidebarIcon>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1.8" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    },
+    {
+      category: "PENGUMUMAN & FORUM",
+      items: [
+        {
+          label: "Pengumuman Kelas",
+          path: "/lms/pengumuman",
+          icon: (
+            <SidebarIcon>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+        {
+          label: "Forum Diskusi",
+          path: "/lms/diskusi",
+          icon: (
+            <SidebarIcon>
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </SidebarIcon>
+          ),
+        },
+      ]
+    }
+  ];
+
+  const displayedGroups = isMitra
+    ? mitraGroups
+    : (isFinanceMode
+      ? financeModularGroups
+      : ((isAdminLms || ((isAdmin || isSuperAdmin) && (location.pathname.startsWith('/lms') || location.pathname === '/dashboard-creativa')))
+        ? adminLmsGroups
+        : (isSensei
+          ? senseiGroups
+          : (isPesertaIntensif
+            ? siswaGroups
+            : menuGroups))));
 
   const handleLogout = () => {
     logoutUser();

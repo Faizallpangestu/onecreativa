@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import {
   Users,
@@ -75,6 +76,7 @@ const initialEnrollment = {
 };
 
 export default function LearningClasses() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -159,12 +161,16 @@ export default function LearningClasses() {
         level === 'N5'
           ? 'bg-[#0066FF]'
           : level === 'N4'
-          ? 'bg-[#651FFF]'
-          : level === 'N3'
-          ? 'bg-[#0066FF]'
-          : level === 'Bunpou'
-          ? 'bg-[#651FFF]'
-          : 'bg-[#1E293B]';
+            ? 'bg-[#651FFF]'
+            : level === 'N3'
+              ? 'bg-[#059669]'
+              : level === 'Kaigo'
+                ? 'bg-[#D97706]'
+                : level === 'Mensetsu'
+                  ? 'bg-[#E11D48]'
+                  : level === 'Bunpou'
+                    ? 'bg-[#651FFF]'
+                    : 'bg-[#1E293B]';
 
       return {
         ...cls,
@@ -182,6 +188,28 @@ export default function LearningClasses() {
     });
   }, [data]);
 
+  // Enrolled students in detail class
+  const enrolledStudentsInDetail = useMemo(() => {
+    if (!detailClass) return [];
+    const enrolls = (data?.enrollments || []).filter(
+      (e) => Number(e.class_id) === Number(detailClass.id) && e.status === 'active'
+    );
+    if (enrolls.length > 0) {
+      return enrolls;
+    }
+    return (data?.students || [])
+      .filter((s) => s.batch && detailClass.batch && s.batch.trim().toLowerCase() === detailClass.batch.trim().toLowerCase())
+      .map((s) => ({
+        id: `batch-${s.id}`,
+        student_id: s.id,
+        student_name: s.name,
+        student_nis: s.nis,
+        student_batch: s.batch,
+        student_program: s.program || 'Program Intensif',
+        status: 'active'
+      }));
+  }, [detailClass, data?.enrollments, data?.students]);
+
   // Filtered & Sorted Classes
   const filteredClasses = useMemo(() => {
     let result = enrichedClasses.filter((c) => {
@@ -193,10 +221,10 @@ export default function LearningClasses() {
         statusFilter === 'ALL'
           ? true
           : statusFilter === 'Aktif'
-          ? c.status === 'active'
-          : statusFilter === 'Selesai'
-          ? c.status === 'completed' || c.status === 'closed'
-          : c.status === 'draft' || c.status === 'inactive';
+            ? c.status === 'active'
+            : statusFilter === 'Selesai'
+              ? c.status === 'completed' || c.status === 'closed'
+              : c.status === 'draft' || c.status === 'inactive';
       const matchYear = yearFilter === 'ALL' || (c.batch && c.batch.includes(yearFilter));
 
       return matchSearch && matchLevel && matchStatus && matchYear;
@@ -225,9 +253,9 @@ export default function LearningClasses() {
     if (data?.students?.length) return data.students.length;
     return 0;
   }, [data, enrichedClasses]);
-  const totalPertemuanCount = data?.stats?.total_meetings 
+  const totalPertemuanCount = data?.stats?.total_meetings
     ?? enrichedClasses.reduce((acc, c) => acc + (Number(c.completed_meetings) || 0), 0);
-  const completedPertemuanCount = data?.stats?.completed_meetings 
+  const completedPertemuanCount = data?.stats?.completed_meetings
     ?? enrichedClasses.reduce((acc, c) => acc + (Number(c.completed_meetings) || 0), 0);
   const totalTugasCount = data?.stats?.total_tasks ?? 0;
 
@@ -414,30 +442,75 @@ export default function LearningClasses() {
     }
   };
 
+  // Remove / Unenroll Student Handler
+  const handleRemoveEnrollment = async (enrollmentId, studentName) => {
+    const result = await Swal.fire({
+      title: 'Keluarkan Siswa?',
+      html: `Apakah Anda yakin ingin mengeluarkan <b>${studentName}</b> dari kelas ini?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: 'Ya, Keluarkan',
+      cancelButtonText: 'Batal'
+    });
+    if (!result.isConfirmed) return;
+    setSaving(true);
+    try {
+      await moduleApi('relationships', 'post', {
+        id: enrollmentId,
+        action: 'delete_enrollment'
+      });
+      Swal.fire('Berhasil', `${studentName} berhasil dikeluarkan dari kelas.`, 'success');
+      await refresh();
+    } catch (err) {
+      Swal.fire('Gagal', err.message || 'Gagal mengeluarkan siswa.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 pb-16">
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
 
-          {/* PAGE HEADER */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                Daftar Kelas
+          {/* TOP HEADER HERO BANNER (MATCHING LMS STANDARD) */}
+          <div className="relative rounded-3xl bg-gradient-to-r from-[#0d2238] via-[#0f2e4d] to-[#143d63] shadow-md overflow-hidden text-white p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 min-h-[160px]">
+
+            {/* Background Photo on Right with Mask */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 opacity-40 md:opacity-90 pointer-events-none bg-right bg-cover"
+              style={{
+                backgroundImage: 'url(/student_learning_3d.jpg)',
+                maskImage: 'linear-gradient(to right, transparent, black 30%)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent, black 30%)'
+              }}
+            />
+
+            <div className="relative z-10 max-w-2xl space-y-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 backdrop-blur-md border border-white/20 text-slate-200">
+                <GraduationCap className="w-3.5 h-3.5 text-slate-300" />
+                Tingkat Akademik • Manajemen Rombongan Belajar (Rombel)
+              </span>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                Daftar Kelas & Rombel
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-                Kelola kelas yang Anda ajar dan pantau aktivitas siswa.
+              <p className="text-xs md:text-sm text-slate-200/90 leading-relaxed font-normal">
+                Kelola rombongan belajar siswa bahasa Jepang, alokasi batch angkatan, penugasan Sensei pengajar, dan jadwal pertemuan kelas secara terintegrasi.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={openCreateClassModal}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#0066FF] hover:bg-blue-600 active:scale-[0.98] text-white font-bold text-xs sm:text-sm px-5 py-3 shadow-md shadow-blue-500/25 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Buat Kelas Baru</span>
-            </button>
+            <div className="relative z-10 flex items-center gap-3 self-start md:self-center shrink-0">
+              <button
+                type="button"
+                onClick={openCreateClassModal}
+                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold text-xs sm:text-sm px-5 py-3.5 shadow-lg transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Buat Kelas Baru</span>
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -548,6 +621,8 @@ export default function LearningClasses() {
                 <option value="N5">Level N5</option>
                 <option value="N4">Level N4</option>
                 <option value="N3">Level N3</option>
+                <option value="Kaigo">Kaigo (Keperawatan)</option>
+                <option value="Mensetsu">Mensetsu & Matching Job</option>
                 <option value="Kaiwa">Kaiwa (Percakapan)</option>
                 <option value="Bunpou">Bunpou (Tata Bahasa)</option>
                 <option value="JLPT">Persiapan JLPT</option>
@@ -603,11 +678,10 @@ export default function LearningClasses() {
                 <button
                   type="button"
                   onClick={() => setViewMode('card')}
-                  className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    viewMode === 'card'
-                      ? 'bg-[#0066FF] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${viewMode === 'card'
+                    ? 'bg-[#0066FF] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
                   <span>Card</span>
@@ -615,11 +689,10 @@ export default function LearningClasses() {
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
-                  className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    viewMode === 'table'
-                      ? 'bg-[#0066FF] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${viewMode === 'table'
+                    ? 'bg-[#0066FF] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <TableIcon className="w-3.5 h-3.5" />
                   <span>Tabel</span>
@@ -764,9 +837,8 @@ export default function LearningClasses() {
 
                           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                cls.progressColor || (isFinished ? 'bg-[#00C853]' : percent > 60 ? 'bg-[#651FFF]' : 'bg-[#0066FF]')
-                              }`}
+                              className={`h-full rounded-full transition-all duration-500 ${cls.progressColor || (isFinished ? 'bg-[#00C853]' : percent > 60 ? 'bg-[#651FFF]' : 'bg-[#0066FF]')
+                                }`}
                               style={{ width: `${percent}%` }}
                             />
                           </div>
@@ -799,13 +871,25 @@ export default function LearningClasses() {
 
                             {/* Dropdown Options */}
                             {activeMenuId === cls.id && (
-                              <div className="absolute right-0 bottom-full mb-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                              <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 p-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    localStorage.setItem('lms_active_class_id', cls.id);
+                                    navigate(`/lms/materi?class_id=${cls.id}`);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 rounded-xl flex items-center gap-2 cursor-pointer"
+                                >
+                                  <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>Kelola Materi Belajar</span>
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={() => openEditClassModal(cls)}
                                   className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2 cursor-pointer"
                                 >
-                                  <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                                  <Edit2 className="w-3.5 h-3.5 text-slate-600" />
                                   <span>Edit Kelas</span>
                                 </button>
 
@@ -1027,6 +1111,8 @@ export default function LearningClasses() {
                         <option value="N5">Level N5</option>
                         <option value="N4">Level N4</option>
                         <option value="N3">Level N3</option>
+                        <option value="Kaigo">Kaigo (Keperawatan)</option>
+                        <option value="Mensetsu">Mensetsu & Matching Job</option>
                         <option value="Kaiwa">Kaiwa</option>
                         <option value="Bunpou">Bunpou</option>
                         <option value="JLPT">JLPT</option>
@@ -1182,7 +1268,7 @@ export default function LearningClasses() {
           {/* MODAL: DETAIL KELAS */}
           {detailClass && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-              <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 relative">
+              <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-y-auto">
                 <button
                   type="button"
                   onClick={() => setDetailClass(null)}
@@ -1199,7 +1285,7 @@ export default function LearningClasses() {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
-                  
+
                   {/* Level Badge */}
                   <div className="absolute top-3 left-3">
                     <span className={`px-2.5 py-1 rounded-lg ${detailClass.badgeColor || 'bg-[#0066FF]'} text-white font-black text-xs shadow-sm uppercase tracking-wider`}>
@@ -1209,25 +1295,23 @@ export default function LearningClasses() {
 
                   {/* Status Badge */}
                   <div className="absolute bottom-3 right-3">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/95 font-bold text-xs shadow-md border ${
-                      detailClass.status === 'completed' || detailClass.status === 'closed'
-                        ? 'text-amber-600 border-amber-200'
-                        : detailClass.status === 'inactive'
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/95 font-bold text-xs shadow-md border ${detailClass.status === 'completed' || detailClass.status === 'closed'
+                      ? 'text-amber-600 border-amber-200'
+                      : detailClass.status === 'inactive'
                         ? 'text-slate-600 border-slate-200'
                         : 'text-emerald-600 border-emerald-200'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${
-                        detailClass.status === 'completed' || detailClass.status === 'closed'
-                          ? 'bg-amber-500'
-                          : detailClass.status === 'inactive'
+                      }`}>
+                      <span className={`w-2 h-2 rounded-full ${detailClass.status === 'completed' || detailClass.status === 'closed'
+                        ? 'bg-amber-500'
+                        : detailClass.status === 'inactive'
                           ? 'bg-slate-400'
                           : 'bg-emerald-500'
-                      }`} />
+                        }`} />
                       {detailClass.status === 'completed' || detailClass.status === 'closed'
                         ? 'Selesai'
                         : detailClass.status === 'inactive'
-                        ? 'Nonaktif'
-                        : 'Aktif'}
+                          ? 'Nonaktif'
+                          : 'Aktif'}
                     </span>
                   </div>
                 </div>
@@ -1268,7 +1352,7 @@ export default function LearningClasses() {
                       <Users className="w-3.5 h-3.5 text-slate-400" />
                       Total Siswa Terdaftar
                     </span>
-                    <span className="font-bold text-slate-900">{detailClass.student_count} Siswa</span>
+                    <span className="font-bold text-slate-900">{enrolledStudentsInDetail.length} Siswa</span>
                   </div>
 
                   <div className="pt-1">
@@ -1283,9 +1367,8 @@ export default function LearningClasses() {
                     </div>
                     <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          detailClass.progressColor || 'bg-[#0066FF]'
-                        }`}
+                        className={`h-full rounded-full transition-all duration-500 ${detailClass.progressColor || 'bg-[#0066FF]'
+                          }`}
                         style={{
                           width: `${Math.min(100, Math.round((detailClass.completed_meetings / (detailClass.total_meetings || 32)) * 100))}%`
                         }}
@@ -1294,8 +1377,124 @@ export default function LearningClasses() {
                   </div>
                 </div>
 
+                {/* DAFTAR SISWA TERDAFTAR DI KELAS INI */}
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#0066FF]" />
+                      <h4 className="font-bold text-sm text-slate-900">
+                        Siswa Terdaftar di Kelas Ini
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[#0066FF] font-black text-xs">
+                        {enrolledStudentsInDetail.length} Siswa
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnrollModal(detailClass);
+                        setEnrollForm({
+                          student_id: '',
+                          joined_on: new Date().toISOString().split('T')[0],
+                          left_on: '',
+                          status: 'active'
+                        });
+                        setDetailClass(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0066FF] font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Daftarkan Siswa</span>
+                    </button>
+                  </div>
+
+                  {enrolledStudentsInDetail.length === 0 ? (
+                    <div className="text-center py-6 px-4 bg-slate-50/60 rounded-2xl border border-slate-100">
+                      <p className="text-xs text-slate-500 font-medium">
+                        Belum ada siswa yang didaftarkan di kelas ini.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEnrollModal(detailClass);
+                          setEnrollForm({
+                            student_id: '',
+                            joined_on: new Date().toISOString().split('T')[0],
+                            left_on: '',
+                            status: 'active'
+                          });
+                          setDetailClass(null);
+                        }}
+                        className="mt-2 text-xs font-bold text-[#0066FF] hover:underline cursor-pointer"
+                      >
+                        Daftarkan Siswa Sekarang &rarr;
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {enrolledStudentsInDetail.map((student, idx) => {
+                        const displayName = student.student_name || student.name || 'Siswa';
+                        const displayNis = student.student_nis || student.nis || '-';
+                        const displayBatch = student.student_batch || student.batch || detailClass.batch || '-';
+                        const displayProgram = student.student_program || student.program || 'Program Intensif';
+                        const enrollId = student.id;
+
+                        // Avatar gradient colors
+                        const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-teal-500'];
+                        const colorClass = colors[idx % colors.length];
+
+                        return (
+                          <div
+                            key={student.id || idx}
+                            className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-100 transition-all"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-xl ${colorClass} text-white font-black text-xs flex items-center justify-center shadow-xs flex-shrink-0`}>
+                                {displayName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-xs text-slate-900">{displayName}</span>
+                                  {displayName.toLowerCase().includes('faizal') && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 font-black text-[10px]">
+                                      Baru
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-medium flex items-center gap-2 mt-0.5">
+                                  <span>NIS: <strong className="text-slate-700">{displayNis}</strong></span>
+                                  <span>•</span>
+                                  <span>{displayBatch}</span>
+                                  <span>•</span>
+                                  <span className="truncate max-w-[120px]">{displayProgram}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200/60">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                Aktif
+                              </span>
+                              {typeof enrollId === 'number' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveEnrollment(enrollId, displayName)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Keluarkan dari kelas"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {/* Action Buttons Footer */}
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex items-center gap-2 pt-4 mt-2 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => handleDeleteClass(detailClass)}
@@ -1320,6 +1519,18 @@ export default function LearningClasses() {
                     className="flex-1 py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
                   >
                     Atur Sensei
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem('lms_active_class_id', detailClass.id);
+                      navigate(`/lms/materi?class_id=${detailClass.id}`);
+                    }}
+                    className="flex-1 py-2.5 px-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Materi Belajar</span>
                   </button>
 
                   <button
@@ -1385,9 +1596,11 @@ export default function LearningClasses() {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Mulai</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Tanggal Mulai Bertugas <span className="text-rose-500">*</span>
+                      </label>
                       <input
                         type="date"
                         required
@@ -1395,15 +1608,19 @@ export default function LearningClasses() {
                         onChange={(e) => setAssignForm({ ...assignForm, starts_on: e.target.value })}
                         className={fieldClass}
                       />
+                      <p className="text-[10px] text-slate-500 mt-1">Mulai aktif mengajar di kelas ini</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Selesai</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Tanggal Selesai <span className="text-slate-400 font-normal">(Opsional)</span>
+                      </label>
                       <input
                         type="date"
                         value={assignForm.ends_on}
                         onChange={(e) => setAssignForm({ ...assignForm, ends_on: e.target.value })}
                         className={fieldClass}
                       />
+                      <p className="text-[10px] text-slate-500 mt-1">Kosongkan jika bertugas hingga kelas lulus/selesai</p>
                     </div>
                   </div>
 
@@ -1475,7 +1692,13 @@ export default function LearningClasses() {
                     >
                       <option value="">Pilih Siswa...</option>
                       {(() => {
-                        const allStudents = data?.students || [];
+                        const allStudents = (data?.students || []).filter((s) => {
+                          const p = (s.program || '').toLowerCase();
+                          const st = (s.status || '').toLowerCase();
+                          const isExcluded = p.includes('sotsugyo') || p.includes('shotsugyo') || p.includes('alumni') || p.includes('matching') || st.includes('alumni') || st.includes('matching');
+                          const isIntensif = p.includes('intensif') || p.includes('lanjutan') || !p;
+                          return !isExcluded && isIntensif;
+                        });
                         const isMatching = (s) => s.batch && enrollModal.batch && s.batch.trim().toLowerCase() === enrollModal.batch.trim().toLowerCase();
                         const matching = allStudents.filter(isMatching);
                         const others = allStudents.filter((s) => !isMatching(s));

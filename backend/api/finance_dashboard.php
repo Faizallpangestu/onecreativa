@@ -13,7 +13,7 @@ try {
     $allowedRoles = ['admin', 'super_admin', 'finance', 'finance_admin', 'director', 'direktur', 'manager', 'hr', 'hrd'];
     $role = strtolower(trim($actor['role'] ?? ''));
     $email = strtolower(trim($actor['email'] ?? ''));
-    if (!in_array($role, $allowedRoles, true) && $email !== 'muhammadfaizal.mf10@gmail.com' && !ac_can($conn, $actor, 'read')) {
+    if (!in_array($role, $allowedRoles, true) && !ac_can($conn, $actor, 'read')) {
         ac_fail('Akses ke dashboard keuangan tidak diizinkan.', 403);
     }
     session_write_close();

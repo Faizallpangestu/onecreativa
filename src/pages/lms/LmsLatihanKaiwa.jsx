@@ -21,7 +21,7 @@ import {
   Plane, 
   Send, 
   Sparkles,
-  Bot
+  MessageSquare
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import bannerImg from '../../assets/fuji_pagoda_banner.jpg';
@@ -475,7 +475,7 @@ export default function LmsLatihanKaiwa() {
                   <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-white/60 shadow-lg">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                        <Bot className="w-4 h-4" />
+                        <Sparkles className="w-4 h-4" />
                       </div>
                       <span className="font-extrabold text-xs text-slate-900">AI Sensei</span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.2 rounded-full border border-emerald-200">

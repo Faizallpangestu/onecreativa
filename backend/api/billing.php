@@ -586,6 +586,7 @@ if ($method === 'DELETE') {
         }
         mysqli_query($conn, "DELETE FROM billing_invoices WHERE id = '$idEsc'");
         mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id = '$idEsc'");
+        mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv = '$idEsc'");
         @mysqli_query($conn, "UPDATE rpa_processed_registrations SET deleted_at = NOW() WHERE invoice_id = '$idEsc'");
         ac_audit($conn, $actor, 'billing_invoice', $id, 'deleted', []);
     } elseif ($type === 'terkirim') {

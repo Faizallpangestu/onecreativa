@@ -59,17 +59,16 @@ export default function ProtectedRoute({ children, allowedRoles }) {
 
   const currentRole = normalizeRole(user.role_name);
 
-  const isDeveloperTesting = user.email === 'muhammadfaizal.mf10@gmail.com';
-
   // Periksa apakah role diizinkan (jika array allowedRoles diberikan)
-  if (allowedRoles && Array.isArray(allowedRoles) && allowedRoles.length > 0 && !isDeveloperTesting) {
-    const canonical = role => ({hr_admin:'hr',finance_admin:'finance'})[normalizeRole(role)] || normalizeRole(role);
-    if (!allowedRoles.map(canonical).includes(canonical(currentRole))) {
+  if (allowedRoles && Array.isArray(allowedRoles) && allowedRoles.length > 0) {
+    const canonical = role => ({hr_admin:'hr',finance_admin:'finance',super_admin:'admin'})[normalizeRole(role)] || normalizeRole(role);
+    const allowedCanonical = allowedRoles.map(canonical);
+    if (!allowedCanonical.includes(canonical(currentRole)) && !allowedRoles.map(normalizeRole).includes(currentRole)) {
       return <Navigate to={getRoleLandingPath(user.role_name)} replace />;
     }
   }
 
-  if (["finance", "finance_admin"].includes(currentRole) && !canAccessFinancePath(location.pathname) && !isDeveloperTesting) {
+  if (["finance", "finance_admin"].includes(currentRole) && !canAccessFinancePath(location.pathname)) {
     return <Navigate to={getRoleLandingPath(user.role_name)} replace />;
   }
 

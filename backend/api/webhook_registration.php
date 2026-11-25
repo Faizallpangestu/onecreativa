@@ -246,15 +246,26 @@ try {
         }
 
         // ── B. Cek & Auto-Generate Invoice Tagihan (billing_invoices) ──
-        // Cek apakah invoice untuk pendaftar + program ini sudah pernah dibuat (idempotency)
+        // Cek apakah invoice untuk pendaftar + program ini sudah pernah dibuat (hanya pakai ulang jika belum ada pembayaran / masih Unpaid)
         $existingInv = null;
         $progKeyword = stripos($program, 'kaigo') !== false ? 'Kaigo' : (stripos($program, 'matching') !== false ? 'Matching' : (stripos($program, 'sotsug') !== false ? 'Sotsug' : 'Intensif'));
         $likeProg = '%' . $progKeyword . '%';
-        $invStmt = $conn->prepare("SELECT id, total, status, jatuhTempo, public_token, meta_json FROM billing_invoices WHERE (id = ? OR (email != '' AND email = ? AND keterangan LIKE ?) OR (customer = ? AND keterangan LIKE ?)) LIMIT 1");
-        $invStmt->bind_param("sssss", $nis, $email, $likeProg, $name, $likeProg);
+        $invStmt = $conn->prepare("SELECT i.id, i.total, i.status, i.jatuhTempo, i.public_token, i.meta_json,
+            (SELECT COUNT(*) FROM billing_pembayaran p WHERE p.noInv = i.id) as paid_count
+            FROM billing_invoices i
+            WHERE (i.id = ? OR (i.email != '' AND i.email = ? AND i.keterangan LIKE ?))
+            ORDER BY i.created_at DESC LIMIT 1");
+        $invStmt->bind_param("sss", $nis, $email, $likeProg);
         $invStmt->execute();
-        $existingInv = $invStmt->get_result()->fetch_assoc();
+        $candidateInv = $invStmt->get_result()->fetch_assoc();
         $invStmt->close();
+
+        // Hanya pakai ulang invoice jika BELUM PERNAH ADA PEMBAYARAN dan berstatus Unpaid
+        if ($candidateInv && (int)($candidateInv['paid_count'] ?? 0) === 0 && strtolower(trim($candidateInv['status'])) === 'unpaid') {
+            $existingInv = $candidateInv;
+        } else {
+            $existingInv = null; // Buat invoice baru yang bersih
+        }
 
         // Susun item & termin cicilan resmi sesuai program & metode pembayaran
         $lokasiLabel = trim((string)($kota ?: 'Cianjur'));
@@ -363,15 +374,17 @@ try {
         } else {
             // Generate Invoice ID resmi LPK: TGCJ + YYMM + 4 digit urut
             $prefix = 'TGCJ' . $currentYear . $currentMonth;
-            $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 1");
-            $nextSeq = 1;
-            if ($numRes && $row = mysqli_fetch_assoc($numRes)) {
-                $tail = substr((string)$row['id'], strlen($prefix));
-                if (ctype_digit($tail)) {
-                    $nextSeq = (int)$tail + 1;
-                }
-            }
-            $invoiceId = $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+            $invoiceId = function_exists('rpa_get_next_invoice_id')
+                ? rpa_get_next_invoice_id($conn, $prefix)
+                : (function() use ($conn, $prefix) {
+                    $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 1");
+                    $nextSeq = 1;
+                    if ($numRes && $row = mysqli_fetch_assoc($numRes)) {
+                        $tail = substr((string)$row['id'], strlen($prefix));
+                        if (ctype_digit($tail)) $nextSeq = (int)$tail + 1;
+                    }
+                    return $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+                })();
             $publicToken = bin2hex(random_bytes(16));
             $metaJson = json_encode($metaArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $keterangan = "{$program} ({$metodeLabel})";
@@ -458,6 +471,28 @@ try {
             . "<p style='font-size:12px;color:#64748b;'>Cantumkan Nomor Invoice pada berita transfer dan kirim bukti transfer ke finance@creativabridging.com atau WA +62 815-2222-672.</p>"
             . "</div>";
 
+        // ── E. Kirim Email Resmi (Hostinger SMTP) & WhatsApp via RPA Otomatis ──
+        $notifResult = ['email_sent' => false, 'wa_sent' => false];
+        if (!empty($email) || !empty($phone)) {
+            try {
+                $notifResult = rpa_send_invoice_notifications(
+                    $conn,
+                    $invoiceId,
+                    $name,
+                    $email,
+                    $phone,
+                    $program,
+                    (float)$programAmount,
+                    $installments,
+                    $dueDate,
+                    $statusPortalUrl,
+                    $invoiceDocUrl
+                );
+            } catch (Throwable $notifErr) {
+                error_log("RPA Invoice Notification Error #{$invoiceId}: " . $notifErr->getMessage());
+            }
+        }
+
         $results[] = [
             'student_id' => $studentId,
             'nis' => $nis,
@@ -486,6 +521,8 @@ try {
             'invoice_created_now' => $invoiceCreatedNow,
             'needs_delivery' => $needsDelivery,
             'delivery_status' => $deliveryStatus,
+            'email_sent' => (bool)($notifResult['email_sent'] ?? false),
+            'wa_sent' => (bool)($notifResult['wa_sent'] ?? false),
             'whatsapp_link' => $waLink,
             'whatsapp_message' => $plainWaMessage,
             'email_subject' => $emailSubject,

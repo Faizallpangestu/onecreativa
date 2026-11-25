@@ -197,15 +197,13 @@ function salary_apply_adjustments(array $calculation, array $data = [], ?array $
 }
 function salary_permissions(array $actor): array {
     $role = strtolower(trim($actor['role'] ?? ''));
-    $email = strtolower(trim($actor['email'] ?? ''));
-    $isSuper = in_array($role, ['admin','super_admin'], true) || $email === 'muhammadfaizal.mf10@gmail.com';
+    $isSuper = in_array($role, ['admin','super_admin'], true);
     $isFinance = $role === 'finance' || $isSuper;
     return ['can_prepare'=>$isFinance, 'can_approve'=>$isSuper, 'actor_id'=>(int)$actor['id']];
 }
 function salary_require_access(array $actor): void {
     $role = strtolower(trim($actor['role'] ?? ''));
-    $email = strtolower(trim($actor['email'] ?? ''));
-    $isAllowed = in_array($role, ['finance','admin','super_admin'], true) || $email === 'muhammadfaizal.mf10@gmail.com';
+    $isAllowed = in_array($role, ['finance','admin','super_admin'], true);
     if (!$isAllowed) salary_fail('Penggajian hanya dapat dikelola oleh Finance dan Administrator. Karyawan dapat melihat slip gaji pada menu Slip Gaji.', 403);
 }
 function salary_employee_sql(): string {

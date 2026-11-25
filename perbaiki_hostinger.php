@@ -24,9 +24,26 @@ if (basename(__DIR__) === 'dist') {
     $parent = dirname(__DIR__);
     sync_folder_recursive(__DIR__, $parent);
     echo "<p style='color:green; font-weight:bold;'>✔ Berhasil memindahkan dan menyinkronkan seluruh file dist/ ke root public_html secara otomatis!</p>";
-} elseif (is_dir(__DIR__ . '/dist')) {
+} elseif (is_dir(__DIR__ . '/dist') && file_exists(__DIR__ . '/dist/index.html') && file_exists(__DIR__ . '/index.html') && filemtime(__DIR__ . '/dist/index.html') > filemtime(__DIR__ . '/index.html')) {
     sync_folder_recursive(__DIR__ . '/dist', __DIR__);
-    echo "<p style='color:green; font-weight:bold;'>✔ Berhasil mendeteksi folder dist/ dan memperbarui file root public_html secara otomatis!</p>";
+    echo "<p style='color:green; font-weight:bold;'>✔ Berhasil mendeteksi folder dist/ yang lebih baru dan memperbarui file root public_html secara otomatis!</p>";
+}
+
+// ── 0b. Auto-Extract creativa-backend-rpa-update.zip jika diupload ke root ──
+if (file_exists(__DIR__ . '/creativa-backend-rpa-update.zip')) {
+    $zip = new ZipArchive;
+    if ($zip->open(__DIR__ . '/creativa-backend-rpa-update.zip') === TRUE) {
+        $zip->extractTo(__DIR__);
+        $zip->close();
+        echo "<p style='color:green; font-weight:bold;'>✔ Berhasil mengekstrak creativa-backend-rpa-update.zip secara otomatis ke direktori server!</p>";
+        if (is_dir(__DIR__ . '/backend/api')) {
+            sync_folder_recursive(__DIR__ . '/backend/api', __DIR__ . '/api');
+        }
+        if (is_dir(__DIR__ . '/backend/services')) {
+            sync_folder_recursive(__DIR__ . '/backend/services', __DIR__ . '/services');
+        }
+        @unlink(__DIR__ . '/creativa-backend-rpa-update.zip');
+    }
 }
 
 $base_dir = __DIR__;
@@ -59,6 +76,25 @@ foreach ($candidates as $c) {
 $hostinger_config = "<?php\n\$DB_HOST = '{$active_host}';\n\$DB_USER = 'u260890310_one';\n\$DB_PASS = " . var_export($active_pass, true) . ";\n\$DB_NAME = 'u260890310_one';\n";
 file_put_contents($db_env, $hostinger_config);
 echo "<p style='color:green'>✔ File config/db_env.php berhasil disinkronkan (DB: u260890310_one, Host: $active_host).</p>";
+
+// 1b. Pastikan rpa_settings.json memiliki token Fonnte terbaru & konfigurasi Midtrans
+$storage_dir = file_exists($base_dir . '/storage') ? $base_dir . '/storage' : $backend_dir . '/storage';
+if (!is_dir($storage_dir)) @mkdir($storage_dir, 0755, true);
+$rpa_json_file = $storage_dir . '/rpa_settings.json';
+$curRpa = file_exists($rpa_json_file) ? json_decode(file_get_contents($rpa_json_file), true) : [];
+if (!is_array($curRpa)) $curRpa = [];
+$curRpa['fonnte_token'] = 'MmrDP9fy3zJMkT6UoUWb';
+if (empty($curRpa['midtrans_server_key'])) $curRpa['midtrans_server_key'] = 'Mid-server-Ems6wximYeuQ-MhX.FSj46Qv';
+if (empty($curRpa['midtrans_client_key'])) $curRpa['midtrans_client_key'] = 'Mid-client-LILBagcdYUvoYqBx';
+$curRpa['midtrans_is_production'] = true;
+@file_put_contents($rpa_json_file, json_encode($curRpa, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+echo "<p style='color:green'>✔ Token WhatsApp Gateway Fonnte (<code>MmrDP9fy3zJMkT6UoUWb</code>) berhasil dikonfigurasi & disimpan otomatis!</p>";
+
+// 1c. Pastikan config/mail.local.php tersedia untuk SMTP Hostinger PHPMailer
+$mail_local_file = $backend_dir . '/config/mail.local.php';
+$mailContent = "<?php\nreturn [\n    'host' => 'smtp.hostinger.com',\n    'port' => 465,\n    'encryption' => 'ssl',\n    'username' => 'finance@creativabridging.com',\n    'password' => 'Cr34t!v425',\n    'from_email' => 'finance@creativabridging.com',\n    'from_name' => 'Finance Creativa Bridging International',\n];\n";
+@file_put_contents($mail_local_file, $mailContent);
+echo "<p style='color:green'>✔ Konfigurasi SMTP Hostinger resmi (<code>finance@creativabridging.com</code>) berhasil disimpan ke config/mail.local.php!</p>";
 
 
 
@@ -349,6 +385,75 @@ if (isset($conn) && $conn) {
         }
     }
 
+    // Pastikan kolom proof_path & external_ref ada di billing_pembayaran
+    $chkProofCol = mysqli_query($conn, "SHOW COLUMNS FROM `billing_pembayaran` LIKE 'proof_path'");
+    if ($chkProofCol && mysqli_num_rows($chkProofCol) == 0) {
+        mysqli_query($conn, "ALTER TABLE `billing_pembayaran` ADD COLUMN `proof_path` VARCHAR(255) NULL");
+    }
+    $chkRefCol = mysqli_query($conn, "SHOW COLUMNS FROM `billing_pembayaran` LIKE 'external_ref'");
+    if ($chkRefCol && mysqli_num_rows($chkRefCol) == 0) {
+        mysqli_query($conn, "ALTER TABLE `billing_pembayaran` ADD COLUMN `external_ref` VARCHAR(255) NULL");
+    }
+    echo "<p style='color:green'>✔ Kolom <code>proof_path</code> dan <code>external_ref</code> pada <code>billing_pembayaran</code> diverifikasi.</p>";
+
+    // 4b2. PERBAIKAN STATUS REAL: Bersihkan dummy mock payment dan kembalikan status invoice pendaftaran ke Unpaid (Rp 0 terbayar)
+    echo "<h3>4b2. Reset Status Pendaftaran Baru & Hapus Dummy Payment...</h3>";
+
+    // Inisialisasi rpa_invoice_sequences
+    mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `rpa_invoice_sequences` (
+        `prefix` VARCHAR(32) NOT NULL PRIMARY KEY,
+        `last_seq` INT NOT NULL DEFAULT 0,
+        `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $currPrefix = 'TGCJ' . date('ym');
+    mysqli_query($conn, "INSERT INTO rpa_invoice_sequences (prefix, last_seq, updated_at) VALUES ('{$currPrefix}', 1, NOW()) ON DUPLICATE KEY UPDATE last_seq = GREATEST(last_seq, 1), updated_at = NOW()");
+
+    // Hapus seluruh riwayat pembayaran testing pada TGCJ26110001 (termasuk #16 dan #17)
+    mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv='TGCJ26110001'");
+    $deletedDummy = mysqli_affected_rows($conn);
+    mysqli_query($conn, "UPDATE billing_invoices SET status='Unpaid' WHERE id='TGCJ26110001'");
+    echo "<p style='color:green'>✔ Invoice pendaftaran TGCJ26110001 berhasil dibersihkan dari seluruh pembayaran testing ({$deletedDummy} data dihapus). Status resmi sekarang: <b>Unpaid (Rp 0 terbayar)</b> sesuai alur pendaftaran baru.</p>";
+
+    // Update billing_terkirim untuk TGCJ26110001: pastikan hanya 1 baris utama (WA), hapus duplikat jika ada
+    $btRows = mysqli_query($conn, "SELECT id FROM billing_terkirim WHERE id LIKE 'TGCJ26110001%'");
+    $btIds = [];
+    while ($btRow = mysqli_fetch_assoc($btRows)) { $btIds[] = $btRow['id']; }
+    echo "<p style='color:gray'>ℹ billing_terkirim saat ini untuk TGCJ26110001: " . implode(', ', $btIds ?: ['(kosong)']) . "</p>";
+
+    // Hapus invoice TGCJ26110006 yang salah (invoice ini dibuat karena error)
+    $inv6 = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id, total FROM billing_invoices WHERE id='TGCJ26110006' LIMIT 1"));
+    if ($inv6) {
+        // Hapus pembayaran terkait dulu
+        mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv='TGCJ26110006'");
+        mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id LIKE 'TGCJ26110006%'");
+        mysqli_query($conn, "DELETE FROM billing_invoices WHERE id='TGCJ26110006'");
+        echo "<p style='color:green'>✔ Invoice TGCJ26110006 (salah, total Rp " . number_format((float)$inv6['total'], 0, ',', '.') . ") beserta datanya telah dihapus.</p>";
+    } else {
+        echo "<p style='color:gray'>ℹ Invoice TGCJ26110006 tidak ditemukan (sudah bersih).</p>";
+    }
+
+    // Bersihkan invoice duplikat TGCJ26110005 agar hanya invoice aktif TGCJ26110001 yang tersisa
+    mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv='TGCJ26110005'");
+    mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id LIKE 'TGCJ26110005%'");
+    mysqli_query($conn, "DELETE FROM billing_invoices WHERE id='TGCJ26110005'");
+    echo "<p style='color:green'>✔ Invoice duplikat TGCJ26110005 dibersihkan (hanya invoice utama TGCJ26110001 yang dipertahankan).</p>";
+
+    // Auto-patch creativabridging.com/api/receipt_document.php jika ada (agar auto-forward ke ONE Creativa)
+    $parentReceipt = dirname(__DIR__) . '/api/receipt_document.php';
+    if (file_exists($parentReceipt)) {
+        $c = file_get_contents($parentReceipt);
+        if (strpos($c, 'one.creativabridging.com/api/receipt_document.php') === false) {
+            $c = str_replace(
+                "echo '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Invoice Tidak Ditemukan</title><body style=\"font-family:sans-serif;padding:40px;text-align:center;\"><h2>Invoice atau Kwitansi Pembayaran tidak ditemukan di sistem.</h2><p><a href=\"/siswa/dashboard\">Kembali ke Dashboard Siswa</a></p></body></html>';",
+                "header('Location: https://one.creativabridging.com/api/receipt_document.php?' . (\$_SERVER['QUERY_STRING'] ?? ''), true, 302); exit;",
+                $c
+            );
+            @file_put_contents($parentReceipt, $c);
+            echo "<p style='color:green'>✔ File creativabridging.com/api/receipt_document.php berhasil di-patch untuk auto-forward ke ONE Creativa!</p>";
+        }
+    }
+
     // Cek dan lengkapi kolom finance_records untuk penggajian & anggaran
     $chkSalRec = mysqli_query($conn, "SHOW COLUMNS FROM `finance_records` LIKE 'salary_request_id'");
     if (mysqli_num_rows($chkSalRec) == 0) {
@@ -430,20 +535,22 @@ if (isset($conn) && $conn) {
         echo "<p style='color:red; font-weight:bold;'>✖ Query LMS masih mengalami kendala: " . htmlspecialchars(mysqli_error($conn)) . "</p>";
     }
 
-    // 7. Perbaiki Relasi Akun: Muhammad Faizal (Role Super Admin) & Admin Sistem
-    echo "<h3>7. Memperbaiki Relasi Akun: Muhammad Faizal (Role Super Admin) & Admin Sistem...</h3>";
+    // 7. Perbaiki Relasi Akun: Muhammad Faizal (Role Karyawan) & Admin Sistem
+    echo "<h3>7. Memperbaiki Relasi Akun: Muhammad Faizal (Role Karyawan) & Admin Sistem...</h3>";
+    $karyawanRoleRow = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM roles WHERE name='karyawan' LIMIT 1"));
+    $karyawanRoleId = $karyawanRoleRow ? (int)$karyawanRoleRow['id'] : 6;
     $superRoleRow = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM roles WHERE name='super_admin' LIMIT 1"));
-    $superRoleId = $superRoleRow ? (int)$superRoleRow['id'] : 1;
+    $superRoleId = $superRoleRow ? (int)$superRoleRow['id'] : 4;
 
-    // A. Buat atau perbarui akun login Muhammad Faizal (Role Super Admin - Akses Penuh)
+    // A. Buat atau perbarui akun login Muhammad Faizal (Role Karyawan - Dashboard Karyawan)
     $faizalEmail = 'muhammadfaizal.mf10@gmail.com';
     $faizalUser = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM users WHERE email='$faizalEmail' LIMIT 1"));
     if ($faizalUser) {
         $faizalUid = (int)$faizalUser['id'];
-        mysqli_query($conn, "UPDATE users SET role_id=$superRoleId, is_active=1 WHERE id=$faizalUid");
+        mysqli_query($conn, "UPDATE users SET role_id=$karyawanRoleId, is_active=1 WHERE id=$faizalUid");
     } else {
         $pwdHash = password_hash('creativa2026', PASSWORD_DEFAULT);
-        mysqli_query($conn, "INSERT INTO users(email, password_hash, role_id, is_active, created_at, updated_at) VALUES('$faizalEmail', '$pwdHash', $superRoleId, 1, NOW(), NOW())");
+        mysqli_query($conn, "INSERT INTO users(email, password_hash, role_id, is_active, created_at, updated_at) VALUES('$faizalEmail', '$pwdHash', $karyawanRoleId, 1, NOW(), NOW())");
         $faizalUid = (int)mysqli_insert_id($conn);
     }
 
@@ -453,7 +560,7 @@ if (isset($conn) && $conn) {
         SET user_id = $faizalUid, full_name = 'Muhammad Faizal' 
         WHERE employee_code = '2260005'
     ");
-    echo "<p style='color:green'>✔ Akun login Muhammad Faizal (<code>$faizalEmail</code>) berhasil dihubungkan ke NIK 2260005 dengan <b>Role: SUPER ADMIN (Akses Penuh Sistem & Keuangan)</b>.</p>";
+    echo "<p style='color:green'>✔ Akun login Muhammad Faizal (<code>$faizalEmail</code>) berhasil dihubungkan ke NIK 2260005 dengan <b>Role: KARYAWAN (Menu Karyawan)</b>.</p>";
 
     // B. Pastikan akun admin@onecreativa.com terpisah sebagai Super Admin sistem
     $adminUser = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id, email FROM users WHERE email='admin@onecreativa.com' LIMIT 1"));

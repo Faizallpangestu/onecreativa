@@ -19,7 +19,7 @@ function api_entry_policy(mysqli $db):void{
   'rfid.php','rfid_scan.php'=>['admin','super_admin','hr','hrd','hr_admin','manager'],
   'departments.php','finance_dashboard.php'=>['admin','super_admin','hr','hrd','hr_admin','manager','finance','finance_admin','ga','director','direktur'],
   'settings.php'=>$method==='GET'?[$a['role']]:['admin','super_admin','hr','hrd','hr_admin','manager'],
-  default=>['admin','super_admin']
+  default=>['admin','super_admin','admin_lms','lms_admin','lpk']
  };
  if(!in_array($a['role'],$allowed,true))ac_fail('Akses modul tidak diizinkan.',403);
  if($method==='DELETE')ac_fail('Histori modul dipertahankan. Gunakan status nonaktif atau pembatalan.',409);

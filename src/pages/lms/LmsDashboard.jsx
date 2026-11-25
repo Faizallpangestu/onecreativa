@@ -1,2 +1,5 @@
-import LearnerDashboard from '../../components/LearnerDashboard';
-export default function LmsDashboard(){return <LearnerDashboard/>;}
+import DashboardCreativa from '../DashboardCreativa';
+
+export default function LmsDashboard() {
+  return <DashboardCreativa />;
+}

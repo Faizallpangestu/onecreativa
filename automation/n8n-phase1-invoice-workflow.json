@@ -12,7 +12,10 @@
       "name": "1. Webhook Pendaftaran Masuk",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
@@ -22,7 +25,10 @@
       "name": "2. Normalisasi Data & Skema",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [450, 300]
+      "position": [
+        450,
+        300
+      ]
     },
     {
       "parameters": {
@@ -52,7 +58,10 @@
       "name": "3. API OneCreativa - Buat Invoice",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [700, 300]
+      "position": [
+        700,
+        300
+      ]
     },
     {
       "parameters": {
@@ -80,7 +89,10 @@
       "name": "4. Perlu Kirim Invoice?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [940, 300]
+      "position": [
+        940,
+        300
+      ]
     },
     {
       "parameters": {
@@ -116,7 +128,10 @@
       "name": "5. Playwright - Render PDF Invoice",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1190, 220]
+      "position": [
+        1190,
+        220
+      ]
     },
     {
       "parameters": {
@@ -158,7 +173,10 @@
       "name": "6a. Kirim WhatsApp + PDF",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1460, 120],
+      "position": [
+        1460,
+        120
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -176,7 +194,10 @@
       "name": "6b. Kirim Email + PDF",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1460, 320],
+      "position": [
+        1460,
+        320
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -187,7 +208,10 @@
       "name": "6c. Tunggu WA & Email",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [1680, 220]
+      "position": [
+        1680,
+        220
+      ]
     },
     {
       "parameters": {
@@ -197,7 +221,10 @@
       "name": "6d. Ringkas Status Pengiriman",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1900, 220]
+      "position": [
+        1900,
+        220
+      ]
     },
     {
       "parameters": {
@@ -224,44 +251,117 @@
       "name": "7. Update Status Terkirim (OneCreativa)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2130, 220]
+      "position": [
+        2130,
+        220
+      ]
     }
   ],
   "connections": {
     "1. Webhook Pendaftaran Masuk": {
-      "main": [[{ "node": "2. Normalisasi Data & Skema", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "2. Normalisasi Data & Skema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "2. Normalisasi Data & Skema": {
-      "main": [[{ "node": "3. API OneCreativa - Buat Invoice", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "3. API OneCreativa - Buat Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "3. API OneCreativa - Buat Invoice": {
-      "main": [[{ "node": "4. Perlu Kirim Invoice?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "4. Perlu Kirim Invoice?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "4. Perlu Kirim Invoice?": {
       "main": [
-        [{ "node": "5. Playwright - Render PDF Invoice", "type": "main", "index": 0 }],
+        [
+          {
+            "node": "5. Playwright - Render PDF Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
     "5. Playwright - Render PDF Invoice": {
       "main": [
         [
-          { "node": "6a. Kirim WhatsApp + PDF", "type": "main", "index": 0 },
-          { "node": "6b. Kirim Email + PDF", "type": "main", "index": 0 }
+          {
+            "node": "6a. Kirim WhatsApp + PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "6b. Kirim Email + PDF",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "6a. Kirim WhatsApp + PDF": {
-      "main": [[{ "node": "6c. Tunggu WA & Email", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "6c. Tunggu WA & Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "6b. Kirim Email + PDF": {
-      "main": [[{ "node": "6c. Tunggu WA & Email", "type": "main", "index": 1 }]]
+      "main": [
+        [
+          {
+            "node": "6c. Tunggu WA & Email",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "6c. Tunggu WA & Email": {
-      "main": [[{ "node": "6d. Ringkas Status Pengiriman", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "6d. Ringkas Status Pengiriman",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "6d. Ringkas Status Pengiriman": {
-      "main": [[{ "node": "7. Update Status Terkirim (OneCreativa)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "7. Update Status Terkirim (OneCreativa)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

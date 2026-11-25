@@ -45,6 +45,7 @@ try {
 
 // Lazy Loaded Pages
 import Login from "./pages/Login";
+const LmsLogin = lazy(() => import("./pages/LmsLogin"));
 const Home = lazy(() => import("./pages/Home"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
@@ -121,6 +122,9 @@ const LmsAdminAgenda = lazy(() => import("./pages/lms/LmsAdminAgenda"));
 const LmsMateri = lazy(() => import("./pages/lms/LmsMateri"));
 const LmsTugas = lazy(() => import("./pages/lms/LmsTugas"));
 const LmsQuiz = lazy(() => import("./pages/lms/LmsQuiz"));
+const LmsQuizGenerate = lazy(() => import("./pages/lms/LmsQuizGenerate"));
+const LmsQuizDaily = lazy(() => import("./pages/lms/LmsQuizDaily"));
+const LmsQuestionBank = lazy(() => import("./pages/lms/LmsQuestionBank"));
 const LmsNilai = lazy(() => import("./pages/lms/LmsNilai"));
 const LmsBelajar = lazy(() => import("./pages/lms/LmsBelajar"));
 const LmsAbsensi = lazy(() => import("./pages/lms/LmsAbsensi"));
@@ -140,6 +144,19 @@ const LmsKelasSaya = lazy(() => import("./pages/lms/LmsKelasSaya"));
 const LmsKotoba = lazy(() => import("./pages/lms/LmsKotoba"));
 const PresenceCode = lazy(() => import("./pages/lms/PresenceCode"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
+
+// LMS Re-Architecture v2 Components
+const LmsProgram = lazy(() => import("./pages/lms/LmsProgram"));
+const LmsBatch = lazy(() => import("./pages/lms/LmsBatch"));
+const LmsEnrollment = lazy(() => import("./pages/lms/LmsEnrollment"));
+const LmsCourses = lazy(() => import("./pages/lms/LmsCourses"));
+const LmsCanDo = lazy(() => import("./pages/lms/LmsCanDo"));
+const LmsLearningPath = lazy(() => import("./pages/lms/LmsLearningPath"));
+const LmsGradebook = lazy(() => import("./pages/lms/LmsGradebook"));
+const LmsSkillsHub = lazy(() => import("./pages/lms/LmsSkillsHub"));
+const LmsAnalytics = lazy(() => import("./pages/lms/LmsAnalytics"));
+const LmsSettings = lazy(() => import("./pages/lms/LmsSettings"));
+const LmsSensei = lazy(() => import("./pages/lms/LmsSensei"));
 
 // Sensei
 const DashboardSensei = lazy(() => import("./pages/DashboardSensei"));
@@ -201,6 +218,8 @@ function App(props) {
               {/* LMS Routes */}
               <Route path="/" element={<Navigate to="/login" />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/lms-login" element={<LmsLogin />} />
+              <Route path="/lms/login" element={<LmsLogin />} />
 
               {/* Main Selector Route - Deprecated, redirect to login which handles role-based redirect */}
               <Route path="/home" element={<Navigate to="/login" replace />} />
@@ -223,7 +242,7 @@ function App(props) {
               <Route path="/assets/approval" element={<ProtectedRoute><ApprovalPerpindahan /></ProtectedRoute>} />
               <Route path="/assets/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
 
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><Dashboard /></ProtectedRoute>} />
               <Route path="/employees" element={<ProtectedRoute allowedRoles={["hr", "hrd", "hr_admin", "manager", "admin", "super_admin"]}><Employees /></ProtectedRoute>} />
               <Route path="/access-rights" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="" /></ProtectedRoute>} />
               <Route path="/access-rights-ga" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="ga" /></ProtectedRoute>} />
@@ -283,8 +302,8 @@ function App(props) {
               <Route path="/dashboard-peserta-matching" element={<ProtectedRoute><DashboardPesertaMatching /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-mendang" element={<ProtectedRoute><DashboardPesertaMendang /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-alumni" element={<ProtectedRoute><DashboardPesertaAlumni /></ProtectedRoute>} />
-              <Route path="/access-rights-sensei" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk"]}><AccessRightsLPK key="sensei" role="SENSEI" /></ProtectedRoute>} />
-              <Route path="/access-rights-siswa" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk"]}><AccessRightsLPK key="siswa" role="PESERTA_INTENSIF" /></ProtectedRoute>} />
+              <Route path="/access-rights-sensei" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk", "admin_lms", "lms_admin"]}><AccessRightsLPK key="sensei" role="SENSEI" /></ProtectedRoute>} />
+              <Route path="/access-rights-siswa" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk", "admin_lms", "lms_admin"]}><AccessRightsLPK key="siswa" role="PESERTA_INTENSIF" /></ProtectedRoute>} />
               <Route path="/lpk-absensi-sensei" element={<ProtectedRoute><LpkAttendance role="SENSEI" /></ProtectedRoute>} />
               <Route path="/lpk-absensi-siswa" element={<ProtectedRoute><LpkAttendance role="SISWA" /></ProtectedRoute>} />
               <Route path="/lpk-nilai" element={<ProtectedRoute><LpkNilai /></ProtectedRoute>} />
@@ -304,24 +323,57 @@ function App(props) {
               <Route path="/sensei/kehadiran" element={<ProtectedRoute><SenseiKehadiran /></ProtectedRoute>} />
               <Route path="/sensei/leaderboard" element={<ProtectedRoute><SenseiLeaderboard /></ProtectedRoute>} />
               {/* LMS Routes */}
+              <Route path="/lms/program" element={<ProtectedRoute><LmsProgram /></ProtectedRoute>} />
+              <Route path="/lms/batch" element={<ProtectedRoute><LmsBatch /></ProtectedRoute>} />
+              <Route path="/lms/enrollment" element={<ProtectedRoute><LmsEnrollment /></ProtectedRoute>} />
+              <Route path="/lms/courses" element={<ProtectedRoute><LmsCourses /></ProtectedRoute>} />
+              <Route path="/lms/modules" element={<ProtectedRoute><LmsCourses /></ProtectedRoute>} />
+              <Route path="/lms/lessons" element={<ProtectedRoute><LmsCourses /></ProtectedRoute>} />
+              <Route path="/lms/learning-path" element={<ProtectedRoute><LmsLearningPath /></ProtectedRoute>} />
+              <Route path="/lms/can-do" element={<ProtectedRoute><LmsCanDo /></ProtectedRoute>} />
+              <Route path="/lms/kompetensi-nilai" element={<ProtectedRoute><LmsCanDo /></ProtectedRoute>} />
+              <Route path="/lms/gradebook" element={<ProtectedRoute><LmsGradebook /></ProtectedRoute>} />
+              <Route path="/lms/activity-completion" element={<ProtectedRoute><LmsGradebook /></ProtectedRoute>} />
+              <Route path="/lms/course-completion" element={<ProtectedRoute><LmsGradebook /></ProtectedRoute>} />
+              <Route path="/lms/learning-progress" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/listening" element={<ProtectedRoute><LmsSkillsHub initialTab="listening" /></ProtectedRoute>} />
+              <Route path="/lms/reading" element={<ProtectedRoute><LmsSkillsHub initialTab="reading" /></ProtectedRoute>} />
+              <Route path="/lms/writing" element={<ProtectedRoute><LmsSkillsHub initialTab="writing" /></ProtectedRoute>} />
+              <Route path="/lms/speaking" element={<ProtectedRoute><LmsSkillsHub initialTab="speaking" /></ProtectedRoute>} />
+              <Route path="/lms/analytics-siswa" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/analytics-kelas" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/analytics-kompetensi" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/analytics-kaiwa" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/laporan-akademik" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/evaluasi-kaiwa" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/siswa-notes" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/settings" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
+              <Route path="/lms/rubrik" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
+              <Route path="/lms/ai-settings" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
+              <Route path="/lms/audit-log" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
               <Route path="/lms/siswa" element={<ProtectedRoute><LpkIntensif /></ProtectedRoute>} />
               <Route path="/lms/kelas-saya" element={<ProtectedRoute><LmsKelasSaya /></ProtectedRoute>} />
-              <Route path="/lms/classes" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><LearningClasses /></ProtectedRoute>} />
+              <Route path="/lms/classes" element={<ProtectedRoute><LearningClasses /></ProtectedRoute>} />
+              <Route path="/lms/kelas" element={<ProtectedRoute><LearningClasses /></ProtectedRoute>} />
+              <Route path="/lms/sensei" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk", "admin_lms", "lms_admin"]}><LmsSensei /></ProtectedRoute>} />
               <Route path="/finance/student-billing" element={<ProtectedRoute allowedRoles={["finance", "finance_admin", "admin", "super_admin"]}><StudentBillingAdmin /></ProtectedRoute>} />
-              <Route path="/lms/dashboard" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsDashboard /></ProtectedRoute>} />
-              <Route path="/lms/profil" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsProfil /></ProtectedRoute>} />
-              <Route path="/lms/kartu-siswa" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsKartuSiswa /></ProtectedRoute>} />
-              <Route path="/lms/tagihan" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsTagihan /></ProtectedRoute>} />
+              <Route path="/lms/dashboard" element={<ProtectedRoute><LmsDashboard /></ProtectedRoute>} />
+              <Route path="/lms/profil" element={<ProtectedRoute><LmsProfil /></ProtectedRoute>} />
+              <Route path="/lms/kartu-siswa" element={<ProtectedRoute><LmsKartuSiswa /></ProtectedRoute>} />
+              <Route path="/lms/tagihan" element={<ProtectedRoute><LmsTagihan /></ProtectedRoute>} />
               <Route path="/lms/ukom" element={<ProtectedRoute><LmsUkom /></ProtectedRoute>} />
               <Route path="/lms/konsultasi" element={<ProtectedRoute><LmsKonsultasi /></ProtectedRoute>} />
               <Route path="/lms/diskusi" element={<ProtectedRoute><LmsDiskusi /></ProtectedRoute>} />
               <Route path="/lms/kotoba" element={<ProtectedRoute><LmsKotoba /></ProtectedRoute>} />
               <Route path="/lms/kalender" element={<ProtectedRoute><LmsKalender /></ProtectedRoute>} />
-              <Route path="/lms/agenda" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><LmsAdminAgenda /></ProtectedRoute>} />
+              <Route path="/lms/agenda" element={<ProtectedRoute><LmsAdminAgenda /></ProtectedRoute>} />
               <Route path="/lms/materi" element={<ProtectedRoute><LmsMateri /></ProtectedRoute>} />
               <Route path="/lms/tugas-quiz" element={<ProtectedRoute><LmsTugasQuiz /></ProtectedRoute>} />
               <Route path="/lms/tugas" element={<ProtectedRoute><LmsTugas /></ProtectedRoute>} />
               <Route path="/lms/quiz" element={<ProtectedRoute><LmsQuiz /></ProtectedRoute>} />
+              <Route path="/lms/quiz/generate" element={<ProtectedRoute><LmsQuizGenerate /></ProtectedRoute>} />
+              <Route path="/lms/quiz/daily" element={<ProtectedRoute><LmsQuizDaily /></ProtectedRoute>} />
+              <Route path="/lms/quiz/question-bank" element={<ProtectedRoute><LmsQuestionBank /></ProtectedRoute>} />
               <Route path="/lms/nilai" element={<ProtectedRoute><LmsNilai /></ProtectedRoute>} />
               <Route path="/lms/nilai-siswa" element={<ProtectedRoute><LmsNilai /></ProtectedRoute>} />
               <Route path="/lms/belajar-mandiri" element={<ProtectedRoute><LmsBelajar /></ProtectedRoute>} />
@@ -329,6 +381,7 @@ function App(props) {
               <Route path="/lms/leaderboard" element={<ProtectedRoute><LmsLeaderboard /></ProtectedRoute>} />
               <Route path="/lms/latihan-kaiwa" element={<ProtectedRoute><LmsLatihanKaiwa /></ProtectedRoute>} />
               <Route path="/lms/kaiwa" element={<ProtectedRoute><LmsLatihanKaiwa /></ProtectedRoute>} />
+              <Route path="/lms/kaiwa-ai" element={<ProtectedRoute><LmsLatihanKaiwa /></ProtectedRoute>} />
               <Route path="/lms/instructor" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><LmsInstructor /></ProtectedRoute>} />
               <Route path="/lms/presence-code" element={<ProtectedRoute><PresenceCode /></ProtectedRoute>} />
               <Route path="/lms/pengumuman" element={<ProtectedRoute><LmsPengumuman /></ProtectedRoute>} />

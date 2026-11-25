@@ -1,14 +1,19 @@
 <?php
 header("Content-Type: application/json; charset=utf-8");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/api_session_guard.php';
 require_once __DIR__ . '/../services/rpa_automation.php';
+
+if (PHP_SAPI === 'cli') {
+    $_SERVER['REQUEST_METHOD'] = 'POST';
+    $_SERVER['HTTP_X_WEBHOOK_SECRET'] = rpa_get_secret();
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -128,6 +133,43 @@ try {
         $email = trim((string)($p['email'] ?? $details['email'] ?? ''));
         $noKtp = trim((string)($p['noKtp'] ?? $p['no_ktp'] ?? $details['noKtp'] ?? ''));
         $program = trim((string)($p['program'] ?? $p['programMinat'] ?? $details['programMinat'] ?? 'Intensif Offline'));
+        $rawStatus = trim((string)($p['status'] ?? 'Aktif'));
+
+        // ── 1. FILTER EKSKLUSI: Alumni, Matching Job, dan Sotsugyousei/Shotsugyosei TIDAK BOLEH MASUK ──
+        $programLower = strtolower($program);
+        $statusLower = strtolower($rawStatus);
+        $isExcluded = (
+            str_contains($programLower, 'sotsugyo') ||
+            str_contains($programLower, 'shotsugyo') ||
+            str_contains($programLower, 'alumni') ||
+            str_contains($programLower, 'matching') ||
+            str_contains($statusLower, 'alumni') ||
+            str_contains($statusLower, 'sotsugyo') ||
+            str_contains($statusLower, 'shotsugyo') ||
+            str_contains($statusLower, 'matching')
+        );
+        if ($isExcluded) {
+            // Bersihkan dari peserta_intensif jika sebelumnya sempat tersimpan
+            if ($rawId > 0) {
+                @mysqli_query($conn, "DELETE FROM peserta_intensif WHERE web_id = $rawId");
+            }
+            continue;
+        }
+
+        // ── 2. FILTER PROGRAM: Hanya siswa program Intensif atau Lanjutan ──
+        $isIntensif = (
+            str_contains($programLower, 'intensif') ||
+            str_contains($programLower, 'lanjutan')
+        );
+        if (!$isIntensif) {
+            continue;
+        }
+
+        // ── 3. FILTER PEMBAYARAN: Wajib sudah membayar uang DP atau Lunas ──
+        $feeProofUrl = trim((string)($p['fee_proof_url'] ?? $details['fee_proof_url'] ?? ''));
+        $feeStatus = trim((string)($p['fee_status'] ?? $details['fee_status'] ?? ''));
+        $feeAmount = (float)($p['fee_amount'] ?? $details['fee_amount'] ?? 0);
+        $payStatus = trim((string)($p['payment_status'] ?? $details['payment_status'] ?? ''));
         $metodePembayaran = trim((string)($details['metodePembayaran'] ?? $p['metodePembayaran'] ?? $p['metode_pembayaran'] ?? $p['tipe_pembayaran'] ?? ''));
         if ($metodePembayaran === '') {
             if (stripos($program, 'cicil') !== false) {
@@ -136,14 +178,44 @@ try {
                 $metodePembayaran = 'Full Payment';
             }
         }
+        $metodeLower = strtolower($metodePembayaran);
+        $feeStatusLower = strtolower($feeStatus);
+        $payStatusLower = strtolower($payStatus);
+
+        $hasPaidRemote = (
+            $feeAmount > 0 ||
+            !empty($feeProofUrl) ||
+            str_contains($feeStatusLower, 'lunas') ||
+            str_contains($feeStatusLower, 'cicil') ||
+            str_contains($feeStatusLower, 'dp') ||
+            str_contains($feeStatusLower, 'verif') ||
+            str_contains($payStatusLower, 'paid') ||
+            str_contains($payStatusLower, 'lunas') ||
+            str_contains($metodeLower, 'cash lunas') ||
+            str_contains($metodeLower, 'lunas') ||
+            str_contains($metodeLower, 'dp')
+        );
+
+        if (!$hasPaidRemote && $rawId > 0) {
+            $webIdLike = '%"web_id":' . $rawId . '%';
+            $chkPay = ac_one($conn, "SELECT bp.id FROM billing_pembayaran bp JOIN billing_invoices bi ON bi.id = bp.noInv WHERE (bi.meta_json LIKE ? OR bi.email = ? OR bi.customer = ?) AND LOWER(TRIM(bp.statusVerif)) IN ('terverifikasi', 'verified')", [$webIdLike, $email, $name]);
+            if ($chkPay) {
+                $hasPaidRemote = true;
+            }
+        }
+
+        if (!$hasPaidRemote) {
+            // Belum bayar DP atau Lunas -> Jangan ditarik ke peserta intensif
+            continue;
+        }
+
         $isCicilanStudent = (stripos($metodePembayaran, 'cicil') !== false || stripos($metodePembayaran, 'dp') !== false);
         $totalBiaya = (float)($p['total_biaya'] ?? $details['total_biaya'] ?? 0);
         if ($totalBiaya <= 0) {
             $totalBiaya = $isCicilanStudent ? 15000000.00 : 12000000.00;
         }
 
-        $rawStatus = trim((string)($p['status'] ?? 'Aktif'));
-        $status = ($rawStatus === 'Pembayaran' || $rawStatus === 'Pending') ? 'Menunggu Pembayaran' : ($rawStatus ?: 'Aktif');
+        $status = 'Aktif';
         $kota = trim((string)($p['kotaDomisili'] ?? $p['kota'] ?? $details['kotaDomisili'] ?? 'Cianjur'));
         $lokasi = trim((string)($p['lokasiTinggal'] ?? $details['lokasiTinggal'] ?? ''));
         $alamatLengkap = trim((string)($details['alamatLengkap'] ?? ''));
@@ -227,7 +299,7 @@ try {
                 $alreadyPaid = false;
 
                 if ($proofCheck !== '') {
-                    $chkStmt = $conn->prepare("SELECT id FROM billing_pembayaran WHERE noInv = ? AND (proof_path LIKE ? OR (external_ref = ? AND external_ref <> '')) LIMIT 1");
+                    $chkStmt = $conn->prepare("SELECT id FROM billing_pembayaran WHERE noInv = ? AND (proof_path LIKE ? OR external_ref = ?) LIMIT 1");
                     $proofPattern = '%' . $proofCheck . '%';
                     $chkStmt->bind_param("sss", $targetInvId, $proofPattern, $paymentNotes);
                     $chkStmt->execute();
@@ -310,6 +382,9 @@ try {
                     $updInv->execute();
                     $updInv->close();
 
+                    // Otomatis ubah status siswa di peserta_intensif menjadi Aktif (karena pembayaran DP/Lunas terverifikasi)
+                    $conn->query("UPDATE peserta_intensif SET status = 'Aktif' WHERE (web_id = $rawId OR email = '" . $conn->real_escape_string($email) . "')");
+
                     // Picu otomatis penerbitan Receipt/Kwitansi Resmi & kirim Email + WA
                     rpa_trigger_receipt_automation(
                         $conn,
@@ -386,17 +461,19 @@ try {
                 ];
             }
 
-            // Generate Invoice ID resmi: TGCJ + YYMM + 4 digit
+            // Generate Invoice ID resmi: TGCJ + YYMM + 4 digit berurutan monoton
             $prefix = 'TGCJ' . date('ym');
-            $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 1");
-            $nextSeq = 1;
-            if ($numRes && $row = mysqli_fetch_assoc($numRes)) {
-                $tail = substr((string)$row['id'], strlen($prefix));
-                if (ctype_digit($tail)) {
-                    $nextSeq = (int)$tail + 1;
-                }
-            }
-            $invoiceId = $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+            $invoiceId = function_exists('rpa_get_next_invoice_id')
+                ? rpa_get_next_invoice_id($conn, $prefix)
+                : (function() use ($conn, $prefix) {
+                    $numRes = mysqli_query($conn, "SELECT id FROM billing_invoices WHERE id LIKE '{$prefix}%' ORDER BY id DESC LIMIT 1");
+                    $nextSeq = 1;
+                    if ($numRes && $row = mysqli_fetch_assoc($numRes)) {
+                        $tail = substr((string)$row['id'], strlen($prefix));
+                        if (ctype_digit($tail)) $nextSeq = (int)$tail + 1;
+                    }
+                    return $prefix . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+                })();
             $token = bin2hex(random_bytes(16));
             $today = date('Y-m-d');
             $firstDue = $installments[0]['jatuhTempo'] ?? date('Y-m-d', strtotime('+2 days'));

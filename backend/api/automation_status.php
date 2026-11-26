@@ -26,6 +26,146 @@ function compute_installments_progress(array $meta, float $totalInvoice, float $
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = trim((string)($_GET['action'] ?? 'status'));
 
+    // ── Test SMTP Endpoint ──
+    if ($action === 'test_smtp') {
+        $targetTo = trim((string)($_GET['to'] ?? 'Muhammadfaizal.mf10@gmail.com'));
+        $sent = rpa_send_smtp_email(
+            $targetTo,
+            'Test Recipient',
+            '[LPK Creativa] Verifikasi Koneksi SMTP Hostinger',
+            '<div style="font-family:Arial,sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:8px;">'
+            . '<h2 style="color:#1e3a8a;">Koneksi SMTP Hostinger Berhasil!</h2>'
+            . '<p>Email resmi dari <strong>finance@creativabridging.com</strong> berhasil dikirim via Hostinger SMTP (SSL Port 465).</p>'
+            . '<p style="color:#64748b;font-size:12px;">Waktu Kirim: ' . date('d F Y, H:i:s') . ' WIB</p>'
+            . '</div>'
+        );
+        echo json_encode([
+            'status' => $sent ? 'success' : 'error',
+            'message' => $sent ? "Email SMTP Hostinger berhasil dikirim ke {$targetTo}." : "Gagal mengirim email via SMTP Hostinger.",
+            'to' => $targetTo,
+            'sent' => $sent
+        ]);
+        exit;
+    }
+
+    // ── Reset Test Payment Endpoint (hanya dengan webhook secret) ──
+    if ($action === 'reset_test_payment') {
+        $providedSecret = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['api_key'] ?? $_GET['secret'] ?? ''));
+        if ($providedSecret === '' || !hash_equals($EXPECTED_SECRET, $providedSecret)) {
+            http_response_code(401);
+            echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
+            exit;
+        }
+
+        $targetInv = trim((string)($_GET['invoice_id'] ?? 'TGCJ26110001'));
+        $deletedPayments = 0;
+        if ($targetInv !== '') {
+            @mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv = '{$targetInv}'");
+            $deletedPayments = mysqli_affected_rows($conn);
+            @mysqli_query($conn, "UPDATE billing_invoices SET status = 'Unpaid' WHERE id = '{$targetInv}'");
+        }
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => "Pembayaran test pada invoice {$targetInv} berhasil dibersihkan. Status invoice sekarang bersih (Unpaid, Rp 0 terbayar).",
+            'deleted_payments' => $deletedPayments
+        ]);
+        exit;
+    }
+
+    // ── Convert to Cicilan Endpoint (untuk testing skema cicilan resmi 6 termin) ──
+    if ($action === 'convert_to_cicilan') {
+        $providedSecret = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['api_key'] ?? $_GET['secret'] ?? ''));
+        if ($providedSecret === '' || !hash_equals($EXPECTED_SECRET, $providedSecret)) {
+            http_response_code(401);
+            echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
+            exit;
+        }
+
+        $targetInv = trim((string)($_GET['invoice_id'] ?? 'TGCJ26110001'));
+        if ($targetInv !== '') {
+            @mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv = '{$targetInv}'");
+            $presetCicilan = [5000000, 3000000, 2500000, 1500000, 1500000, 1500000];
+            $installments = [];
+            foreach ($presetCicilan as $cIdx => $cAmt) {
+                $installments[] = [
+                    'id' => $cIdx + 1,
+                    'deskripsi' => 'Cicilan ' . ($cIdx + 1),
+                    'keterangan' => 'CICILAN ' . ($cIdx + 1),
+                    'jatuhTempo' => date('Y-m-d', strtotime("+2 days +{$cIdx} month")),
+                    'nominal' => $cAmt,
+                ];
+            }
+
+            // Dapatkan data customer dari invoice
+            $invCheck = mysqli_query($conn, "SELECT customer, phone FROM billing_invoices WHERE id = '{$targetInv}' LIMIT 1");
+            $iRow = $invCheck ? mysqli_fetch_assoc($invCheck) : null;
+            $custPhone = (string)($iRow['phone'] ?? '087829760975');
+
+            $metaArray = [
+                'skema' => 'cicilan',
+                'program' => 'Intensif Offline',
+                'lokasi' => 'Kabupaten Cianjur',
+                'durasi' => '7 Bulan',
+                'subtotal' => 15000000.00,
+                'items' => [[
+                    'id' => 1,
+                    'deskripsi' => 'Intensif Offline (Cicilan)',
+                    'subdeskripsi' => 'Biaya Pendidikan Bahasa Jepang dan Pelatihan Skill - Kabupaten Cianjur',
+                    'harga' => 15000000.00,
+                    'diskon' => 0,
+                    'jumlah' => 15000000.00,
+                ]],
+                'installments' => $installments,
+                'includes' => [
+                    'Biaya Pelatihan Bahasa Jepang & Skill',
+                    'Modul & Buku Pembelajaran Eksklusif',
+                    'Akses LMS & Ujian Tryout Digital',
+                    'Sertifikasi & Pendampingan Karir Jepang',
+                    'Fasilitas Training Center & Laboratorium'
+                ],
+                'statusPendaftaran' => 'Terdaftar Resmi',
+                'delivery' => [
+                    'statusKirim' => 'Siap Kirim',
+                    'kanal' => 'WhatsApp',
+                    'tglKirim' => date('Y-m-d'),
+                    'penerima' => $custPhone,
+                ]
+            ];
+            $metaJson = mysqli_real_escape_string($conn, json_encode($metaArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $firstDue = date('Y-m-d', strtotime('+2 days'));
+            @mysqli_query($conn, "UPDATE billing_invoices SET total = 15000000.00, status = 'Unpaid', keterangan = 'Intensif Offline (Cicilan)', jatuhTempo = '{$firstDue}', meta_json = '{$metaJson}' WHERE id = '{$targetInv}'");
+        }
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => "Invoice {$targetInv} berhasil diubah ke Skema Cicilan 6x (Total: Rp 15.000.000, Terbayar: Rp 0, Sisa: Rp 15.000.000)."
+        ]);
+        exit;
+    }
+
+    // ── Clean Duplicates Endpoint (hanya dengan webhook secret) ──
+    if ($action === 'cleanup_duplicates') {
+        $providedSecret = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['api_key'] ?? $_GET['secret'] ?? ''));
+        if ($providedSecret === '' || !hash_equals($EXPECTED_SECRET, $providedSecret)) {
+            http_response_code(401);
+            echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
+            exit;
+        }
+
+        $delInvId = trim((string)($_GET['invoice_id'] ?? 'TGCJ26110005'));
+        $deleted = 0;
+        if ($delInvId !== '' && $delInvId !== 'TGCJ26110001') {
+            @mysqli_query($conn, "DELETE FROM billing_pembayaran WHERE noInv = '{$delInvId}'");
+            @mysqli_query($conn, "DELETE FROM billing_terkirim WHERE id LIKE '{$delInvId}%'");
+            @mysqli_query($conn, "DELETE FROM billing_invoices WHERE id = '{$delInvId}'");
+            $deleted = mysqli_affected_rows($conn);
+        }
+
+        echo json_encode(['status' => 'success', 'message' => "Invoice {$delInvId} berhasil dihapus dari sistem.", 'deleted' => $deleted]);
+        exit;
+    }
+
     // ── A. Endpoint Cron n8n: Daftar cicilan jatuh tempo H-3 (wajib X-Webhook-Secret) ──
     if ($action === 'due_installments') {
         $providedSecret = trim((string)($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? $_GET['api_key'] ?? $_GET['secret'] ?? ''));
@@ -59,11 +199,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 if (isset($remindedToday[$invId])) continue;
 
                 $paid = 0.0;
-                $pStmt = $conn->prepare("SELECT COALESCE(SUM(jumlah), 0) AS paid FROM billing_pembayaran WHERE noInv = ? AND LOWER(TRIM(statusVerif)) IN ('terverifikasi','verified')");
+                $pStmt = $conn->prepare("SELECT customer, jumlah FROM billing_pembayaran WHERE noInv = ? AND LOWER(TRIM(statusVerif)) IN ('terverifikasi','verified')");
                 if ($pStmt) {
                     $pStmt->bind_param('s', $invId);
                     $pStmt->execute();
-                    $paid = (float)(($pStmt->get_result()->fetch_assoc())['paid'] ?? 0);
+                    $pRes = $pStmt->get_result();
+                    $invCustNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$inv['customer']));
+                    while ($pRow = $pRes->fetch_assoc()) {
+                        $payCustNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($pRow['customer'] ?? '')));
+                        if ($payCustNorm !== '' && $invCustNorm !== '') {
+                            $match = ($payCustNorm === $invCustNorm) || str_contains($invCustNorm, $payCustNorm) || str_contains($payCustNorm, $invCustNorm);
+                            if (!$match) continue;
+                        }
+                        $paid += (float)($pRow['jumlah'] ?? 0);
+                    }
                     $pStmt->close();
                 }
 
@@ -188,7 +337,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $pStmt->bind_param('s', $invoiceId);
         $pStmt->execute();
         $pRes = $pStmt->get_result();
+        $invCustNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$inv['customer']));
         while ($pRow = $pRes->fetch_assoc()) {
+            $payCustNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($pRow['customer'] ?? '')));
+            // Validasi kepemilikan pembayaran: Pastikan nama customer cocok, jangan pernah ambil pembayaran milik orang lain
+            if ($payCustNorm !== '' && $invCustNorm !== '') {
+                $match = ($payCustNorm === $invCustNorm) || str_contains($invCustNorm, $payCustNorm) || str_contains($payCustNorm, $invCustNorm);
+                if (!$match) {
+                    continue; // Skip foreign / colliding payment from deleted invoice
+                }
+            }
             $pId = (int)$pRow['id'];
             $amt = (float)($pRow['jumlah'] ?? 0);
             $paid += $amt;

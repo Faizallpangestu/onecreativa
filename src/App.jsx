@@ -45,6 +45,7 @@ try {
 
 // Lazy Loaded Pages
 import Login from "./pages/Login";
+const LmsLogin = lazy(() => import("./pages/LmsLogin"));
 const Home = lazy(() => import("./pages/Home"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
@@ -121,6 +122,9 @@ const LmsAdminAgenda = lazy(() => import("./pages/lms/LmsAdminAgenda"));
 const LmsMateri = lazy(() => import("./pages/lms/LmsMateri"));
 const LmsTugas = lazy(() => import("./pages/lms/LmsTugas"));
 const LmsQuiz = lazy(() => import("./pages/lms/LmsQuiz"));
+const LmsQuizGenerate = lazy(() => import("./pages/lms/LmsQuizGenerate"));
+const LmsQuizDaily = lazy(() => import("./pages/lms/LmsQuizDaily"));
+const LmsQuestionBank = lazy(() => import("./pages/lms/LmsQuestionBank"));
 const LmsNilai = lazy(() => import("./pages/lms/LmsNilai"));
 const LmsBelajar = lazy(() => import("./pages/lms/LmsBelajar"));
 const LmsAbsensi = lazy(() => import("./pages/lms/LmsAbsensi"));
@@ -140,6 +144,19 @@ const LmsKelasSaya = lazy(() => import("./pages/lms/LmsKelasSaya"));
 const LmsKotoba = lazy(() => import("./pages/lms/LmsKotoba"));
 const PresenceCode = lazy(() => import("./pages/lms/PresenceCode"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
+
+// LMS Re-Architecture v2 Components
+const LmsProgram = lazy(() => import("./pages/lms/LmsProgram"));
+const LmsBatch = lazy(() => import("./pages/lms/LmsBatch"));
+const LmsEnrollment = lazy(() => import("./pages/lms/LmsEnrollment"));
+const LmsCourses = lazy(() => import("./pages/lms/LmsCourses"));
+const LmsCanDo = lazy(() => import("./pages/lms/LmsCanDo"));
+const LmsLearningPath = lazy(() => import("./pages/lms/LmsLearningPath"));
+const LmsGradebook = lazy(() => import("./pages/lms/LmsGradebook"));
+const LmsSkillsHub = lazy(() => import("./pages/lms/LmsSkillsHub"));
+const LmsAnalytics = lazy(() => import("./pages/lms/LmsAnalytics"));
+const LmsSettings = lazy(() => import("./pages/lms/LmsSettings"));
+const LmsSensei = lazy(() => import("./pages/lms/LmsSensei"));
 
 // Sensei
 const DashboardSensei = lazy(() => import("./pages/DashboardSensei"));
@@ -161,16 +178,17 @@ const MenuFinance = lazy(() => import("./pages/MenuFinance"));
 const MenuGA = lazy(() => import("./pages/MenuGA"));
 
 // GA Asset Management
-const DaftarAset           = lazy(() => import("./pages/ga/DaftarAset"));
-const FormAset             = lazy(() => import("./pages/ga/FormAset"));
-const ScanQR               = lazy(() => import("./pages/ga/ScanQR"));
-const DetailAset           = lazy(() => import("./pages/ga/DetailAset"));
-const LaporanAset          = lazy(() => import("./pages/ga/LaporanAset"));
-const LaporanAudit         = lazy(() => import("./pages/ga/LaporanAudit"));
-const ApprovalPerpindahan  = lazy(() => import("./pages/ga/ApprovalPerpindahan"));
-const Maintenance          = lazy(() => import("./pages/ga/Maintenance"));
+const DaftarAset = lazy(() => import("./pages/ga/DaftarAset"));
+const FormAset = lazy(() => import("./pages/ga/FormAset"));
+const ScanQR = lazy(() => import("./pages/ga/ScanQR"));
+const DetailAset = lazy(() => import("./pages/ga/DetailAset"));
+const LaporanAset = lazy(() => import("./pages/ga/LaporanAset"));
+const LaporanAudit = lazy(() => import("./pages/ga/LaporanAudit"));
+const ApprovalPerpindahan = lazy(() => import("./pages/ga/ApprovalPerpindahan"));
+const Maintenance = lazy(() => import("./pages/ga/Maintenance"));
 
 const FINANCE_ROLES = ["finance", "finance_admin", "super_admin", "owner", "director", "direktur"];
+const MITRA_ALLOWED_ROLES = [...FINANCE_ROLES, "mitra", "mitra_telu"];
 
 function App(props) {
   const Router = props?.Router || BrowserRouter;
@@ -198,92 +216,94 @@ function App(props) {
                 }
               />
               {/* LMS Routes */}
-              <Route path="/"                element={<Navigate to="/login" />} />
-              <Route path="/login"           element={<Login />} />
+              <Route path="/" element={<Navigate to="/login" />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/lms-login" element={<LmsLogin />} />
+              <Route path="/lms/login" element={<LmsLogin />} />
 
               {/* Main Selector Route - Deprecated, redirect to login which handles role-based redirect */}
-              <Route path="/home"            element={<Navigate to="/login" replace />} />
+              <Route path="/home" element={<Navigate to="/login" replace />} />
 
               {/* Protected Routes */}
-              <Route path="/menu-karyawan"   element={<ProtectedRoute allowedRoles={["karyawan", "employee", "staff"]}><MenuKaryawan /></ProtectedRoute>} />
-              <Route path="/menu-hrd"        element={<ProtectedRoute allowedRoles={["hr", "hrd", "hr_admin", "manager", "admin", "super_admin"]}><MenuHRD /></ProtectedRoute>} />
-              <Route path="/menu-admin"      element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><MenuAdmin /></ProtectedRoute>} />
-              <Route path="/menu-finance"    element={<ProtectedRoute allowedRoles={["finance", "admin", "super_admin"]}><MenuFinance /></ProtectedRoute>} />
-              <Route path="/menu-ga"         element={<ProtectedRoute allowedRoles={["ga", "admin", "super_admin"]}><MenuGA /></ProtectedRoute>} />
+              <Route path="/menu-karyawan" element={<ProtectedRoute allowedRoles={["karyawan", "employee", "staff"]}><MenuKaryawan /></ProtectedRoute>} />
+              <Route path="/menu-hrd" element={<ProtectedRoute allowedRoles={["hr", "hrd", "hr_admin", "manager", "admin", "super_admin"]}><MenuHRD /></ProtectedRoute>} />
+              <Route path="/menu-admin" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><MenuAdmin /></ProtectedRoute>} />
+              <Route path="/menu-finance" element={<ProtectedRoute allowedRoles={["finance", "admin", "super_admin"]}><MenuFinance /></ProtectedRoute>} />
+              <Route path="/menu-ga" element={<ProtectedRoute allowedRoles={["ga", "admin", "super_admin"]}><MenuGA /></ProtectedRoute>} />
 
               {/* GA Asset Management Routes */}
-              <Route path="/assets"              element={<ProtectedRoute><DaftarAset /></ProtectedRoute>} />
-              <Route path="/assets/tambah"       element={<ProtectedRoute><FormAset /></ProtectedRoute>} />
-              <Route path="/assets/edit/:id"     element={<ProtectedRoute><FormAset /></ProtectedRoute>} />
-              <Route path="/assets/scan"         element={<ProtectedRoute><ScanQR /></ProtectedRoute>} />
-              <Route path="/assets/detail/:id"   element={<ProtectedRoute><DetailAset /></ProtectedRoute>} />
-              <Route path="/assets/laporan"      element={<ProtectedRoute><LaporanAset /></ProtectedRoute>} />
-              <Route path="/assets/audit"        element={<ProtectedRoute><LaporanAudit /></ProtectedRoute>} />
-              <Route path="/assets/approval"     element={<ProtectedRoute><ApprovalPerpindahan /></ProtectedRoute>} />
-              <Route path="/assets/maintenance"  element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
+              <Route path="/assets" element={<ProtectedRoute><DaftarAset /></ProtectedRoute>} />
+              <Route path="/assets/tambah" element={<ProtectedRoute><FormAset /></ProtectedRoute>} />
+              <Route path="/assets/edit/:id" element={<ProtectedRoute><FormAset /></ProtectedRoute>} />
+              <Route path="/assets/scan" element={<ProtectedRoute><ScanQR /></ProtectedRoute>} />
+              <Route path="/assets/detail/:id" element={<ProtectedRoute><DetailAset /></ProtectedRoute>} />
+              <Route path="/assets/laporan" element={<ProtectedRoute><LaporanAset /></ProtectedRoute>} />
+              <Route path="/assets/audit" element={<ProtectedRoute><LaporanAudit /></ProtectedRoute>} />
+              <Route path="/assets/approval" element={<ProtectedRoute><ApprovalPerpindahan /></ProtectedRoute>} />
+              <Route path="/assets/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
 
-              <Route path="/dashboard"       element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/employees"       element={<ProtectedRoute allowedRoles={["hr", "hrd", "hr_admin", "manager", "admin", "super_admin"]}><Employees /></ProtectedRoute>} />
-                            <Route path="/access-rights"   element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="" /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><Dashboard /></ProtectedRoute>} />
+              <Route path="/employees" element={<ProtectedRoute allowedRoles={["hr", "hrd", "hr_admin", "manager", "admin", "super_admin"]}><Employees /></ProtectedRoute>} />
+              <Route path="/access-rights" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="" /></ProtectedRoute>} />
               <Route path="/access-rights-ga" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="ga" /></ProtectedRoute>} />
               <Route path="/access-rights-hr" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="hr" /></ProtectedRoute>} />
               <Route path="/access-rights-finance" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "hr", "hrd", "manager"]}><AccessRights defaultRole="finance" /></ProtectedRoute>} />
-              <Route path="/assign-rfid"     element={<ProtectedRoute><AssignRFID /></ProtectedRoute>} />
-              <Route path="/attendance"      element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
-              <Route path="/strava"          element={<ProtectedRoute><StravaIntegration /></ProtectedRoute>} />
-              <Route path="/strava-admin"    element={<ProtectedRoute><StravaAdmin /></ProtectedRoute>} />
-              <Route path="/payroll"         element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
-              <Route path="/payroll-hrd"     element={<ProtectedRoute><PayrollHRD /></ProtectedRoute>} />
-              <Route path="/overtime"        element={<ProtectedRoute><Overtime /></ProtectedRoute>} />
-              <Route path="/leaves"          element={<ProtectedRoute><Leaves /></ProtectedRoute>} />
+              <Route path="/assign-rfid" element={<ProtectedRoute><AssignRFID /></ProtectedRoute>} />
+              <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+              <Route path="/strava" element={<ProtectedRoute><StravaIntegration /></ProtectedRoute>} />
+              <Route path="/strava-admin" element={<ProtectedRoute><StravaAdmin /></ProtectedRoute>} />
+              <Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
+              <Route path="/payroll-hrd" element={<ProtectedRoute><PayrollHRD /></ProtectedRoute>} />
+              <Route path="/overtime" element={<ProtectedRoute><Overtime /></ProtectedRoute>} />
+              <Route path="/leaves" element={<ProtectedRoute><Leaves /></ProtectedRoute>} />
               <Route path="/daily-report-admin" element={<ProtectedRoute><DailyReportAdmin /></ProtectedRoute>} />
               <Route path="/slip-gaji-karyawan" element={<ProtectedRoute><SlipGajiKaryawan /></ProtectedRoute>} />
               <Route path="/daily-report-karyawan" element={<ProtectedRoute><DailyReportKaryawan /></ProtectedRoute>} />
-              <Route path="/reimbursement"   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><Reimbursement /></ProtectedRoute>} />
-              <Route path="/profit"          element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><Profit /></ProtectedRoute>} />
+              <Route path="/reimbursement" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><Reimbursement /></ProtectedRoute>} />
+              <Route path="/profit" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><Profit /></ProtectedRoute>} />
               <Route path="/buku-transaksi" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BukuTransaksiPage /></ProtectedRoute>} />
               <Route path="/audit-trail" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BukuTransaksiPage /></ProtectedRoute>} />
               <Route path="/laporan-keuangan" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><FinancialReport /></ProtectedRoute>} />
-              <Route path="/balance-sheet"   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BalanceSheet /></ProtectedRoute>} />
+              <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BalanceSheet /></ProtectedRoute>} />
               {/* Finance Module Routes */}
-              <Route path="/dashboard-finance"       element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><DashboardFinance /></ProtectedRoute>} />
-              <Route path="/transaksi-pemasukan"     element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransaksiPemasukan /></ProtectedRoute>} />
-              <Route path="/transaksi-pengeluaran"   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransaksiPengeluaran /></ProtectedRoute>} />
-              <Route path="/history-invoice"         element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><HistoryInvoice /></ProtectedRoute>} />
-              <Route path="/invoice-penagihan"        element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><InvoicePenagihan /></ProtectedRoute>} />
-              <Route path="/bills"                   element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BillsPage /></ProtectedRoute>} />
-              <Route path="/vendors"                 element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><VendorsPage /></ProtectedRoute>} />
-              <Route path="/coa"                     element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><CoaPage /></ProtectedRoute>} />
-              <Route path="/journal"                 element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><JournalPage /></ProtectedRoute>} />
-              <Route path="/general-ledger"          element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><GeneralLedgerPage /></ProtectedRoute>} />
-              <Route path="/reconciliation"          element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><ReconciliationPage /></ProtectedRoute>} />
-              <Route path="/rekening"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><RekeningPage /></ProtectedRoute>} />
-              <Route path="/cashflow"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><CashflowPage /></ProtectedRoute>} />
-              <Route path="/transfer"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransferPage /></ProtectedRoute>} />
-              <Route path="/anggaran"                element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><AnggaranBiaya /></ProtectedRoute>} />
-              <Route path="/realisasi"               element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><RealisasiAnggaran /></ProtectedRoute>} />
-              <Route path="/salary"                  element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><SalaryKaryawan /></ProtectedRoute>} />
-              <Route path="/settings"        element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/positions"       element={<ProtectedRoute><Positions /></ProtectedRoute>} />
+              <Route path="/dashboard-finance" element={<ProtectedRoute allowedRoles={MITRA_ALLOWED_ROLES}><DashboardFinance /></ProtectedRoute>} />
+              <Route path="/transaksi-pemasukan" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransaksiPemasukan /></ProtectedRoute>} />
+              <Route path="/transaksi-pengeluaran" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransaksiPengeluaran /></ProtectedRoute>} />
+              <Route path="/history-invoice" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><HistoryInvoice /></ProtectedRoute>} />
+              <Route path="/invoice-penagihan" element={<ProtectedRoute allowedRoles={MITRA_ALLOWED_ROLES}><InvoicePenagihan /></ProtectedRoute>} />
+              <Route path="/bills" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><BillsPage /></ProtectedRoute>} />
+              <Route path="/vendors" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><VendorsPage /></ProtectedRoute>} />
+              <Route path="/coa" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><CoaPage /></ProtectedRoute>} />
+              <Route path="/journal" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><JournalPage /></ProtectedRoute>} />
+              <Route path="/general-ledger" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><GeneralLedgerPage /></ProtectedRoute>} />
+              <Route path="/reconciliation" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><ReconciliationPage /></ProtectedRoute>} />
+              <Route path="/rekening" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><RekeningPage /></ProtectedRoute>} />
+              <Route path="/cashflow" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><CashflowPage /></ProtectedRoute>} />
+              <Route path="/transfer" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><TransferPage /></ProtectedRoute>} />
+              <Route path="/anggaran" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><AnggaranBiaya /></ProtectedRoute>} />
+              <Route path="/realisasi" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><RealisasiAnggaran /></ProtectedRoute>} />
+              <Route path="/salary" element={<ProtectedRoute allowedRoles={FINANCE_ROLES}><SalaryKaryawan /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/positions" element={<ProtectedRoute><Positions /></ProtectedRoute>} />
               <Route path="/face-enrollment" element={<ProtectedRoute><FaceEnrollment /></ProtectedRoute>} />
-              <Route path="/face-clock"      element={<ProtectedRoute><FaceClock /></ProtectedRoute>} />
+              <Route path="/face-clock" element={<ProtectedRoute><FaceClock /></ProtectedRoute>} />
               <Route path="/location-settings" element={<ProtectedRoute><LocationSettings /></ProtectedRoute>} />
 
               {/* LPK Creativa Routes */}
-              <Route path="/matching-job"    element={<ProtectedRoute><MatchingJob /></ProtectedRoute>} />
-              <Route path="/nenkin"          element={<Navigate to="/lpk-nenkin" replace />} />
-              <Route path="/lpk-nenkin"      element={<ProtectedRoute><LpkNenkin /></ProtectedRoute>} />
-              <Route path="/lpk-alumni"      element={<ProtectedRoute><LpkAlumni /></ProtectedRoute>} />
-              <Route path="/lpk-intensif"    element={<ProtectedRoute><LpkIntensif /></ProtectedRoute>} />
-              <Route path="/lpk-magang"      element={<ProtectedRoute><LpkMagang /></ProtectedRoute>} />
+              <Route path="/matching-job" element={<ProtectedRoute><MatchingJob /></ProtectedRoute>} />
+              <Route path="/nenkin" element={<Navigate to="/lpk-nenkin" replace />} />
+              <Route path="/lpk-nenkin" element={<ProtectedRoute><LpkNenkin /></ProtectedRoute>} />
+              <Route path="/lpk-alumni" element={<ProtectedRoute><LpkAlumni /></ProtectedRoute>} />
+              <Route path="/lpk-intensif" element={<ProtectedRoute><LpkIntensif /></ProtectedRoute>} />
+              <Route path="/lpk-magang" element={<ProtectedRoute><LpkMagang /></ProtectedRoute>} />
               <Route path="/dashboard-creativa" element={<ProtectedRoute><DashboardCreativa /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-nenkin" element={<ProtectedRoute><DashboardPesertaNenkin /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-intensif" element={<ProtectedRoute><DashboardPesertaIntensif /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-matching" element={<ProtectedRoute><DashboardPesertaMatching /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-mendang" element={<ProtectedRoute><DashboardPesertaMendang /></ProtectedRoute>} />
               <Route path="/dashboard-peserta-alumni" element={<ProtectedRoute><DashboardPesertaAlumni /></ProtectedRoute>} />
-              <Route path="/access-rights-sensei" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk"]}><AccessRightsLPK key="sensei" role="SENSEI" /></ProtectedRoute>} />
-              <Route path="/access-rights-siswa" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk"]}><AccessRightsLPK key="siswa" role="PESERTA_INTENSIF" /></ProtectedRoute>} />
+              <Route path="/access-rights-sensei" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk", "admin_lms", "lms_admin"]}><AccessRightsLPK key="sensei" role="SENSEI" /></ProtectedRoute>} />
+              <Route path="/access-rights-siswa" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk", "admin_lms", "lms_admin"]}><AccessRightsLPK key="siswa" role="PESERTA_INTENSIF" /></ProtectedRoute>} />
               <Route path="/lpk-absensi-sensei" element={<ProtectedRoute><LpkAttendance role="SENSEI" /></ProtectedRoute>} />
               <Route path="/lpk-absensi-siswa" element={<ProtectedRoute><LpkAttendance role="SISWA" /></ProtectedRoute>} />
               <Route path="/lpk-nilai" element={<ProtectedRoute><LpkNilai /></ProtectedRoute>} />
@@ -303,24 +323,57 @@ function App(props) {
               <Route path="/sensei/kehadiran" element={<ProtectedRoute><SenseiKehadiran /></ProtectedRoute>} />
               <Route path="/sensei/leaderboard" element={<ProtectedRoute><SenseiLeaderboard /></ProtectedRoute>} />
               {/* LMS Routes */}
+              <Route path="/lms/program" element={<ProtectedRoute><LmsProgram /></ProtectedRoute>} />
+              <Route path="/lms/batch" element={<ProtectedRoute><LmsBatch /></ProtectedRoute>} />
+              <Route path="/lms/enrollment" element={<ProtectedRoute><LmsEnrollment /></ProtectedRoute>} />
+              <Route path="/lms/courses" element={<ProtectedRoute><LmsCourses /></ProtectedRoute>} />
+              <Route path="/lms/modules" element={<ProtectedRoute><LmsCourses /></ProtectedRoute>} />
+              <Route path="/lms/lessons" element={<ProtectedRoute><LmsCourses /></ProtectedRoute>} />
+              <Route path="/lms/learning-path" element={<ProtectedRoute><LmsLearningPath /></ProtectedRoute>} />
+              <Route path="/lms/can-do" element={<ProtectedRoute><LmsCanDo /></ProtectedRoute>} />
+              <Route path="/lms/kompetensi-nilai" element={<ProtectedRoute><LmsCanDo /></ProtectedRoute>} />
+              <Route path="/lms/gradebook" element={<ProtectedRoute><LmsGradebook /></ProtectedRoute>} />
+              <Route path="/lms/activity-completion" element={<ProtectedRoute><LmsGradebook /></ProtectedRoute>} />
+              <Route path="/lms/course-completion" element={<ProtectedRoute><LmsGradebook /></ProtectedRoute>} />
+              <Route path="/lms/learning-progress" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/listening" element={<ProtectedRoute><LmsSkillsHub initialTab="listening" /></ProtectedRoute>} />
+              <Route path="/lms/reading" element={<ProtectedRoute><LmsSkillsHub initialTab="reading" /></ProtectedRoute>} />
+              <Route path="/lms/writing" element={<ProtectedRoute><LmsSkillsHub initialTab="writing" /></ProtectedRoute>} />
+              <Route path="/lms/speaking" element={<ProtectedRoute><LmsSkillsHub initialTab="speaking" /></ProtectedRoute>} />
+              <Route path="/lms/analytics-siswa" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/analytics-kelas" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/analytics-kompetensi" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/analytics-kaiwa" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/laporan-akademik" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/evaluasi-kaiwa" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/siswa-notes" element={<ProtectedRoute><LmsAnalytics /></ProtectedRoute>} />
+              <Route path="/lms/settings" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
+              <Route path="/lms/rubrik" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
+              <Route path="/lms/ai-settings" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
+              <Route path="/lms/audit-log" element={<ProtectedRoute><LmsSettings /></ProtectedRoute>} />
               <Route path="/lms/siswa" element={<ProtectedRoute><LpkIntensif /></ProtectedRoute>} />
               <Route path="/lms/kelas-saya" element={<ProtectedRoute><LmsKelasSaya /></ProtectedRoute>} />
-              <Route path="/lms/classes" element={<ProtectedRoute allowedRoles={["admin","super_admin"]}><LearningClasses /></ProtectedRoute>} />
-              <Route path="/finance/student-billing" element={<ProtectedRoute allowedRoles={["finance","finance_admin","admin","super_admin"]}><StudentBillingAdmin /></ProtectedRoute>} />
-              <Route path="/lms/dashboard" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsDashboard /></ProtectedRoute>} />
-              <Route path="/lms/profil" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsProfil /></ProtectedRoute>} />
-              <Route path="/lms/kartu-siswa" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsKartuSiswa /></ProtectedRoute>} />
-              <Route path="/lms/tagihan" element={<ProtectedRoute allowedRoles={["peserta_intensif"]}><LmsTagihan /></ProtectedRoute>} />
+              <Route path="/lms/classes" element={<ProtectedRoute><LearningClasses /></ProtectedRoute>} />
+              <Route path="/lms/kelas" element={<ProtectedRoute><LearningClasses /></ProtectedRoute>} />
+              <Route path="/lms/sensei" element={<ProtectedRoute allowedRoles={["admin", "super_admin", "lpk", "admin_lms", "lms_admin"]}><LmsSensei /></ProtectedRoute>} />
+              <Route path="/finance/student-billing" element={<ProtectedRoute allowedRoles={["finance", "finance_admin", "admin", "super_admin"]}><StudentBillingAdmin /></ProtectedRoute>} />
+              <Route path="/lms/dashboard" element={<ProtectedRoute><LmsDashboard /></ProtectedRoute>} />
+              <Route path="/lms/profil" element={<ProtectedRoute><LmsProfil /></ProtectedRoute>} />
+              <Route path="/lms/kartu-siswa" element={<ProtectedRoute><LmsKartuSiswa /></ProtectedRoute>} />
+              <Route path="/lms/tagihan" element={<ProtectedRoute><LmsTagihan /></ProtectedRoute>} />
               <Route path="/lms/ukom" element={<ProtectedRoute><LmsUkom /></ProtectedRoute>} />
               <Route path="/lms/konsultasi" element={<ProtectedRoute><LmsKonsultasi /></ProtectedRoute>} />
               <Route path="/lms/diskusi" element={<ProtectedRoute><LmsDiskusi /></ProtectedRoute>} />
               <Route path="/lms/kotoba" element={<ProtectedRoute><LmsKotoba /></ProtectedRoute>} />
               <Route path="/lms/kalender" element={<ProtectedRoute><LmsKalender /></ProtectedRoute>} />
-              <Route path="/lms/agenda" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><LmsAdminAgenda /></ProtectedRoute>} />
+              <Route path="/lms/agenda" element={<ProtectedRoute><LmsAdminAgenda /></ProtectedRoute>} />
               <Route path="/lms/materi" element={<ProtectedRoute><LmsMateri /></ProtectedRoute>} />
               <Route path="/lms/tugas-quiz" element={<ProtectedRoute><LmsTugasQuiz /></ProtectedRoute>} />
               <Route path="/lms/tugas" element={<ProtectedRoute><LmsTugas /></ProtectedRoute>} />
               <Route path="/lms/quiz" element={<ProtectedRoute><LmsQuiz /></ProtectedRoute>} />
+              <Route path="/lms/quiz/generate" element={<ProtectedRoute><LmsQuizGenerate /></ProtectedRoute>} />
+              <Route path="/lms/quiz/daily" element={<ProtectedRoute><LmsQuizDaily /></ProtectedRoute>} />
+              <Route path="/lms/quiz/question-bank" element={<ProtectedRoute><LmsQuestionBank /></ProtectedRoute>} />
               <Route path="/lms/nilai" element={<ProtectedRoute><LmsNilai /></ProtectedRoute>} />
               <Route path="/lms/nilai-siswa" element={<ProtectedRoute><LmsNilai /></ProtectedRoute>} />
               <Route path="/lms/belajar-mandiri" element={<ProtectedRoute><LmsBelajar /></ProtectedRoute>} />
@@ -328,6 +381,7 @@ function App(props) {
               <Route path="/lms/leaderboard" element={<ProtectedRoute><LmsLeaderboard /></ProtectedRoute>} />
               <Route path="/lms/latihan-kaiwa" element={<ProtectedRoute><LmsLatihanKaiwa /></ProtectedRoute>} />
               <Route path="/lms/kaiwa" element={<ProtectedRoute><LmsLatihanKaiwa /></ProtectedRoute>} />
+              <Route path="/lms/kaiwa-ai" element={<ProtectedRoute><LmsLatihanKaiwa /></ProtectedRoute>} />
               <Route path="/lms/instructor" element={<ProtectedRoute allowedRoles={["admin", "super_admin"]}><LmsInstructor /></ProtectedRoute>} />
               <Route path="/lms/presence-code" element={<ProtectedRoute><PresenceCode /></ProtectedRoute>} />
               <Route path="/lms/pengumuman" element={<ProtectedRoute><LmsPengumuman /></ProtectedRoute>} />

@@ -189,16 +189,16 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
         if (data.status === "success" && data.actor) {
           const actor = data.actor;
           setUser(prev => {
-            const rawName = actor.name || actor.full_name || prev?.name || prev?.full_name || "Muhammad Faizal";
+            const rawName = actor.name || actor.full_name || prev?.name || prev?.full_name || "User";
             const cleanName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
-              ? (actor.full_name || "Muhammad Faizal")
+              ? (actor.full_name || prev?.full_name || "Administrator")
               : rawName;
             const updated = {
               ...(prev || {}),
               ...actor,
               name: cleanName,
               full_name: actor.full_name || cleanName,
-              role_name: actor.role || prev?.role_name || "super_admin",
+              role_name: actor.role || prev?.role_name || "karyawan",
             };
             try { localStorage.setItem("user", JSON.stringify(updated)); } catch { }
             return updated;
@@ -242,6 +242,7 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
       "/lpk-absensi-sensei": "Instructor Attendance",
       "/lpk-absensi-siswa": "Student Attendance",
       "/lpk-intensif": "Student Management",
+      "/dashboard-creativa": "Dashboard LMS",
       "/lms/siswa": "Student Management",
       "/lpk-nilai": "Grades & Scores",
       "/lms/leaderboard": "Papan Peringkat",
@@ -591,7 +592,7 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
 
                     const rawName = user?.name || user?.full_name || "Administrator";
                     const displayName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
-                      ? (user?.full_name || "Muhammad Faizal")
+                      ? (user?.full_name || "Administrator")
                       : rawName;
 
                     return (
@@ -730,9 +731,9 @@ export default function Layout({ children, hideMobileHeader = false, hideBottomN
                                     (r.startsWith('peserta_') || r === 'siswa') ? 'Siswa' :
                                       ((r === '' || r === 'employee' || r === 'karyawan') && user?.position ? user.position : (user?.role_name || 'Staff'));
 
-                      const rawName = user?.name || user?.full_name || "Muhammad Faizal";
+                      const rawName = user?.name || user?.full_name || "Administrator";
                       const displayName = (rawName.toUpperCase().includes("PT. CREATIVA") || rawName.toUpperCase().includes("BRIDGING"))
-                        ? (user?.full_name || "Muhammad Faizal")
+                        ? (user?.full_name || "Administrator")
                         : rawName;
 
                       return (

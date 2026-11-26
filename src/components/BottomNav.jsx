@@ -15,8 +15,10 @@ export default function BottomNav({ onOpenMenu }) {
     const role = normalizeRole(user.role_name);
     if (role === "sensei" || role === "sensei_intensif" || user.is_sensei === true) {
       dashboardPath = "/dashboard-sensei";
-    } else if (role === "peserta_intensif" || role === "peserta_matching" || role === "peserta_mendang" || role === "peserta_alumni" || role === "peserta_nenkin") {
+    } else if (role === "peserta_intensif" || role === "siswa") {
       dashboardPath = "/dashboard-siswa-intensif";
+    } else if (role === "admin_lms" || role === "lms_admin" || role === "lpk") {
+      dashboardPath = "/dashboard-creativa";
     } else if (role === "finance") {
       dashboardPath = "/dashboard-finance";
     } else if (["hr", "hrd", "manager", "ga"].includes(role)) {
@@ -73,19 +75,17 @@ export default function BottomNav({ onOpenMenu }) {
               }}
               className="flex flex-col items-center gap-1.5 group transition-all relative flex-1 py-1"
             >
-              <div className={`relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all ${
-                isActive 
-                  ? "bg-navy-900 text-white shadow-lg shadow-navy-900/30" 
+              <div className={`relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all ${isActive
+                  ? "bg-navy-900 text-white shadow-lg shadow-navy-900/30"
                   : "text-slate-400 hover:text-navy-900 hover:bg-slate-50"
-              }`}>
+                }`}>
                 <Icon
                   className="w-5 h-5 transition-transform group-hover:scale-105"
                   strokeWidth={isActive ? 2.5 : 2}
                 />
               </div>
-              <span className={`text-[10px] font-semibold tracking-wide ${
-                isActive ? "text-navy-900" : "text-slate-400"
-              }`}>{item.label}</span>
+              <span className={`text-[10px] font-semibold tracking-wide ${isActive ? "text-navy-900" : "text-slate-400"
+                }`}>{item.label}</span>
             </button>
           );
         })}

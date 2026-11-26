@@ -1,9 +1,9 @@
 <?php
 require_once __DIR__.'/employee_directory.php';
 
-function rs_admin(array $a):bool{return in_array($a['role'],['admin','super_admin'],true);}
-function rs_teacher(array $a):bool{return rs_admin($a)||$a['role']==='sensei';}
-function rs_start(mysqli $db,array $roles=['admin','super_admin','sensei','peserta_intensif']):array{
+function rs_admin(array $a):bool{return in_array($a['role'],['admin','super_admin','admin_lms','lms_admin','lpk'],true);}
+function rs_teacher(array $a):bool{return rs_admin($a)||$a['role']==='sensei'||$a['role']==='sensei_intensif';}
+function rs_start(mysqli $db,array $roles=['admin','super_admin','admin_lms','lms_admin','lpk','sensei','sensei_intensif','peserta_intensif']):array{
  $a=ed_start($db);
  set_exception_handler(function(Throwable $e){$code=$e instanceof AccountingException?$e->getCode():500;if($e instanceof mysqli_sql_exception&&$e->getCode()===1062)$code=409;if($code>=500)error_log(json_encode(['request_id'=>$GLOBALS['employee_request_id'],'module'=>'relationships','error_class'=>get_class($e),'error_code'=>$e->getCode()]));ed_respond($code,['status'=>'error','message'=>$code>=500?'Data modul belum dapat diproses. Hubungi administrator dengan ID permintaan.':($e instanceof mysqli_sql_exception?'Relasi atau identitas sudah terdaftar.':$e->getMessage())]);});
  if(!in_array($a['role'],$roles,true))ac_fail('Akses modul tidak diizinkan.',403);
@@ -34,7 +34,7 @@ function rs_class_filter(array $a,string $alias='c'):string{
 }
 function rs_roster(mysqli $db,array $a):array{
  $self=$a['role']==='peserta_intensif'?' AND p.user_id='.(int)$a['id']:'';
- return ac_rows($db,"SELECT DISTINCT p.id,p.user_id,p.nama_lengkap AS name,p.nama_lengkap,p.level,p.batch,u.is_active FROM peserta_intensif p JOIN users u ON u.id=p.user_id JOIN roles r ON r.id=u.role_id WHERE r.name='peserta_intensif' AND u.is_active=1 $self AND (EXISTS(SELECT 1 FROM lms_class_enrollments ce JOIN lms_classes c ON c.id=ce.class_id WHERE ce.student_id=p.id AND ce.status='active' AND c.status='active' AND ".rs_class_filter($a).") OR EXISTS(SELECT 1 FROM lms_classes c WHERE LOWER(TRIM(c.batch))=LOWER(TRIM(p.batch)) AND c.status='active' AND ".rs_class_filter($a).")) ORDER BY p.nama_lengkap");
+ return ac_rows($db,"SELECT DISTINCT p.id,p.user_id,p.nama_lengkap AS name,p.nama_lengkap,p.level,p.batch,u.is_active FROM peserta_intensif p JOIN users u ON u.id=p.user_id JOIN roles r ON r.id=u.role_id WHERE r.name='peserta_intensif' AND u.is_active=1 AND LOWER(p.program) NOT LIKE '%sotsugyo%' AND LOWER(p.program) NOT LIKE '%matching%' AND LOWER(p.program) NOT LIKE '%alumni%' $self AND (EXISTS(SELECT 1 FROM lms_class_enrollments ce JOIN lms_classes c ON c.id=ce.class_id WHERE ce.student_id=p.id AND ce.status='active' AND c.status='active' AND ".rs_class_filter($a).") OR EXISTS(SELECT 1 FROM lms_classes c WHERE LOWER(TRIM(c.batch))=LOWER(TRIM(p.batch)) AND c.status='active' AND ".rs_class_filter($a).")) ORDER BY p.nama_lengkap");
 }
 function rs_audit(mysqli $db,array $a,string $entity,int|string $id,string $event,array $details=[]):void{ac_audit($db,$a,$entity,(string)$id,$event,$details);}
 function rs_assignment(mysqli $db,array $a,int $id,string $date):array{
@@ -81,6 +81,16 @@ function rs_admin_mutate(mysqli $db,array $a,array $d):array{
    ac_query($db,'DELETE FROM lms_teaching_assignments WHERE class_id=?',[$id]);
    ac_query($db,'DELETE FROM lms_classes WHERE id=?',[$id]);
    rs_audit($db,$a,'lms_class',$id,'deleted',['name'=>$cls['name']]);
+   return ['id'=>$id,'deleted'=>true];
+  }
+  if($action==='delete_enrollment'){
+   $rawId=$d['id']??($d['enrollment_id']??null);
+   if(empty($rawId)||!is_numeric($rawId))ac_fail('ID pendaftaran tidak valid.');
+   $id=(int)$rawId;
+   $enr=ac_one($db,'SELECT id,class_id,student_id FROM lms_class_enrollments WHERE id=? FOR UPDATE',[$id]);
+   if(!$enr)ac_fail('Data pendaftaran kelas tidak ditemukan.',404);
+   ac_query($db,'DELETE FROM lms_class_enrollments WHERE id=?',[$id]);
+   rs_audit($db,$a,'class_enrollment',$id,'deleted',['class_id'=>$enr['class_id'],'student_id'=>$enr['student_id']]);
    return ['id'=>$id,'deleted'=>true];
   }
   $class=ac_id($d['class_id']??null);$c=ac_one($db,"SELECT id FROM lms_classes WHERE id=? AND status<>'closed' FOR UPDATE",[$class]);if(!$c)ac_fail('Kelas tidak ditemukan atau telah ditutup.',409);

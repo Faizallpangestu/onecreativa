@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import {
   getStoredStudents,
+  saveStoredStudents,
   addStoredStudent,
   updateStoredStudent,
   deleteStoredStudent,
@@ -22,6 +23,7 @@ import {
   GraduationCap,
   Calendar as CalendarIcon,
   CheckCircle2,
+  Clock,
   XCircle,
   FileSpreadsheet,
   Download,
@@ -41,9 +43,28 @@ import {
 export default function LpkIntensif() {
   const [students, setStudents] = useState(() => getStoredStudents());
   const [selectedIds, setSelectedIds] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // Sinkronisasi otomatis saat ada penambahan/perubahan dari halaman lain
+  // Sinkronisasi otomatis dari database dan event perubahan data
   useEffect(() => {
+    const fetchStudentsFromDb = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/lms_academic.php?action=students');
+        const json = await res.json();
+        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+          setStudents(json.data);
+          saveStoredStudents(json.data);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data siswa dari backend:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentsFromDb();
+
     const handleSync = () => {
       setStudents(getStoredStudents());
     };
@@ -54,7 +75,10 @@ export default function LpkIntensif() {
       window.removeEventListener('storage', handleSync);
     };
   }, []);
-  
+
+  // Tab State: Siswa Resmi (Lunas/DP) vs Calon Pendaftar (Belum Bayar)
+  const [activeTab, setActiveTab] = useState('OFFICIAL'); // 'OFFICIAL' | 'PENDING'
+
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProgram, setSelectedProgram] = useState('ALL');
@@ -92,22 +116,40 @@ export default function LpkIntensif() {
     avatar: ''
   });
 
+  // Helper: Filter ketat khusus program intensif (Keluarkan Matching Job & Sotsugyousei)
+  const isIntensifOnly = (s) => {
+    const prog = (s?.program || '').toLowerCase();
+    return !prog.includes('matching') && !prog.includes('sotsugy');
+  };
+
   // Calculate Stat Summary
   const stats = useMemo(() => {
-    const activeCount = students.filter(s => s.status === 'Aktif').length;
-    const inactiveCount = students.filter(s => s.status === 'Nonaktif').length;
-    const graduatedCount = students.filter(s => s.status === 'Lulus Program').length;
+    const intensifList = students.filter(isIntensifOnly);
+    const officialList = intensifList.filter(s => s.isOfficialStudent !== false && s.status !== 'Menunggu Pembayaran');
+    const pendingList = intensifList.filter(s => s.isOfficialStudent === false || s.status === 'Menunggu Pembayaran');
+    const activeCount = officialList.filter(s => s.status?.includes('Aktif')).length;
+    const inactiveCount = officialList.filter(s => s.status === 'Nonaktif').length;
+    const graduatedCount = officialList.filter(s => s.status === 'Alumni' || s.status === 'Lulus Program').length;
     return {
-      total: students.length,
+      total: officialList.length,
       active: activeCount,
       inactive: inactiveCount,
-      graduated: graduatedCount
+      graduated: graduatedCount,
+      pending: pendingList.length
     };
   }, [students]);
 
   // Filtering Logic
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
+      // Wajib khusus program intensif saja
+      if (!isIntensifOnly(s)) return false;
+
+      // Saring berdasarkan Tab: Siswa Resmi (Lunas/DP) vs Calon Pendaftar (Belum Bayar)
+      const isOfficial = s.isOfficialStudent !== false && s.status !== 'Menunggu Pembayaran';
+      if (activeTab === 'OFFICIAL' && !isOfficial) return false;
+      if (activeTab === 'PENDING' && isOfficial) return false;
+
       const matchSearch =
         searchQuery === '' ||
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -131,7 +173,7 @@ export default function LpkIntensif() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [students, searchQuery, selectedProgram, selectedClass, selectedStatus, sortField, sortOrder]);
+  }, [students, activeTab, searchQuery, selectedProgram, selectedClass, selectedStatus, sortField, sortOrder]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage) || 1;
@@ -324,7 +366,7 @@ export default function LpkIntensif() {
           {/* 1. TOP HEADER BANNER (PERSIS GAMBAR)                                      */}
           {/* ========================================================================= */}
           <div className="relative rounded-3xl bg-gradient-to-r from-[#0d2238] via-[#0f2e4d] to-[#143d63] shadow-md overflow-hidden text-white p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 min-h-[160px]">
-            
+
             {/* Student Uniform Classroom Background Photo on the Right with Mask */}
             <div
               className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 opacity-40 md:opacity-90 pointer-events-none bg-right bg-cover"
@@ -359,7 +401,7 @@ export default function LpkIntensif() {
           {/* 2. SEARCH, FILTER & ACTION BAR (PERSIS GAMBAR)                             */}
           {/* ========================================================================= */}
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-            
+
             {/* Search Input */}
             <div className="relative flex-1 max-w-xl">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -377,7 +419,7 @@ export default function LpkIntensif() {
 
             {/* Dropdowns & Add Button */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              
+
               {/* Dropdown Program */}
               <div className="relative">
                 <select
@@ -389,9 +431,10 @@ export default function LpkIntensif() {
                   className="appearance-none pl-3 pr-8 py-2.5 bg-white border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer hover:border-slate-300 focus:outline-none focus:border-blue-500"
                 >
                   <option value="ALL">Program ▾</option>
-                  <option value="ALL">Semua Program</option>
-                  <option value="Program Intensif">Program Intensif</option>
-                  <option value="Matching Job">Matching Job</option>
+                  <option value="ALL">Semua Program Intensif</option>
+                  <option value="Intensif Offline">Intensif Offline</option>
+                  <option value="Kelas Intensif">Kelas Intensif</option>
+                  <option value="Kelas Lanjutan">Kelas Lanjutan</option>
                 </select>
               </div>
 
@@ -460,15 +503,16 @@ export default function LpkIntensif() {
           {/* 3. FOUR STAT SUMMARY CARDS (PERSIS GAMBAR)                                 */}
           {/* ========================================================================= */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-            
-            {/* Card 1: Total Siswa */}
+
+            {/* Card 1: Total Siswa Sah (Lunas & DP) */}
             <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-[#EBF5FF] text-[#0284C7] flex items-center justify-center shrink-0">
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400">Total Siswa</div>
+                <div className="text-[11px] font-semibold text-slate-400">Total Siswa Terdaftar</div>
                 <div className="text-xl font-black text-slate-900 tracking-tight">{stats.total}</div>
+                <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Lunas & Bayar DP</div>
               </div>
             </div>
 
@@ -478,23 +522,25 @@ export default function LpkIntensif() {
                 <div className="w-4 h-4 rounded-full bg-[#10B981]" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400">Siswa Aktif</div>
+                <div className="text-[11px] font-semibold text-slate-400">Siswa Aktif Belajar</div>
                 <div className="text-xl font-black text-slate-900 tracking-tight">{stats.active}</div>
+                <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Sedang di Rombel</div>
               </div>
             </div>
 
-            {/* Card 3: Siswa Nonaktif */}
-            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-[#FFF1F2] text-[#F43F5E] flex items-center justify-center shrink-0">
-                <div className="w-4 h-4 rounded-sm bg-[#F43F5E]" />
+            {/* Card 3: Belum Bayar (Calon Pendaftar Web) */}
+            <div className="p-4 bg-white rounded-2xl border border-amber-200/80 bg-amber-50/20 shadow-2xs flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-400">Siswa Nonaktif</div>
-                <div className="text-xl font-black text-slate-900 tracking-tight">{stats.inactive}</div>
+                <div className="text-[11px] font-semibold text-amber-800">Menunggu Pembayaran</div>
+                <div className="text-xl font-black text-amber-900 tracking-tight">{stats.pending}</div>
+                <div className="text-[10px] text-amber-700 font-semibold mt-0.5">Calon Pendaftar Web</div>
               </div>
             </div>
 
-            {/* Card 4: Lulus Program */}
+            {/* Card 4: Lulus Program (Alumni) */}
             <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-[#F5F3FF] text-[#8B5CF6] flex items-center justify-center shrink-0">
                 <GraduationCap className="w-5 h-5" />
@@ -502,7 +548,59 @@ export default function LpkIntensif() {
               <div>
                 <div className="text-[11px] font-semibold text-slate-400">Lulus Program</div>
                 <div className="text-xl font-black text-slate-900 tracking-tight">{stats.graduated}</div>
+                <div className="text-[10px] text-purple-600 font-semibold mt-0.5">Alumni Siap Kerja</div>
               </div>
+            </div>
+          </div>
+
+          {/* TAB SWITCHER: Siswa Sah vs Calon Pendaftar (Belum Bayar) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('OFFICIAL'); setCurrentPage(1); }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${activeTab === 'OFFICIAL'
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Siswa Resmi Creativa (Lunas & DP)</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${activeTab === 'OFFICIAL' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                  {stats.total}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveTab('PENDING'); setCurrentPage(1); }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${activeTab === 'PENDING'
+                  ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/25'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Calon Pendaftar (Belum Bayar)</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${activeTab === 'PENDING' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                  {stats.pending}
+                </span>
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-500 px-2 flex items-center gap-1.5 font-medium">
+              {activeTab === 'OFFICIAL' ? (
+                <span className="text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200 text-[11px] font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  Menampilkan siswa yang sah: sudah lunas atau sudah bayar DP cicilan
+                </span>
+              ) : (
+                <span className="text-amber-800 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200 text-[11px] font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  Belum bayar DP / Belum terdaftar sebagai Siswa LMS Creativa
+                </span>
+              )}
             </div>
           </div>
 
@@ -598,9 +696,8 @@ export default function LpkIntensif() {
                       return (
                         <tr
                           key={s.id}
-                          className={`hover:bg-slate-50/80 transition ${
-                            isChecked ? 'bg-blue-50/40' : ''
-                          }`}
+                          className={`hover:bg-slate-50/80 transition ${isChecked ? 'bg-blue-50/40' : ''
+                            }`}
                         >
                           {/* Checkbox */}
                           <td className="p-3.5 text-center">
@@ -655,22 +752,32 @@ export default function LpkIntensif() {
                             </span>
                           </td>
 
-                          {/* Status Pill (Persis Gambar: Dot Hijau Aktif / Dot Merah Nonaktif) */}
+                          {/* Status Pill & Pembayaran */}
                           <td className="p-3.5 whitespace-nowrap">
-                            {s.status === 'Aktif' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#EDFDF5] text-[#10B981]">
+                            {s.paymentStatus === 'Lunas' || s.status === 'Aktif (Lunas)' ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#EDFDF5] text-[#10B981] border border-emerald-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                                <span>Aktif</span>
+                                <span>Lunas • Aktif</span>
+                              </span>
+                            ) : s.paymentStatus === 'Sudah Bayar DP' || s.status === 'Aktif (DP Cicilan)' ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#EBF5FF] text-[#2563EB] border border-blue-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
+                                <span>Bayar DP • Aktif</span>
+                              </span>
+                            ) : s.status === 'Alumni' ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#F5F3FF] text-[#8B5CF6] border border-purple-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
+                                <span>Alumni</span>
                               </span>
                             ) : s.status === 'Nonaktif' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#FFF1F2] text-[#F43F5E]">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#FFF1F2] text-[#F43F5E] border border-rose-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#F43F5E]" />
                                 <span>Nonaktif</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#F5F3FF] text-[#8B5CF6]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" />
-                                <span>{s.status}</span>
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                                <span>Menunggu Pembayaran</span>
                               </span>
                             )}
                           </td>
@@ -683,7 +790,20 @@ export default function LpkIntensif() {
                           {/* Action Buttons: View, Edit, More */}
                           <td className="p-3.5 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1 text-slate-500">
-                              
+
+                              {/* WhatsApp Follow-up Button (Khusus Calon yang Belum Bayar atau butuh follow up) */}
+                              {s.phone && (
+                                <a
+                                  href={`https://wa.me/${String(s.phone).replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Halo ${s.name}, kami dari LPK Creativa Bridging International ingin mengonfirmasi status pendaftaran program Anda. Apakah ada kendala dalam pembayaran atau pengumpulan berkas?`)}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition cursor-pointer"
+                                  title="Hubungi via WhatsApp"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                </a>
+                              )}
+
                               {/* Eye / View */}
                               <button
                                 type="button"
@@ -773,9 +893,8 @@ export default function LpkIntensif() {
                     key={pageNum}
                     type="button"
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center transition cursor-pointer ${
-                      currentPage === pageNum ? 'bg-blue-600 text-white shadow-xs' : 'border border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center transition cursor-pointer ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-xs' : 'border border-slate-200 hover:bg-slate-50'
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -817,7 +936,7 @@ export default function LpkIntensif() {
       {isFormModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] flex flex-col">
-            
+
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-3">
@@ -845,9 +964,9 @@ export default function LpkIntensif() {
 
             {/* Modal Form Content */}
             <form onSubmit={handleSaveStudent} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
+
                 {/* Nama Lengkap */}
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
@@ -1059,7 +1178,7 @@ export default function LpkIntensif() {
       {isDetailModalOpen && currentStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-            
+
             {/* Header Banner Modal */}
             <div className="p-6 bg-gradient-to-r from-blue-700 to-indigo-800 text-white relative">
               <button

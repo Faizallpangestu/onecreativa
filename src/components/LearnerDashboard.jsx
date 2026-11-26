@@ -146,7 +146,7 @@ export default function LearnerDashboard() {
 
             {/* Card 2: Tugas Menunggu */}
             <div 
-              onClick={() => navigate('/lms/tugas-quiz')}
+              onClick={() => navigate('/lms/tugas')}
               className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 flex items-center gap-4 hover:shadow-md hover:border-amber-200 transition-all cursor-pointer"
             >
               <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/20">
@@ -353,7 +353,7 @@ export default function LearnerDashboard() {
                     Tugas Terbaru
                   </h2>
                   <button 
-                    onClick={() => navigate('/lms/tugas-quiz')}
+                    onClick={() => navigate('/lms/tugas')}
                     className="text-xs font-semibold text-blue-600 hover:text-blue-700"
                   >
                     Lihat Semua &gt;
@@ -412,7 +412,7 @@ export default function LearnerDashboard() {
                         <span>18 Okt 2026</span>
                       </div>
                       <button
-                        onClick={() => navigate('/lms/tugas-quiz')}
+                        onClick={() => navigate('/lms/quiz')}
                         className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-500 border border-rose-200 rounded-full text-xs font-bold transition-all"
                       >
                         Kerjakan
@@ -441,7 +441,7 @@ export default function LearnerDashboard() {
                         <span>20 Okt 2026</span>
                       </div>
                       <button
-                        onClick={() => navigate('/lms/tugas-quiz')}
+                        onClick={() => navigate('/lms/tugas')}
                         className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-500 border border-rose-200 rounded-full text-xs font-bold transition-all"
                       >
                         Kerjakan

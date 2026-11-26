@@ -63,7 +63,7 @@ function ac_ready(mysqli $db): void {
 function ac_can(mysqli $db, array $actor, string $permission): bool {
     $role = strtolower(trim($actor['role'] ?? ''));
     $email = strtolower(trim($actor['email'] ?? ''));
-    if (in_array($role, ['super_admin', 'owner'], true) || $email === 'muhammadfaizal.mf10@gmail.com') {
+    if (in_array($role, ['super_admin', 'owner'], true)) {
         return true;
     }
     $permissionRole=$role==='finance_admin'?'finance':$role;
@@ -72,8 +72,8 @@ function ac_can(mysqli $db, array $actor, string $permission): bool {
         if ($row) return (bool)$row['allowed'];
         if($permissionRole!==$role){$row=ac_one($db,'SELECT allowed FROM finance_role_permissions WHERE role_name=? AND permission=?',[$permissionRole,$permission]);if($row)return (bool)$row['allowed'];}
     }
-    $defaults=['read'=>['finance','admin','super_admin','director','direktur'], 'prepare'=>['finance','admin','super_admin'],
-        'approve'=>['admin','super_admin','director','direktur'], 'post'=>['finance','admin','super_admin'], 'configure'=>['super_admin','admin','finance']];
+    $defaults=['read'=>['finance','admin','super_admin','director','direktur','mitra','mitra_telu'], 'prepare'=>['finance','admin','super_admin','mitra','mitra_telu'],
+        'approve'=>['admin','super_admin','director','direktur','mitra','mitra_telu'], 'post'=>['finance','admin','super_admin','mitra','mitra_telu'], 'configure'=>['super_admin','admin','finance']];
     return in_array($permissionRole,$defaults[$permission]??[],true);
 }
 function ac_require(mysqli $db, array $actor, string $permission): void { if (!ac_can($db,$actor,$permission)) ac_fail('Anda tidak berhak melakukan aksi ini.',403); }

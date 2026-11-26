@@ -32,14 +32,7 @@ export default function MenuFinance() {
       category: "KEUANGAN",
       items: FINANCE_MENU_ITEMS.filter(item => item.path !== "/salary")
     },
-    {
-      category: "LPK CREATIVA",
-      items: [
-        { title: "LMS", icon: BookOpen, color: "text-blue-500 bg-blue-50", path: "/lms/agenda" },
-        { title: "Matching Job", icon: Briefcase, color: "text-purple-500 bg-purple-50", path: "/matching-job" },
-        { title: "Nenkin", icon: DollarSign, color: "text-indigo-500 bg-indigo-50", path: "/nenkin" },
-      ]
-    },
+
     {
       category: "SETTING",
       items: [

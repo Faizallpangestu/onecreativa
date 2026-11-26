@@ -13,7 +13,7 @@ try {
     $allowedRoles = ['admin', 'super_admin', 'finance', 'finance_admin', 'director', 'direktur', 'manager', 'hr', 'hrd'];
     $role = strtolower(trim($actor['role'] ?? ''));
     $email = strtolower(trim($actor['email'] ?? ''));
-    if (!in_array($role, $allowedRoles, true) && $email !== 'muhammadfaizal.mf10@gmail.com' && !ac_can($conn, $actor, 'read')) {
+    if (!in_array($role, $allowedRoles, true) && !ac_can($conn, $actor, 'read')) {
         ac_fail('Akses ke dashboard keuangan tidak diizinkan.', 403);
     }
     session_write_close();
@@ -504,6 +504,7 @@ try {
                         'related_proj_number' => $termId,
                         'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
                         'parent_invoice_id' => $inv['id'],
+                        'invoice_date' => $inv['transaction_date'],
                         'created_at' => $inv['created_at'],
                     ];
                     if ($terminStatus === 'paid') {
@@ -536,6 +537,7 @@ try {
                             'related_proj_number' => $termId,
                             'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
                             'parent_invoice_id' => $inv['id'],
+                            'invoice_date' => $inv['transaction_date'],
                         ];
                         $realizationItems[] = $pendingReal;
                     }
@@ -565,6 +567,7 @@ try {
                             'related_proj_number' => $termId,
                             'termin_info' => "{$instDesc} (Termin {$itemNo}/" . count($installments) . ")",
                             'parent_invoice_id' => $inv['id'],
+                            'invoice_date' => $inv['transaction_date'],
                         ];
                         $realizationItems[] = $realTerm;
                     }

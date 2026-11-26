@@ -214,17 +214,7 @@ $snapPayload = [
         'name' => $itemName,
         'category' => mb_substr($programTitle, 0, 48),
     ]],
-    'enabled_payments' => [
-        'gopay',
-        'other_qris',
-        'shopeepay',
-        'bca_va',
-        'bni_va',
-        'bri_va',
-        'permata_va',
-        'echannel',
-        'cimb_va',
-    ],
+    // Jika enabled_payments tidak dibatasi, Midtrans Snap otomatis menampilkan semua metode pembayaran yang aktif di akun merchant
     'callbacks' => [
         'finish' => $urls['status_url'],
     ],

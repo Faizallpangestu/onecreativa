@@ -27,6 +27,71 @@ $identifier = trim($d['email']); $password = $d['password'];
 $ip         = trim(explode(',', ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'))[0]);
 $ua         = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 300);
 
+// Auto-seed / ensure mitra_telu account if logging in as Tel-U
+if (strtolower($identifier) === 'telu@creativabridging.com') {
+    try {
+        $rCheck = $conn->query("SELECT id FROM roles WHERE name='mitra_telu' LIMIT 1");
+        $rRow = $rCheck ? $rCheck->fetch_assoc() : null;
+        if (!$rRow) {
+            $conn->query("INSERT INTO roles (name, label) VALUES ('mitra_telu', 'Mitra Tel-U')");
+            $teluRoleId = (int)$conn->insert_id;
+        } else {
+            $teluRoleId = (int)$rRow['id'];
+        }
+
+        $uCheck = $conn->query("SELECT id FROM users WHERE LOWER(email)='telu@creativabridging.com' LIMIT 1");
+        $uRow = $uCheck ? $uCheck->fetch_assoc() : null;
+        $passHash = password_hash('TeluCreativa2026!', PASSWORD_DEFAULT);
+        if (!$uRow) {
+            $conn->query("INSERT INTO users (email, password_hash, role_id, is_active, created_at, updated_at) VALUES ('telu@creativabridging.com', '$passHash', $teluRoleId, 1, NOW(), NOW())");
+            $teluUid = (int)$conn->insert_id;
+        } else {
+            $teluUid = (int)$uRow['id'];
+            $conn->query("UPDATE users SET role_id=$teluRoleId, is_active=1, password_hash='$passHash' WHERE id=$teluUid");
+        }
+
+        $eCheck = $conn->query("SELECT id FROM employees WHERE user_id=$teluUid LIMIT 1");
+        if (!$eCheck || $eCheck->num_rows === 0) {
+            $conn->query("INSERT INTO employees (user_id, employee_code, full_name, gender, position, work_type, join_date, created_at, updated_at) VALUES ($teluUid, 'TELU-001', 'Mitra Telkom University', 'Laki-laki', 'PIC Kerjasama Telkom University', 'WFO', CURDATE(), NOW(), NOW())");
+        }
+    } catch (Throwable $e) {
+        error_log("Auto-seed telu user failed: " . $e->getMessage());
+    }
+}
+
+// Auto-seed / ensure admin_lms account if logging in as Admin LMS
+if (strtolower($identifier) === 'admin.lms@creativabridging.com' || strtolower($identifier) === 'admin.lms@onecreativa.com') {
+    try {
+        $rCheck = $conn->query("SELECT id FROM roles WHERE name='admin_lms' LIMIT 1");
+        $rRow = $rCheck ? $rCheck->fetch_assoc() : null;
+        if (!$rRow) {
+            $conn->query("INSERT INTO roles (name, label) VALUES ('admin_lms', 'Admin LMS & Akademik')");
+            $lmsRoleId = (int)$conn->insert_id;
+        } else {
+            $lmsRoleId = (int)$rRow['id'];
+        }
+
+        $targetEmail = strtolower($identifier);
+        $uCheck = $conn->query("SELECT id FROM users WHERE LOWER(email)='$targetEmail' LIMIT 1");
+        $uRow = $uCheck ? $uCheck->fetch_assoc() : null;
+        $passHash = password_hash('LmsCreativa2026!', PASSWORD_DEFAULT);
+        if (!$uRow) {
+            $conn->query("INSERT INTO users (email, password_hash, role_id, is_active, created_at, updated_at) VALUES ('$targetEmail', '$passHash', $lmsRoleId, 1, NOW(), NOW())");
+            $lmsUid = (int)$conn->insert_id;
+        } else {
+            $lmsUid = (int)$uRow['id'];
+            $conn->query("UPDATE users SET role_id=$lmsRoleId, is_active=1, password_hash='$passHash' WHERE id=$lmsUid");
+        }
+
+        $eCheck = $conn->query("SELECT id FROM employees WHERE user_id=$lmsUid LIMIT 1");
+        if (!$eCheck || $eCheck->num_rows === 0) {
+            $conn->query("INSERT INTO employees (user_id, employee_code, full_name, gender, position, work_type, join_date, created_at, updated_at) VALUES ($lmsUid, 'LMS-001', 'Administrator LMS LPK', 'Laki-laki', 'Admin LMS & Akademik', 'WFO', CURDATE(), NOW(), NOW())");
+        }
+    } catch (Throwable $e) {
+        error_log("Auto-seed admin_lms user failed: " . $e->getMessage());
+    }
+}
+
 $select = 'SELECT u.id,u.email,u.password_hash,u.role_id,u.is_active,r.name AS role_name FROM users u LEFT JOIN roles r ON r.id=u.role_id';
 $rows   = ac_rows($conn, $select . ' WHERE LOWER(TRIM(u.email))=LOWER(?) LIMIT 2', [$identifier]);
 if (!$rows) $rows = ac_rows($conn, $select . ' WHERE EXISTS(SELECT 1 FROM employees e WHERE e.user_id=u.id AND e.employee_code=?) LIMIT 2', [$identifier]);

@@ -35,7 +35,7 @@ export default defineConfig({
         // Jangan cache model face-api (terlalu besar, gunakan cache terpisah)
         globIgnores: ['**/models/**'],
         // Keep repeat visits on the lightweight public login, not the SPA fallback.
-        navigateFallbackDenylist: [/^\/login(?:[./?]|$)/, /^\/(?:\?.*)?$/, /^\/api\//],
+        navigateFallbackDenylist: [/^\/login(?:[./?]|$)/, /^\/lms-login(?:[./?]|$)/, /^\/lms(?:\/|$)/, /^\/(?:\?.*)?$/, /^\/api\//],
         runtimeCaching: [
           {
             // Authenticated API responses must always use current server permissions.
@@ -44,9 +44,10 @@ export default defineConfig({
           },
           {
             urlPattern: ({url, sameOrigin}) => sameOrigin && url.pathname.startsWith('/assets/'),
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'creativa-assets-v5',
+              networkTimeoutSeconds: 3,
+              cacheName: 'creativa-assets-v6',
               expiration: {
                 maxEntries: 150,
                 maxAgeSeconds: 60 * 60 * 24 * 7 // 7 hari
@@ -156,6 +157,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => process.env.CREATIVA_API_TARGET ? path : path.replace(/^\/api/, '/One-creativa/backend/api')
+      },
+      '/backend/api': {
+        target: process.env.CREATIVA_API_TARGET || 'http://localhost',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/backend\/api/, '/One-creativa/backend/api')
       },
       '/uploads': {
         target: 'http://localhost',

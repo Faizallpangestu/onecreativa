@@ -580,9 +580,9 @@ function AdjustInflowModal({ item, onClose, onSave, banks = [], coaAccounts = []
   const [adjustedBy, setAdjustedBy] = useState(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
-      return u.name || u.full_name || u.username || 'Admin Finance (Faizal)';
+      return u.name || u.full_name || u.username || 'Admin Finance';
     } catch {
-      return 'Admin Finance (Faizal)';
+      return 'Admin Finance';
     }
   });
 
@@ -1580,7 +1580,9 @@ export default function DashboardFinance() {
                   payment_status: isTerminPaid ? 'paid' : 'unpaid',
                   cash_account_name: inv.bank_name ? `${inv.bank_name} (${inv.account_number || ''})` : 'BCA (1832-918-428)',
                   jatuh_tempo: inst.jatuhTempo || instDate,
-                  termin_info: `Termin ${idx + 1}/${inv.installments.length}`
+                  termin_info: `Termin ${idx + 1}/${inv.installments.length}`,
+                  parent_invoice_id: invId,
+                  invoice_date: invDate
                 };
                 if (!cloned.projection_items) cloned.projection_items = [];
                 cloned.projection_items.unshift(termProjItem);
@@ -1644,6 +1646,9 @@ export default function DashboardFinance() {
                     paid_at: payDate,
                     related_proj_id: termProjId,
                     related_proj_number: termProjId,
+                    termin_info: `Termin ${idx + 1}/${inv.installments.length}`,
+                    parent_invoice_id: invId,
+                    invoice_date: invDate,
                   };
                   if (!cloned.realization_items) cloned.realization_items = [];
                   cloned.realization_items.unshift(realItem);
@@ -1680,6 +1685,9 @@ export default function DashboardFinance() {
                     is_pending_realization: true,
                     related_proj_id: termProjId,
                     related_proj_number: termProjId,
+                    termin_info: `Termin ${idx + 1}/${inv.installments.length}`,
+                    parent_invoice_id: invId,
+                    invoice_date: invDate,
                   };
                   if (!cloned.realization_items) cloned.realization_items = [];
                   cloned.realization_items.unshift(pendingRealItem);
@@ -2080,7 +2088,23 @@ export default function DashboardFinance() {
   const auditYearTotals = useMemo(() => {
     if (!activeData) return { projection: 0, realization: 0, projectionCount: 0, realizationCount: 0 };
     const selectedYear = Number(year);
+    const isStudentInvoiceTerm = (item) => Boolean(
+      item?.source_type === 'invoice_billing' ||
+      item?.termin_info ||
+      item?.parent_invoice_id ||
+      String(item?.id || '').includes('-T') ||
+      String(item?.number || '').includes('-T')
+    );
     const isInSelectedYear = (item) => {
+      if (isStudentInvoiceTerm(item)) {
+        const invRaw = item?.invoice_date || item?.created_at || '';
+        const invMatch = String(invRaw).match(/^(\d{4})/);
+        const invYear = invMatch ? Number(invMatch[1]) : null;
+        if (invYear === selectedYear) return true;
+        const idStr = String(item?.parent_invoice_id || item?.number || item?.id || '');
+        const idMatch = idStr.match(/^[A-Z]*(\d{2})(\d{2})\d+/i);
+        if (idMatch && (2000 + Number(idMatch[1])) === selectedYear) return true;
+      }
       const raw = item?.transaction_date || item?.tanggal || '';
       const match = String(raw).match(/^(\d{4})/);
       return match ? Number(match[1]) === selectedYear : true;
@@ -2183,13 +2207,44 @@ export default function DashboardFinance() {
       const itemYear = hasDate ? d.getFullYear() : null;
       const itemMonth = hasDate ? d.getMonth() + 1 : null;
 
+      const isStudentInvoiceTerm = Boolean(
+        i.source_type === 'invoice_billing' ||
+        i.termin_info ||
+        i.parent_invoice_id ||
+        String(i.id || '').includes('-T') ||
+        String(i.number || '').includes('-T')
+      );
+
+      let invYear = null;
+      if (isStudentInvoiceTerm) {
+        const invRaw = i.invoice_date || i.created_at || '';
+        const invMatch = String(invRaw).match(/^(\d{4})/);
+        if (invMatch) {
+          invYear = Number(invMatch[1]);
+        } else {
+          const idStr = String(i.parent_invoice_id || i.number || i.id || '');
+          const idMatch = idStr.match(/^[A-Z]*(\d{2})(\d{2})\d+/i);
+          if (idMatch) {
+            invYear = 2000 + Number(idMatch[1]);
+          } else {
+            invYear = Number(year);
+          }
+        }
+      }
+
       // Filter Tahun: jika globalPeriod spesifik tahun (bukan 'all'), batasi item sesuai tahun
       if (globalPeriod !== 'all' && !globalPeriod.startsWith('Q') && itemYear !== null) {
-        if (itemYear !== Number(globalPeriod)) return false;
+        const targetYear = Number(globalPeriod);
+        if (isStudentInvoiceTerm) {
+          // Untuk rencana cicilan invoice siswa, tampilkan jika jatuh tempo sesuai tahun target ATAU jika tahun terbit invoice adalah tahun target
+          if (itemYear !== targetYear && invYear !== targetYear) return false;
+        } else {
+          if (itemYear !== targetYear) return false;
+        }
       }
 
       if (globalPeriod.startsWith('Q') && itemMonth !== null) {
-        if (itemYear !== null && itemYear !== Number(year)) return false;
+        if (!isStudentInvoiceTerm && itemYear !== null && itemYear !== Number(year)) return false;
         if (globalPeriod === 'Q1' && !(itemMonth >= 1 && itemMonth <= 3)) return false;
         if (globalPeriod === 'Q2' && !(itemMonth >= 4 && itemMonth <= 6)) return false;
         if (globalPeriod === 'Q3' && !(itemMonth >= 7 && itemMonth <= 9)) return false;
@@ -2197,7 +2252,7 @@ export default function DashboardFinance() {
       }
       if (selectedMonth !== null && itemMonth !== null) {
         if (itemMonth !== selectedMonth) return false;
-        if (itemYear !== null && globalPeriod !== 'all' && !globalPeriod.startsWith('Q') && itemYear !== Number(globalPeriod)) return false;
+        if (!isStudentInvoiceTerm && itemYear !== null && globalPeriod !== 'all' && !globalPeriod.startsWith('Q') && itemYear !== Number(globalPeriod)) return false;
       }
       if (searchTerm.trim()) {
         const s = searchTerm.toLowerCase();

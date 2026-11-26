@@ -2,7 +2,7 @@
 // Sinkronisasi data Siswa, Tugas, Quiz, Nilai, dan Leaderboard secara real-time antar halaman
 
 const STORAGE_KEYS = {
-  STUDENTS: 'lms_registered_students_v1',
+  STUDENTS: 'lms_registered_students_v2',
   TASKS: 'lms_master_tasks_v1',
   GRADES: 'lms_student_grades_v1',
   QUIZZES: 'lms_master_quizzes_v1'
@@ -30,12 +30,38 @@ export const getStoredStudents = () => {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return parsed.filter(s => {
+      const p = (s?.program || '').toLowerCase();
+      return !p.includes('sotsugy');
+    });
   } catch (e) {
     console.error('Error loading stored students:', e);
     return [];
   }
 };
+
+// Auto-sync real registered students from MySQL database
+export const ensureRealStudentsLoaded = async () => {
+  if (typeof window === 'undefined') return [];
+  const current = getStoredStudents();
+  try {
+    const res = await fetch('/api/lms_academic.php?action=students');
+    const json = await res.json();
+    if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+      saveStoredStudents(json.data);
+      return json.data;
+    }
+  } catch (e) {
+    console.error('Could not auto-load students from API:', e);
+  }
+  return current;
+};
+
+// Immediate background fetch on client import
+if (typeof window !== 'undefined') {
+  ensureRealStudentsLoaded();
+}
 
 export const saveStoredStudents = (students) => {
   if (typeof window === 'undefined') return;
@@ -100,22 +126,60 @@ export const deleteStoredStudent = (id) => {
 const DEFAULT_TASKS = [
   {
     id: 'task-1',
-    title: 'Kuis Kosakata Bab 2',
-    subtitle: 'Latihan kosakata baru yang mencakup tema makanan, minuman, dan aktivitas sehari-hari.',
-    classRoom: 'N5',
-    type: 'Quiz',
-    createdDate: '12 Okt 2026',
-    createdDateTime: '12 Oktober 2026, 09:00',
-    deadline: '20 Okt 2026, 23:59',
-    deadlineDateTime: '20 Oktober 2026, 23:59',
+    title: 'Menulis Gojuon (Hiragana & Katakana)',
+    subtitle: 'Tulis huruf Gojuon Hiragana & Katakana di buku masing-masing sesuai urutan goresan.',
+    classRoom: 'N5 Pagi',
+    type: 'Tugas Individu',
+    createdDate: '12 Nov 2026',
+    createdDateTime: '12 November 2026, 09:00',
+    deadline: '25 Nov 2026, 23:59',
+    deadlineDateTime: '25 November 2026, 23:59',
     status: 'Aktif',
-    description: 'Latihan kosakata baru yang mencakup tema makanan, minuman, dan aktivitas sehari-hari. Kerjakan dengan teliti dan pastikan jawaban yang diberikan sesuai dengan materi.',
+    description: 'Tuliskan seluruh huruf Gojuon (46 Hiragana & 46 Katakana) di lembar latihan. Perhatikan kaidah hitsujun (urutan goresan), bentuk proporsional huruf, dan kerapihan.',
     totalPoints: 100,
     criteria: [
-      { name: 'Ketepatan jawaban', weight: 40 },
-      { name: 'Kelengkapan jawaban', weight: 30 },
-      { name: 'Kerapihan & struktur', weight: 20 },
-      { name: 'Pemahaman materi', weight: 10 }
+      { name: 'Ketepatan goresan (Hitsujun)', weight: 40 },
+      { name: 'Kerapihan & bentuk huruf', weight: 30 },
+      { name: 'Kelengkapan aksara', weight: 20 },
+      { name: 'Ketepatan waktu submit', weight: 10 }
+    ]
+  },
+  {
+    id: 'task-2',
+    title: 'Latihan Pola Kalimat & Terjemahan Bunpou N4',
+    subtitle: 'Analisis tata bahasa dan terjemahan kalimat kontekstual level JLPT N4.',
+    classRoom: 'N4 A - PAGI',
+    type: 'Tugas Individu',
+    createdDate: '15 Nov 2026',
+    createdDateTime: '15 November 2026, 08:30',
+    deadline: '26 Nov 2026, 23:59',
+    deadlineDateTime: '26 November 2026, 23:59',
+    status: 'Aktif',
+    description: 'Kerjakan latihan pola kalimat Minna no Nihongo II Bab 26 - 28. Tulislah 5 contoh kalimat bebas menggunakan pola ~temo ii desu ka dan ~nakereba narimasen.',
+    totalPoints: 100,
+    criteria: [
+      { name: 'Kesesuaian pola kalimat (Bunpou)', weight: 40 },
+      { name: 'Ketepatan partikel (Joshi)', weight: 35 },
+      { name: 'Struktur dan kosakata kanji', weight: 25 }
+    ]
+  },
+  {
+    id: 'task-3',
+    title: 'Penyusunan Lembar Rirekisho & Video Jikoshoukai',
+    subtitle: 'Persiapan Curriculum Vitae standar Jepang dan rekaman perkenalan diri untuk perusahaan mitra.',
+    classRoom: 'Kelas Persiapan Mensetsu & Matching Job',
+    type: 'Praktik & Portofolio',
+    createdDate: '18 Nov 2026',
+    createdDateTime: '18 November 2026, 10:00',
+    deadline: '28 Nov 2026, 23:59',
+    deadlineDateTime: '28 November 2026, 23:59',
+    status: 'Wajib',
+    description: 'Isi format formulir Rirekisho resmi dengan lengkap dan sertakan tautan video Jikoshoukai durasi 60 detik menggunakan pakaian formal berjas.',
+    totalPoints: 100,
+    criteria: [
+      { name: 'Kelengkapan data riwayat hidup', weight: 30 },
+      { name: 'Pengucapan (Hatsuon) & Kesopanan (Keigo)', weight: 40 },
+      { name: 'Etika & Sikap saat presentasi video', weight: 30 }
     ]
   }
 ];
@@ -128,7 +192,35 @@ export const getStoredTasks = () => {
       localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(DEFAULT_TASKS));
       return DEFAULT_TASKS;
     }
-    return JSON.parse(raw);
+    let parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(DEFAULT_TASKS));
+      return DEFAULT_TASKS;
+    }
+
+    // Auto-migrate jika masih data tugas dummy lama atau belum mencakup 3 kelas aktif
+    const hasN5 = parsed.some(t => (t.classRoom || '').toLowerCase().includes('n5'));
+    const hasN4 = parsed.some(t => (t.classRoom || '').toLowerCase().includes('n4'));
+    const hasMatching = parsed.some(t => (t.classRoom || '').toLowerCase().includes('mensetsu') || (t.classRoom || '').toLowerCase().includes('matching'));
+
+    if (!hasN4 || !hasMatching || parsed.some(t => t.title === 'Kuis Kosakata Bab 2' && t.classRoom === 'N5')) {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(DEFAULT_TASKS));
+      return DEFAULT_TASKS;
+    }
+
+    let needsSave = false;
+    parsed = parsed.map(t => {
+      if (t.classRoom === 'N5') {
+        needsSave = true;
+        return { ...t, classRoom: 'N5 Pagi' };
+      }
+      return t;
+    });
+
+    if (needsSave) {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(parsed));
+    }
+    return parsed;
   } catch (e) {
     return DEFAULT_TASKS;
   }
@@ -215,18 +307,44 @@ export const saveStudentGrade = (taskId, studentId, gradeData) => {
   }
 };
 
-// Helper: memeriksa apakah kelas siswa cocok dengan target kelas
-const isClassMatching = (studentClass = '', targetClass = 'ALL') => {
-  if (!targetClass || targetClass === 'ALL' || targetClass === 'Semua Kelas') return true;
-  const s = studentClass.trim().toUpperCase();
-  const t = targetClass.trim().toUpperCase();
-  if (s === t) return true;
-  // Memeriksa substring N5, N4, N3, N2, N1
-  const levels = ['N1', 'N2', 'N3', 'N4', 'N5'];
-  for (const lvl of levels) {
-    if (s.includes(lvl) && t.includes(lvl)) return true;
+// Helper: memeriksa apakah kelas siswa cocok dengan target kelas (isolasi ketat per kelas)
+export const isClassMatching = (studentClass = '', targetClass = 'ALL') => {
+  const s = (studentClass || '').trim();
+  const t = (targetClass || '').trim();
+
+  // Jika siswa belum terdaftar di kelas (Belum Ditentukan / kosong), jangan masukkan ke filter kelas rombel manapun
+  if (!s || s === 'Belum Ditentukan' || s === 'Belum Ada Kelas' || s === 'Unassigned') {
+    return false;
   }
-  return s.includes(t) || t.includes(s);
+
+  // Jika target kelas adalah 'ALL' atau 'Semua Kelas', sertakan semua siswa yang sudah memiliki kelas resmi
+  if (!t || t.toUpperCase() === 'ALL' || t === 'Semua Kelas') {
+    return true;
+  }
+
+  const sUpper = s.toUpperCase();
+  const tUpper = t.toUpperCase();
+  if (sUpper === tUpper) return true;
+
+  const isMensetsuS = sUpper.includes('MENSETSU') || sUpper.includes('MATCHING');
+  const isMensetsuT = tUpper.includes('MENSETSU') || tUpper.includes('MATCHING');
+  if (isMensetsuS || isMensetsuT) {
+    return isMensetsuS && isMensetsuT;
+  }
+
+  const isN4S = sUpper.includes('N4');
+  const isN4T = tUpper.includes('N4');
+  if (isN4S || isN4T) {
+    return isN4S && isN4T;
+  }
+
+  const isN5S = sUpper.includes('N5');
+  const isN5T = tUpper.includes('N5');
+  if (isN5S || isN5T) {
+    return isN5S && isN5T;
+  }
+
+  return sUpper.includes(tUpper) || tUpper.includes(sUpper);
 };
 
 // Ambil daftar pengumpulan tugas siswa yang otomatis terhubung dengan data siswa terdaftar

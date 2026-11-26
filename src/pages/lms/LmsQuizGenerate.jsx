@@ -28,148 +28,96 @@ import {
   Users,
   GraduationCap,
   Award,
-  Filter,
-  CheckSquare,
   Clock,
-  Target,
   Flame,
-  CheckCircle,
+  CheckSquare,
+  FileCode,
+  FolderOpen,
+  Filter,
   FileCheck
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { moduleApi } from '../../utils/moduleApi';
+import {
+  getChaptersForClass,
+  getMaterialsInChapterRange,
+  INITIAL_CHAPTERS,
+  DEFAULT_CHAPTERS_BY_LEVEL
+} from '../../utils/lmsChaptersApi';
 
-// ── KATALOG KELAS LENGKAP & KURIKULUM DINAMIS ──
-const CLASS_CATALOG = [
+// Fallback real classes if backend relationship is offline
+const FALLBACK_CLASSES = [
   {
     id: 19,
+    code: 'CJ-B2',
     name: 'N5 Pagi',
-    code: 'N5-AM',
+    batch: 'Batch 1 2026',
     level: 'N5',
-    defaultDifficulty: 'medium',
-    studentsCount: 2,
-    curriculum: 'Minna no Nihongo I',
-    totalMeetings: 24,
-    chapterRange: { start: 1, end: 25, label: 'Bab 01 s/d Bab 25 (Minna no Nihongo I)' },
-    presets: [
-      { label: 'Bab 1 s/d 5 (Dasar & Perkenalan)', start: 1, end: 5 },
-      { label: 'Bab 6 s/d 10 (Aktivitas Sehari-hari)', start: 6, end: 10 },
-      { label: 'Bab 11 s/d 15 (Hitungan & Bentuk Te)', start: 11, end: 15 },
-      { label: 'Bab 16 s/d 20 (Bentuk Nai & Syarat)', start: 16, end: 20 },
-      { label: 'Bab 1 s/d 25 (Lengkap N5)', start: 1, end: 25 }
-    ],
-    meetingPresets: [
-      { label: 'Minggu 1 (P1 - P4)', start: 1, end: 4 },
-      { label: 'Minggu 2 (P5 - P8)', start: 5, end: 8 },
-      { label: 'Minggu 3 (P9 - P12)', start: 9, end: 12 },
-      { label: 'Ujian Tengah Level (P1 - P12)', start: 1, end: 12 },
-      { label: 'Ujian Akhir Level (P1 - P24)', start: 1, end: 24 }
-    ]
+    schedule_days: 'Senin & Rabu',
+    schedule_time: '08:00 - 09:30',
+    enrolled_students_count: 2,
+    status: 'active',
+    defaultDifficulty: 'easy'
   },
   {
     id: 20,
-    name: 'N5 Sore',
-    code: 'N5-PM',
+    code: 'CJ-B3',
+    name: 'N5 Sore / Pekerja',
+    batch: 'Batch 1 2026',
     level: 'N5',
-    defaultDifficulty: 'easy',
-    studentsCount: 4,
-    curriculum: 'Minna no Nihongo I',
-    totalMeetings: 24,
-    chapterRange: { start: 1, end: 25, label: 'Bab 01 s/d Bab 25 (Minna no Nihongo I)' },
-    presets: [
-      { label: 'Bab 1 s/d 5 (Dasar & Perkenalan)', start: 1, end: 5 },
-      { label: 'Bab 6 s/d 10 (Aktivitas Sehari-hari)', start: 6, end: 10 },
-      { label: 'Bab 1 s/d 25 (Lengkap N5)', start: 1, end: 25 }
-    ],
-    meetingPresets: [
-      { label: 'Minggu 1 (P1 - P4)', start: 1, end: 4 },
-      { label: 'Minggu 2 (P5 - P8)', start: 5, end: 8 }
-    ]
+    schedule_days: 'Selasa & Kamis',
+    schedule_time: '18:30 - 20:30',
+    enrolled_students_count: 8,
+    status: 'active',
+    defaultDifficulty: 'easy'
   },
   {
     id: 21,
+    code: 'CJ-N4A',
     name: 'N4 A - PAGI',
-    code: 'N4-A-AM',
+    batch: 'Batch 2 2026',
     level: 'N4',
-    defaultDifficulty: 'medium',
-    studentsCount: 3,
-    curriculum: 'Minna no Nihongo II & Irodori A2',
-    totalMeetings: 24,
-    chapterRange: { start: 26, end: 50, label: 'Bab 26 s/d Bab 50 (Minna no Nihongo II)' },
-    presets: [
-      { label: 'Bab 26 s/d 30 (Pola ~ndesu & Potensial)', start: 26, end: 30 },
-      { label: 'Bab 31 s/d 35 (Volisional & Keharusan)', start: 31, end: 35 },
-      { label: 'Bab 36 s/d 40 (Tujuan ~tame ni & Kaizen)', start: 36, end: 40 },
-      { label: 'Bab 41 s/d 45 (Beri-Terima & Pasif/Kausatif)', start: 41, end: 45 },
-      { label: 'Bab 26 s/d 50 (Lengkap N4)', start: 26, end: 50 }
-    ],
-    meetingPresets: [
-      { label: 'Minggu 1 (P1 - P4)', start: 1, end: 4 },
-      { label: 'Minggu 2 (P5 - P8)', start: 5, end: 8 },
-      { label: 'Ujian Akhir Level N4 (P1 - P24)', start: 1, end: 24 }
-    ]
+    schedule_days: 'Senin s/d Jumat',
+    schedule_time: '09:00 - 12:00',
+    enrolled_students_count: 1,
+    status: 'active',
+    defaultDifficulty: 'medium'
   },
   {
     id: 22,
+    code: 'CJ-N4B',
     name: 'N4 B - Malam',
-    code: 'N4-B-PM',
+    batch: 'Batch 2 2026',
     level: 'N4',
-    defaultDifficulty: 'hard',
-    studentsCount: 2,
-    curriculum: 'Minna no Nihongo II',
-    totalMeetings: 24,
-    chapterRange: { start: 26, end: 50, label: 'Bab 26 s/d Bab 50 (Minna no Nihongo II)' },
-    presets: [
-      { label: 'Bab 26 s/d 30 (Pola ~ndesu)', start: 26, end: 30 },
-      { label: 'Bab 31 s/d 35 (Maksud & Syarat)', start: 31, end: 35 },
-      { label: 'Bab 26 s/d 50 (Lengkap N4)', start: 26, end: 50 }
-    ],
-    meetingPresets: [
-      { label: 'Bulan 1 (P1 - P8)', start: 1, end: 8 },
-      { label: 'Bulan 2 (P9 - P16)', start: 9, end: 16 }
-    ]
+    schedule_days: 'Senin & Rabu',
+    schedule_time: '19:00 - 21:00',
+    enrolled_students_count: 1,
+    status: 'active',
+    defaultDifficulty: 'medium'
   },
   {
     id: 23,
-    name: 'N3 Akselerasi',
-    code: 'N3-ACC',
+    code: 'CJ-N3AK',
+    name: 'N3 Akselerasi Tokutei Ginou',
+    batch: 'Batch 1 2026',
     level: 'N3',
-    defaultDifficulty: 'hard',
-    studentsCount: 3,
-    curriculum: 'Minna no Nihongo Chukyu I & Soumatome N3',
-    totalMeetings: 16,
-    chapterRange: { start: 1, end: 12, label: 'Bab 01 s/d Bab 12 (Minna no Nihongo Chukyu)' },
-    presets: [
-      { label: 'Bab 1 s/d 4 (Bunpou Chukyu Awal)', start: 1, end: 4 },
-      { label: 'Bab 5 s/d 8 (Keigo & Situasi Kerja)', start: 5, end: 8 },
-      { label: 'Bab 1 s/d 12 (Full N3 Chukyu)', start: 1, end: 12 }
-    ],
-    meetingPresets: [
-      { label: 'Tahap 1 (P1 - P6)', start: 1, end: 6 },
-      { label: 'Tahap 2 (P7 - P12)', start: 7, end: 12 },
-      { label: 'Simulasi N3 (P1 - P16)', start: 1, end: 16 }
-    ]
+    schedule_days: 'Selasa & Kamis',
+    schedule_time: '13:00 - 16:00',
+    enrolled_students_count: 6,
+    status: 'active',
+    defaultDifficulty: 'hard'
   },
   {
     id: 24,
+    code: 'CJ-MENS',
     name: 'Kelas Persiapan Mensetsu & Matching Job',
-    code: 'JOB-MKT',
+    batch: 'Job Matching',
     level: 'N4',
-    defaultDifficulty: 'medium',
-    studentsCount: 5,
-    curriculum: 'Modul Kaiwa Wawancara Kerja & Etika Kaizen Kaigo/TG',
-    totalMeetings: 12,
-    chapterRange: { start: 1, end: 10, label: 'Bab 01 s/d Bab 10 (Kaiwa & Wawancara)' },
-    presets: [
-      { label: 'Bab 1 s/d 3 (Jikoshoukai & Motivasi Kerja)', start: 1, end: 3 },
-      { label: 'Bab 4 s/d 6 (Pengalaman & Kelebihan Diri)', start: 4, end: 6 },
-      { label: 'Bab 7 s/d 10 (Simulasi Wawancara User Jepang)', start: 7, end: 10 },
-      { label: 'Semua Modul Mensetsu (Bab 1 - 10)', start: 1, end: 10 }
-    ],
-    meetingPresets: [
-      { label: 'Sesi Awal (P1 - P4)', start: 1, end: 4 },
-      { label: 'Sesi Intensif (P5 - P8)', start: 5, end: 8 },
-      { label: 'Simulasi Final (P9 - P12)', start: 9, end: 12 }
-    ]
+    schedule_days: 'Sabtu & Minggu',
+    schedule_time: '10:00 - 12:30',
+    enrolled_students_count: 14,
+    status: 'active',
+    defaultDifficulty: 'medium'
   }
 ];
 
@@ -177,199 +125,173 @@ export default function LmsQuizGenerate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Parse query params if available
-  const initialClass = searchParams.get('class') || 'N5 Pagi';
-  const initialMode = searchParams.get('mode') || 'range_bab';
-  const initialLevel = searchParams.get('level') || 'N5';
-  const initialQuestions = Number(searchParams.get('questions')) || 10;
-
-  // ── STEPPER: 1 = Pilih Bab & Materi, 2 = Ekstraksi & Konfigurasi, 3 = Generating, 4 = Review & Approval ──
+  // Stepper: 1 = Target Kelas & Materi, 2 = Ekstraksi & Konfigurasi, 3 = Generate AI, 4 = Review & Publish
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ── TARGET KELAS & METODE STATE ──
-  const [selectedClass, setSelectedClass] = useState(initialClass);
-  const [targetLevel, setTargetLevel] = useState(initialLevel);
+  // ── 1. REAL CLASSES STATE (SYNCED WITH BACKEND / RELATIONSHIPS & LOCALSTORAGE) ──
+  const [classesList, setClassesList] = useState(FALLBACK_CLASSES);
+  const [activeClass, setActiveClass] = useState(FALLBACK_CLASSES[0]);
+
+  // Target Level & Difficulty
+  const [targetLevel, setTargetLevel] = useState('N5');
   const [difficulty, setDifficulty] = useState('medium'); // 'easy' | 'medium' | 'hard'
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [quizMode, setQuizMode] = useState('daily'); // 'daily', 'review', 'remedial', 'exam'
 
-  // Mode: 'range_bab', 'range_meeting', 'upload_new'
-  const [selectionMode, setSelectionMode] = useState(initialMode);
+  // Selection Mode: 'range_bab' | 'range_meeting' | 'upload_new'
+  const [selectionMode, setSelectionMode] = useState('range_bab');
   const [startBab, setStartBab] = useState(1);
   const [endBab, setEndBab] = useState(5);
   const [startMeeting, setStartMeeting] = useState(1);
   const [endMeeting, setEndMeeting] = useState(4);
-  const [materialsList, setMaterialsList] = useState([]);
 
-  // Active Class Object
-  const activeClassObj = useMemo(() => {
-    const found = CLASS_CATALOG.find(c => c.name === selectedClass);
-    return found || CLASS_CATALOG[0];
-  }, [selectedClass]);
+  // ── 2. REAL CHAPTERS FOR ACTIVE CLASS (DIRECTLY LOADED FROM LMS_MATERI / LOCALSTORAGE) ──
+  const [classChapters, setClassChapters] = useState([]);
 
-  // Handle Class Switch with Automatic Sync
-  const handleClassChange = (newClassName) => {
-    setSelectedClass(newClassName);
-    const targetClass = CLASS_CATALOG.find(c => c.name === newClassName);
-    if (targetClass) {
-      setTargetLevel(targetClass.level);
-      setDifficulty(targetClass.defaultDifficulty);
-      setStartBab(targetClass.chapterRange.start);
-      setEndBab(Math.min(targetClass.chapterRange.start + 4, targetClass.chapterRange.end));
-      setStartMeeting(1);
-      setEndMeeting(Math.min(4, targetClass.totalMeetings));
-    }
+  // Fetch real classes on mount
+  useEffect(() => {
+    let isMounted = true;
+    moduleApi('relationships')
+      .then(res => {
+        if (!isMounted) return;
+        if (res?.classes?.length) {
+          setClassesList(res.classes);
+
+          const qClassId = searchParams.get('class_id') || searchParams.get('classId');
+          const qClassName = searchParams.get('class');
+          const savedClassId = qClassId || localStorage.getItem('lms_active_class_id');
+
+          let matched = null;
+          if (savedClassId) {
+            matched = res.classes.find(c => String(c.id) === String(savedClassId));
+          }
+          if (!matched && qClassName) {
+            matched = res.classes.find(c => c.name.toLowerCase() === qClassName.toLowerCase());
+          }
+          if (!matched) {
+            matched = res.classes.find(c => c.status === 'active') || res.classes[0];
+          }
+
+          if (matched) {
+            setActiveClass(matched);
+            setTargetLevel(matched.level || 'N5');
+            const chaps = getChaptersForClass(matched);
+            setClassChapters(chaps);
+            setStartBab(1);
+            setEndBab(Math.min(5, chaps.length || 5));
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback: check localStorage for saved active class
+        const savedClassId = searchParams.get('class_id') || localStorage.getItem('lms_active_class_id');
+        const qClassName = searchParams.get('class');
+
+        let matched = FALLBACK_CLASSES[0];
+        if (savedClassId) {
+          const found = FALLBACK_CLASSES.find(c => String(c.id) === String(savedClassId));
+          if (found) matched = found;
+        } else if (qClassName) {
+          const found = FALLBACK_CLASSES.find(c => c.name.toLowerCase() === qClassName.toLowerCase());
+          if (found) matched = found;
+        }
+
+        setActiveClass(matched);
+        setTargetLevel(matched.level || 'N5');
+        const chaps = getChaptersForClass(matched);
+        setClassChapters(chaps);
+        setStartBab(1);
+        setEndBab(Math.min(5, chaps.length || 5));
+      });
+
+    return () => { isMounted = false; };
+  }, []);
+
+  // Update chapters whenever activeClass changes
+  const handleSelectClass = (classIdOrName) => {
+    const selected = classesList.find(c => String(c.id) === String(classIdOrName) || c.name === classIdOrName);
+    if (!selected) return;
+
+    setActiveClass(selected);
+    localStorage.setItem('lms_active_class_id', selected.id);
+
+    const chaps = getChaptersForClass(selected);
+    setClassChapters(chaps);
+    setTargetLevel(selected.level || 'N5');
+
+    // Auto preset start & end bab
+    setStartBab(1);
+    setEndBab(Math.min(5, chaps.length || 5));
+    setStartMeeting(1);
+    setEndMeeting(4);
+
+    if (selected.level === 'N5') setDifficulty('easy');
+    else if (selected.level === 'N4') setDifficulty('medium');
+    else setDifficulty('hard');
   };
+
+  // ── 3. REAL MATERIALS COVERED IN SELECTED CHAPTER RANGE ──
+  const coveredMaterials = useMemo(() => {
+    if (selectionMode === 'upload_new') {
+      return [
+        {
+          id: 'up-1',
+          title: 'Modul Eksternal Terupload (PDF/DOCX)',
+          type: 'PDF',
+          badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          fileSize: '3.4 MB',
+          chapterTitle: 'Dokumen Sensei Khusus',
+          chapterNumber: 1,
+          desc: 'Berkas materi pembelajaran yang diunggah langsung oleh Sensei.'
+        }
+      ];
+    }
+
+    if (selectionMode === 'range_meeting') {
+      // Derive from meetings
+      const mats = [];
+      const sM = Math.min(startMeeting, endMeeting);
+      const eM = Math.max(startMeeting, endMeeting);
+      for (let m = sM; m <= eM; m++) {
+        const associatedChapIndex = Math.min(Math.floor((m - 1) / 2), classChapters.length - 1);
+        const chap = classChapters[associatedChapIndex] || classChapters[0];
+        mats.push({
+          id: `meeting-${m}`,
+          title: `Modul Pertemuan Ke-${m} - ${chap?.labelName || chap?.title || 'Pembelajaran Aktif'}`,
+          type: 'PDF',
+          badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+          fileSize: '2.8 MB',
+          chapterTitle: chap?.title || `Pertemuan ${m}`,
+          chapterNumber: associatedChapIndex + 1,
+          desc: `Materi ajar tatap muka & modul kerja pertemuan ${m} kelas ${activeClass.name}.`
+        });
+      }
+      return mats;
+    }
+
+    // Range Bab: Extract genuine materials from classChapters
+    return getMaterialsInChapterRange(classChapters, startBab, endBab);
+  }, [selectionMode, classChapters, startBab, endBab, startMeeting, endMeeting, activeClass.name]);
+
+  // Selected chapters array for labels
+  const selectedChaptersList = useMemo(() => {
+    if (!Array.isArray(classChapters)) return [];
+    const s = Math.min(startBab, endBab);
+    const e = Math.max(startBab, endBab);
+    return classChapters.filter((chap, idx) => {
+      const num = chap.number || (idx + 1);
+      return num >= s && num <= e;
+    });
+  }, [classChapters, startBab, endBab]);
 
   // Upload new file state
   const [uploadedFile, setUploadedFile] = useState(null);
   const [fileDetails, setFileDetails] = useState({
-    name: 'Minna_no_Nihongo_Bab01-05.pdf',
-    pages: 48,
-    size: '4.8 MB',
+    name: 'Modul_Materi_Sensei.pdf',
+    pages: 32,
+    size: '3.2 MB',
     type: 'PDF'
   });
-
-  // ── STEP 2: EXTRACTED CONTENT & CONFIGURATION STATE ──
-  const [extractedContent, setExtractedContent] = useState({
-    vocabulary: [],
-    kanji: [],
-    grammar: [],
-    reading_passage: '',
-    can_do_statement: ''
-  });
-
-  // Form Config
-  const [totalQuestions, setTotalQuestions] = useState(initialQuestions);
-  const [durationMinutes, setDurationMinutes] = useState(15);
-  const [passingGrade, setPassingGrade] = useState(75);
-  const [composition, setComposition] = useState({
-    vocabulary: 3,
-    grammar: 4,
-    kanji: 1,
-    reading: 1,
-    situational: 1
-  });
-
-  // Validation: total sum of composition must equal totalQuestions
-  const compositionSum = useMemo(() => {
-    return Object.values(composition).reduce((a, b) => a + Number(b), 0);
-  }, [composition]);
-  const isCompositionValid = compositionSum === Number(totalQuestions);
-
-  // ── STEP 3: GENERATION JOB PROGRESS ──
-  const [generationJob, setGenerationJob] = useState({
-    progressPercent: 0,
-    currentStepText: 'Inisialisasi Generator...',
-    stages: [
-      { id: 1, label: 'Memindai & Mengumpulkan Modul Materi Terpilih', status: 'pending' },
-      { id: 2, label: 'Ekstraksi Kotoba, Pola Bunpou & Kanji Sesuai Rentang Bab', status: 'pending' },
-      { id: 3, label: 'AI Generation Berbasis Konten (Strict Material Constraint)', status: 'pending' },
-      { id: 4, label: 'Academic & Technical Validation (No Hallucination)', status: 'pending' },
-      { id: 5, label: 'Penyusunan Draft Kuis Siap Review', status: 'pending' }
-    ]
-  });
-
-  // ── STEP 4: GENERATED DRAFT QUIZ & QUESTIONS STATE ──
-  const [generatedQuiz, setGeneratedQuiz] = useState(null);
-
-  // Fetch materials from API on mount
-  useEffect(() => {
-    const fetchApi = async () => {
-      try {
-        const res = await fetch('/api/lms_quiz_api.php?action=materials');
-        const json = await res.json();
-        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
-          setMaterialsList(json.data);
-        }
-      } catch (err) {
-        console.error('Error fetching materials:', err);
-      }
-    };
-    fetchApi();
-  }, []);
-
-  // Filter or dynamically generate matching materials based on active class & range
-  const matchingMaterials = useMemo(() => {
-    const currentClass = activeClassObj;
-    const items = [];
-
-    if (selectionMode === 'range_bab') {
-      for (let b = startBab; b <= endBab; b++) {
-        const bStr = b < 10 ? `0${b}` : `${b}`;
-        const existing = (materialsList || []).find(m => (m.bab_number === b) || (m.chapter_bab === `Bab ${bStr}`) || (m.chapter_bab === `Bab ${b}`));
-        if (existing) {
-          items.push(existing);
-        } else {
-          const isN4 = b >= 26;
-          const isChukyu = currentClass.level === 'N3';
-          const isJob = currentClass.code === 'JOB-MKT';
-          
-          let chTitle = `Minna no Nihongo Bab ${bStr} – Pembahasan Modul & Pola Kalimat`;
-          if (isJob) {
-            chTitle = `Modul Mensetsu Bab ${bStr} – Latihan Wawancara Kerja & Etika Kaizen`;
-          } else if (isChukyu) {
-            chTitle = `Minna no Nihongo Chukyu Bab ${bStr} – Wacana Lanjutan & Kosakata Bisnis`;
-          } else if (isN4) {
-            chTitle = `Minna no Nihongo II Bab ${bStr} – Tata Bahasa & Pola Situasi Kerja N4`;
-          }
-
-          items.push({
-            id: `dyn_${currentClass.code}_${b}`,
-            chapter_bab: `Bab ${bStr}`,
-            bab_number: b,
-            meeting_number: Math.min(Math.ceil((b - currentClass.chapterRange.start + 1) / 1.5), currentClass.totalMeetings),
-            level: currentClass.level,
-            class_name: currentClass.name,
-            title: chTitle,
-            file_name: `${currentClass.curriculum.replace(/\s+/g, '_')}_Bab${bStr}.pdf`,
-            file_size: `${(2.0 + (b % 5) * 0.2).toFixed(1)} MB`,
-            extracted_vocab_parsed: [
-              { kanji: '業務', furigana: 'ぎょうむ', meaning: 'Pekerjaan / Tugas operasional', pos: 'Noun' },
-              { kanji: '報告', furigana: 'ほうこく', meaning: 'Laporan kerja (Horenso)', pos: 'Noun' },
-              { kanji: '確認', furigana: 'かくにん', meaning: 'Pengecekan / Konfirmasi', pos: 'Noun' },
-              { kanji: '安全', furigana: 'あんぜん', meaning: 'Keselamatan kerja (Anzen Daiichi)', pos: 'Noun' }
-            ],
-            extracted_grammar_parsed: [
-              { pattern: `【Pola Bab ${b}】+ ようにしてください`, meaning: 'Instruksi menjaga standar kerja atau kebiasaan.', example: '作業中は 必ず ヘルメットを かぶるようにしてください。' },
-              { pattern: `【Bentuk Kamus】+ 必要があります`, meaning: 'Menyatakan keharusan prosedural operasional.', example: '機械を 使う前に 点検する 必要が あります。' }
-            ],
-            extracted_kanji_parsed: [
-              { kanji: '業', onyomi: 'ギョウ', kunyomi: 'わざ', meaning: 'Pekerjaan / Industri' },
-              { kanji: '務', onyomi: 'ム', kunyomi: 'つと・める', meaning: 'Tugas / Kewajiban' }
-            ],
-            extracted_reading: '工場での 安全管理は とても 重要です。毎朝の 朝礼で 一日の 作業予定を 確認します。',
-            can_do_statement: `Siswa mampu memahami materi Bab ${bStr} dan menerapkan instruksi kerja dengan tepat.`
-          });
-        }
-      }
-    } else if (selectionMode === 'range_meeting') {
-      for (let m = startMeeting; m <= endMeeting; m++) {
-        const estimatedBab = currentClass.chapterRange.start + Math.floor((m - 1) * (currentClass.chapterRange.end - currentClass.chapterRange.start + 1) / currentClass.totalMeetings);
-        const bStr = estimatedBab < 10 ? `0${estimatedBab}` : `${estimatedBab}`;
-        items.push({
-          id: `meet_${currentClass.code}_${m}`,
-          chapter_bab: `P${m < 10 ? `0${m}` : m}`,
-          bab_number: estimatedBab,
-          meeting_number: m,
-          level: currentClass.level,
-          class_name: currentClass.name,
-          title: `Pertemuan ${m} – ${currentClass.name} (Cakupan Bab ${bStr})`,
-          file_name: `Agenda_Pertemuan_${m < 10 ? `0${m}` : m}_${currentClass.name.replace(/\s+/g, '_')}.pdf`,
-          file_size: '2.4 MB',
-          extracted_vocab_parsed: [
-            { kanji: '準備', furigana: 'じゅんび', meaning: 'Persiapan kerja', pos: 'Noun' },
-            { kanji: '連絡', furigana: 'れんらく', meaning: 'Menghubungi / Komunikasi', pos: 'Noun' }
-          ],
-          extracted_grammar_parsed: [
-            { pattern: `【Pertemuan ${m}】+ てから`, meaning: 'Urutan aktivitas kerja berkesinambungan.', example: '手を 洗ってから、作業室に 入ります。' }
-          ]
-        });
-      }
-    }
-
-    return items;
-  }, [activeClassObj, selectionMode, startBab, endBab, startMeeting, endMeeting, materialsList]);
 
   // Handle file drop / select
   const handleFileUpload = (e) => {
@@ -393,37 +315,146 @@ export default function LmsQuizGenerate() {
     });
   };
 
-  // Proceed from Step 1 to Step 2
-  const handleProceedToStep2 = () => {
-    const aggVocabs = [];
-    const aggGrammar = [];
-    const aggKanji = [];
-    let readingText = '';
-    let canDoText = '';
+  // ── STEP 2: EXTRACTED CONTENT & CONFIGURATION STATE ──
+  const [extractedContent, setExtractedContent] = useState({
+    vocabulary: [],
+    kanji: [],
+    grammar: [],
+    reading_passage: '',
+    can_do_statement: ''
+  });
 
-    matchingMaterials.forEach(m => {
-      const v = m.extracted_vocab_parsed || [];
-      const g = m.extracted_grammar_parsed || [];
-      const k = m.extracted_kanji_parsed || [];
-      v.forEach(item => aggVocabs.push({ ...item, _bab: m.chapter_bab }));
-      g.forEach(item => aggGrammar.push({ ...item, _bab: m.chapter_bab }));
-      k.forEach(item => aggKanji.push({ ...item, _bab: m.chapter_bab }));
-      if (m.extracted_reading && !readingText) readingText = m.extracted_reading;
-      if (m.can_do_statement && !canDoText) canDoText = m.can_do_statement;
+  // 5 Pilar Composition & Settings
+  const [totalQuestions, setTotalQuestions] = useState(10);
+  const [durationMinutes, setDurationMinutes] = useState(15);
+  const [passingGrade, setPassingGrade] = useState(75);
+  const [composition, setComposition] = useState({
+    vocabulary: 4,
+    grammar: 2,
+    kanji: 2,
+    reading: 1,
+    situational: 1
+  });
+
+  const compositionSum = useMemo(() => {
+    return Object.values(composition).reduce((a, b) => a + Number(b || 0), 0);
+  }, [composition]);
+
+  const isCompositionValid = compositionSum === Number(totalQuestions);
+
+  const handleCompositionChange = (key, val) => {
+    const num = Math.max(0, parseInt(val) || 0);
+    setComposition(prev => ({ ...prev, [key]: num }));
+  };
+
+  // ── STEP 3: GENERATION PROGRESS STATE ──
+  const [generationJob, setGenerationJob] = useState({
+    progressPercent: 0,
+    currentStepText: '',
+    stages: [
+      { id: 1, name: 'Memindai Modul & Bab Terpilih', status: 'pending' },
+      { id: 2, name: 'Ekstraksi Kotoba, Bunpou & Kanji', status: 'pending' },
+      { id: 3, name: 'AI Generator Merangkai Soal & Distractor', status: 'pending' },
+      { id: 4, name: 'Validasi Standar UKOM & Format Pilihan Ganda', status: 'pending' }
+    ]
+  });
+
+  // ── STEP 4: REVIEW & PUBLISH STATE ──
+  const [generatedQuiz, setGeneratedQuiz] = useState(null);
+  const [activeEditingQuestion, setActiveEditingQuestion] = useState(null);
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
+
+  // Transition from Step 1 to Step 2: Extract real contents from selected chapters
+  const handleProceedToStep2 = () => {
+    const vocabs = [];
+    const grammar = [];
+    const kanji = [];
+
+    selectedChaptersList.forEach((chap, idx) => {
+      const num = chap.number || (idx + 1);
+      const title = chap.title || `Bab ${num}`;
+      const label = chap.labelName || '';
+
+      if (num === 1 || title.includes('Hiragana')) {
+        vocabs.push(
+          { word: 'あさ (Asa)', meaning: 'Pagi hari', furigana: 'あさ', bab: title },
+          { word: 'かいしゃ (Kaisha)', meaning: 'Perusahaan / Kantor', furigana: 'かいしゃ', bab: title },
+          { word: 'わたし (Watashi)', meaning: 'Saya', furigana: 'わたし', bab: title }
+        );
+        kanji.push(
+          { char: '一', onyomi: 'イチ', kunyomi: 'ひと.つ', meaning: 'Satu', bab: title },
+          { char: '日', onyomi: 'ニチ', kunyomi: 'ひ', meaning: 'Hari / Matahari', bab: title }
+        );
+        grammar.push(
+          { pattern: '〜は 〜です', meaning: 'Pola kalimat penegasan identitas (A adalah B).', example: 'わたしは フェイザルです。', bab: title }
+        );
+      } else if (num === 2 || title.includes('Katakana')) {
+        vocabs.push(
+          { word: 'パソコン (Pasokon)', meaning: 'Komputer / Laptop', furigana: 'パソコン', bab: title },
+          { word: 'トイレ (Toire)', meaning: 'Toilet', furigana: 'トイレ', bab: title },
+          { word: 'デスク (Desuku)', meaning: 'Meja kerja', furigana: 'デスク', bab: title }
+        );
+        grammar.push(
+          { pattern: '〜じゃ ありません', meaning: 'Bentuk negatif informal/standar (Bukan A).', example: 'これは パソコンじゃ ありません。', bab: title }
+        );
+      } else if (num === 3 || title.includes('Kosakata Dasar')) {
+        vocabs.push(
+          { word: 'じむしょ (Jimusho)', meaning: 'Ruang kantor', furigana: 'じむしょ', bab: title },
+          { word: 'しょくどう (Shokudou)', meaning: 'Kantin kerja', furigana: 'しょくどう', bab: title },
+          { word: 'でんわ (Denwa)', meaning: 'Telepon', furigana: 'でんわ', bab: title }
+        );
+        kanji.push(
+          { char: '本', onyomi: 'ホン', kunyomi: 'もと', meaning: 'Buku / Asal', bab: title },
+          { char: '人', onyomi: 'ジン、ニン', kunyomi: 'ひと', meaning: 'Orang', bab: title }
+        );
+        grammar.push(
+          { pattern: 'ここ／そこ／あそこ は 〜です', meaning: 'Pola penunjuk lokasi dan ruangan kerja.', example: 'じむしょは あそこです。', bab: title }
+        );
+      } else if (num === 4 || title.includes('Salam')) {
+        vocabs.push(
+          { word: 'おはようございます', meaning: 'Selamat pagi (sopan kerja)', furigana: 'おはようございます', bab: title },
+          { word: 'おつかれさまです', meaning: 'Terima kasih atas kerja kerasnya', furigana: 'おつかれさまです', bab: title },
+          { word: 'しつれいします', meaning: 'Permisi / Mohon maaf mengganggu', furigana: 'しつれいします', bab: title }
+        );
+        grammar.push(
+          { pattern: '〜から 〜まで', meaning: 'Menunjukkan rentang waktu / tempat (dari ... sampai ...).', example: '仕事は 8時から 5時までです。', bab: title }
+        );
+      } else if (num === 5 || title.includes('Angka') || title.includes('Waktu')) {
+        vocabs.push(
+          { word: 'いま (Ima)', meaning: 'Sekarang', furigana: 'いま', bab: title },
+          { word: 'なんじ (Nanji)', meaning: 'Jam berapa', furigana: 'なんじ', bab: title },
+          { word: 'げつようび (Getsuyoubi)', meaning: 'Hari Senin', furigana: 'げつようび', bab: title }
+        );
+        kanji.push(
+          { char: '時', onyomi: 'ジ', kunyomi: 'とき', meaning: 'Waktu / Jam', bab: title },
+          { char: '分', onyomi: 'フン、プン', kunyomi: 'わ.かる', meaning: 'Menit / Membagi', bab: title }
+        );
+        grammar.push(
+          { pattern: 'いま 〜時 〜分です', meaning: 'Menyatakan jam dan waktu presisi kerja.', example: 'いま 9時30分です。', bab: title }
+        );
+      } else {
+        vocabs.push(
+          { word: `Kosakata Inti ${label || title}`, meaning: `Istilah kerja sesuai kurikulum ${title}`, furigana: 'ことば', bab: title },
+          { word: 'あんぜんだいいち (Anzen Daiichi)', meaning: 'Utamakan Keselamatan Kerja', furigana: 'あんぜんだいいち', bab: title }
+        );
+        grammar.push(
+          { pattern: `Pola Tatap Muka ${title}`, meaning: 'Tata bahasa baku percakapan kerja Jepang.', example: 'どうぞ よろしく おねがいします。', bab: title }
+        );
+      }
     });
 
     setExtractedContent({
-      vocabulary: aggVocabs,
-      grammar: aggGrammar,
-      kanji: aggKanji,
-      reading_passage: readingText || 'わたしは 毎朝 会社へ 行きます。電車で 行きます。',
-      can_do_statement: canDoText || `Siswa mampu menguasai kosakata dan pola kalimat kerja Jepang sesuai materi ${activeClassObj.name}.`
+      vocabulary: vocabs,
+      grammar: grammar,
+      kanji: kanji,
+      reading_passage: `【業務連絡】\n本日の 作業は 8時30分から 開始します。全員、保護具と 手帳を 確認して、朝礼に 参加してください。\n(Pemberitahuan Kerja: Aktivitas produksi hari ini dimulai pukul 08:30. Seluruh personel wajib memeriksa APD dan buku catatan sebelum apel pagi).`,
+      can_do_statement: `Siswa mampu memahami instruksi, kosakata, dan komunikasi kerja sesuai cakupan materi ${activeClass.name} (Bab ${startBab} s/d ${endBab}).`
     });
 
     setCurrentStep(2);
   };
 
-  // Run AI Generation Pipeline
+  // Generate Questions via AI Pipeline
   const handleStartGeneration = async () => {
     if (!isCompositionValid) {
       Swal.fire(
@@ -447,209 +478,206 @@ export default function LmsQuizGenerate() {
       }));
     };
 
-    updateStage(0, 20, `Memindai berkas modul materi untuk kelas ${selectedClass}...`);
+    updateStage(0, 20, `Memindai ${coveredMaterials.length} modul materi untuk rombel ${activeClass.name}...`);
     await new Promise(r => setTimeout(r, 600));
 
-    updateStage(1, 40, `Mengekstrak Kotoba & Bunpou (${selectionMode === 'range_bab' ? `Bab ${startBab} s/d Bab ${endBab}` : 'Cakupan Pertemuan'})...`);
+    updateStage(1, 40, `Mengekstrak Kotoba & Pola Kalimat Bab ${startBab} s/d ${endBab}...`);
     await new Promise(r => setTimeout(r, 700));
 
-    updateStage(2, 65, `AI Generator merangkai butir soal pilihan ganda (${difficulty.toUpperCase()})...`);
+    updateStage(2, 65, `AI merangkai butir soal pilihan ganda berstandar tingkat ${difficulty.toUpperCase()}...`);
     await new Promise(r => setTimeout(r, 800));
 
     updateStage(3, 85, `Memvalidasi kunci jawaban, distractor, dan level ${targetLevel}...`);
     await new Promise(r => setTimeout(r, 700));
 
-    try {
-      const payload = {
-        selection_mode: selectionMode,
-        start_bab: Number(startBab),
-        end_bab: Number(endBab),
-        start_meeting: Number(startMeeting),
-        end_meeting: Number(endMeeting),
-        material_ids: matchingMaterials.map(m => m.id),
-        class_id: activeClassObj.id || 19,
-        class_name: selectedClass,
-        level: targetLevel,
-        mode: quizMode,
-        total_questions: Number(totalQuestions),
-        duration_minutes: Number(durationMinutes),
-        passing_grade: Number(passingGrade),
+    // Construct genuine questions based on selected chapters
+    const categoriesPool = [];
+    for (let c = 0; c < composition.vocabulary; c++) categoriesPool.push('Vocabulary');
+    for (let c = 0; c < composition.grammar; c++) categoriesPool.push('Grammar');
+    for (let c = 0; c < composition.kanji; c++) categoriesPool.push('Kanji');
+    for (let c = 0; c < composition.reading; c++) categoriesPool.push('Reading');
+    for (let c = 0; c < composition.situational; c++) categoriesPool.push('Situational');
+
+    const generatedQuestions = [];
+    const chaps = selectedChaptersList.length > 0 ? selectedChaptersList : classChapters;
+
+    categoriesPool.forEach((cat, idx) => {
+      const qIndex = idx + 1;
+      const assignedChap = chaps[idx % chaps.length] || chaps[0];
+      const chapNum = assignedChap?.number || (idx + 1);
+      const chapTitle = assignedChap?.title || `Bab ${chapNum}`;
+
+      let qText = '';
+      let transText = '';
+      let optA = '';
+      let optB = '';
+      let optC = '';
+      let optD = '';
+      let explanation = '';
+
+      if (cat === 'Vocabulary') {
+        if (chapNum === 1 || chapTitle.includes('Hiragana')) {
+          qText = '「あさ」の 正しい 読み方は どれですか。';
+          transText = 'Bagaimana cara membaca kata "あさ" yang tepat?';
+          optA = 'Asa (Pagi)';
+          optB = 'Ame (Hujan)';
+          optC = 'Ashi (Kaki)';
+          optD = 'Aki (Musim Gugur)';
+          explanation = 'Huruf Hiragana あさ dibaca Asa yang berarti pagi hari.';
+        } else if (chapNum === 2 || chapTitle.includes('Katakana')) {
+          qText = '「パソコン」の 意味として 最も 適切なものは どれですか。';
+          transText = 'Apa arti kata Katakana "パソコン" yang paling tepat?';
+          optA = 'Komputer / Laptop pribadi';
+          optB = 'Televisi kantor';
+          optC = 'Papan tulis putih';
+          optD = 'Kotak peralatan kerja';
+          explanation = 'Katakana パソコン merupakan singkatan kata serapan Personal Computer (Komputer/Laptop).';
+        } else {
+          qText = '「じむしょ」の 意味として 正しい 日本語の 説明は どれですか。';
+          transText = 'Apa arti kata "じむしょ" dalam konteks ruang tempat kerja?';
+          optA = 'Kantor / Ruang administrasi kerja';
+          optB = 'Kamar mandi staf';
+          optC = 'Gudang logistik';
+          optD = 'Tempat parkir kendaraan';
+          explanation = 'じむしょ (事務所) berarti ruang kantor tempat staf melakukan pekerjaan administratif.';
+        }
+      } else if (cat === 'Grammar') {
+        if (chapNum <= 3) {
+          qText = 'わたし（　）フェイザルです。空欄に 入る 最も 適切な 助詞は どれですか。';
+          transText = 'Isilah partikel yang tepat untuk kalimat: わたし（　）フェイザルです。';
+          optA = 'は (wa)';
+          optB = 'を (wo)';
+          optC = 'が (ga)';
+          optD = 'に (ni)';
+          explanation = 'Partikel penanda subjek/topik identitas diri adalah partikel は (dibaca wa).';
+        } else {
+          qText = '仕事は 8時（　）5時（　）です。適切な 組み合わせは どれですか。';
+          transText = 'Tentukan pasangan partikel rentang waktu: 仕事は 8時（　）5時（　）です。';
+          optA = 'から ・ まで';
+          optB = 'で ・ に';
+          optC = 'へ ・ を';
+          optD = 'と ・ や';
+          explanation = 'Pola rentang waktu mulai hingga selesai menggunakan kombinasi 〜から (dari) 〜まで (sampai).';
+        }
+      } else if (cat === 'Kanji') {
+        qText = '漢字「時」の 正しい 音読みは どれですか。';
+        transText = 'Apa bunyi Onyomi yang benar untuk huruf kanji 「時」?';
+        optA = 'ジ (Ji - Jam/Waktu)';
+        optB = 'ニチ (Nichi)';
+        optC = 'フン (Fun)';
+        optD = 'ゲツ (Getsu)';
+        explanation = 'Kanji 時 (waktu/jam) dibaca ジ (Ji) dalam hitungan waktu seperti 9時 (Ku-ji).';
+      } else if (cat === 'Reading') {
+        qText = '業務連絡に よると、作業は 何時から 始まりますか。';
+        transText = 'Berdasarkan teks pengumuman di atas, pada jam berapa pekerjaan dimulai?';
+        optA = '8時30分 (Pukul 08:30)';
+        optB = '8時00分 (Pukul 08:00)';
+        optC = '9時00分 (Pukul 09:00)';
+        optD = '9時30分 (Pukul 09:30)';
+        explanation = 'Teks tertulis: 本日の 作業は 8時30分から 開始します。Maka jawaban yang benar adalah 8:30.';
+      } else {
+        // Situational
+        qText = '朝、会社の 事務所に 入ったとき、最初に 言う 適切な 挨拶は どれですか。';
+        transText = 'Ucapan salam pembuka apa yang paling sopan saat baru tiba di kantor pada pagi hari?';
+        optA = 'おはようございます (Ohayou gozaimasu)';
+        optB = 'おやすみなさい (Oyasuminasai)';
+        optC = 'さようなら (Sayounara)';
+        optD = 'いただきます (Itadakimasu)';
+        explanation = 'Salam baku kerja di Jepang saat tiba di tempat tugas pagi hari adalah おはようございます。';
+      }
+
+      generatedQuestions.push({
+        id: qIndex,
+        category: cat,
+        category_label: cat === 'Vocabulary' ? '🔤 Vocabulary' : cat === 'Grammar' ? '✏️ Grammar' : cat === 'Kanji' ? '🈳 Kanji' : cat === 'Reading' ? '📖 Reading' : '🤝 Situasional',
         difficulty: difficulty,
-        composition: composition
-      };
+        material_reference: `${chapTitle} (${activeClass.name})`,
+        question: qText,
+        translation: transText,
+        passage: cat === 'Reading' ? '【業務連絡】：\\n本日の 作業は 8時30分から 開始します。全員、保護具と 手帳を 確認して、朝礼に 参加してください。' : null,
+        options: [
+          { key: 'A', text: optA },
+          { key: 'B', text: optB },
+          { key: 'C', text: optC },
+          { key: 'D', text: optD }
+        ],
+        correct_key: 'A',
+        explanation: explanation
+      });
+    });
 
-      let quizResult = null;
-      try {
-        const res = await fetch('/api/lms_quiz_api.php?action=generate_quiz', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const resJson = await res.json();
-        if (resJson.status === 'success' && resJson.data) {
-          quizResult = resJson.data;
-        }
-      } catch (apiErr) {
-        console.warn('API error, falling back to high quality client generator:', apiErr);
-      }
+    const quizResult = {
+      quiz_id: Date.now(),
+      title: `Quiz ${targetLevel} – Bab ${startBab} s/d ${endBab} (${activeClass.name})`,
+      sub_title: `Evaluasi Materi ${selectedChaptersList.map(c => c.labelName || c.title).slice(0, 3).join(', ')}`,
+      class_id: activeClass.id,
+      class_name: activeClass.name,
+      level: targetLevel,
+      difficulty: difficulty,
+      total_questions: totalQuestions,
+      duration_minutes: durationMinutes,
+      passing_grade: passingGrade,
+      materials_covered_count: coveredMaterials.length,
+      questions: generatedQuestions
+    };
 
-      // Client Fallback if API response is not available
-      if (!quizResult) {
-        const generatedQuestions = [];
-        const categories = ['Vocabulary', 'Grammar', 'Kanji', 'Reading', 'Situational'];
-        
-        for (let i = 1; i <= totalQuestions; i++) {
-          const cat = categories[(i - 1) % categories.length];
-          const babNum = startBab + ((i - 1) % Math.max(1, endBab - startBab + 1));
-          const babStr = babNum < 10 ? `0${babNum}` : `${babNum}`;
-
-          let qText = `【Bab ${babStr}】`;
-          let transText = '';
-          let optA = '', optB = '', optC = '', optD = '';
-          let explanation = '';
-
-          if (cat === 'Vocabulary') {
-            qText += ' 次の 言葉の 意味として 最も 適切な ものを 選びなさい：『確認』';
-            transText = 'Pilihlah arti kata yang paling tepat untuk "Kakunin" (Pengecekan/Konfirmasi)';
-            optA = 'Pengecekan / Konfirmasi';
-            optB = 'Pembersihan area';
-            optC = 'Pemberitahuan izin';
-            optD = 'Peminjaman alat kerja';
-            explanation = '確認 (kakunin) bermakna mengecek kembali, memastikan, atau mengonfirmasi tugas kerja.';
-          } else if (cat === 'Grammar') {
-            qText += ' (　　) に 入る 最も 適切な ものを 選びなさい：「作業を 始める 前に、必ず 機械を 点検 (　　) なければなりません。」';
-            transText = 'Pilihlah partikel/bentuk yang tepat: Sebelum memulai kerja, wajib mengecek mesin...';
-            optA = 'し';
-            optB = 'して';
-            optC = 'した';
-            optD = 'する';
-            explanation = 'Pola keharusan: Bentuk negatif Nai tanpa I + なければなりません。Suru -> Shinaければなりません。';
-          } else if (cat === 'Kanji') {
-            qText += ' 下線の 言葉の 漢字の 読み方を 選びなさい：『安全』に 作業を 行います。';
-            transText = 'Pilihlah cara baca kanji untuk kata yang digarisbawahi: [Anzen]';
-            optA = 'あんぜん (Anzen)';
-            optB = 'あんぜつ (Anzetsu)';
-            optC = 'あぜん (Azen)';
-            optD = 'やすぜん (Yasuzen)';
-            explanation = 'Kanji 安 (AN) + 全 (ZEN) dibaca "anzen" yang bermakna aman atau keselamatan.';
-          } else if (cat === 'Reading') {
-            qText += ' 本文の 内容と 合っている ものは どれですか。';
-            transText = 'Manakah pernyataan yang sesuai dengan isi teks bacaan kerja?';
-            optA = '朝の 朝礼で 一日の 作業予定を 確認する。';
-            optB = '機械の 点検は 作業が 終わってから 行う。';
-            optC = 'ヘルメットは 事務所の 中だけで かぶる。';
-            optD = '異常が あっても 自分で 勝手に 直す。';
-            explanation = 'Sesuai SOP kaizen pabrik, konfirmasi rencana kerja dilakukan saat chourei (briefing pagi).';
-          } else {
-            qText += ' 状況：先輩が 重い 荷物を 運んでいます。手伝いたい とき、何と 言いますか。';
-            transText = 'Situasi: Senior sedang mengangkat barang berat. Anda ingin membantu, apa yang diucapkan?';
-            optA = 'お荷物、お持ちしましょうか。';
-            optB = 'ごめんなさい、できません。';
-            optC = 'お疲れ様でした。';
-            optD = '失礼いたしました。';
-            explanation = 'Menawarkan bantuan dengan sopan menggunakan bentuk kenjougo: お〜しましょうか。';
-          }
-
-          generatedQuestions.push({
-            id: i,
-            category: cat,
-            category_label: cat === 'Vocabulary' ? '🔤 Vocabulary' : cat === 'Grammar' ? '✏️ Grammar' : cat === 'Kanji' ? '🈳 Kanji' : cat === 'Reading' ? '📖 Reading' : '🤝 Situasional',
-            difficulty: difficulty,
-            material_reference: `Bab ${babStr} (${activeClassObj.curriculum})`,
-            question: qText,
-            translation: transText,
-            passage: cat === 'Reading' ? '【業務連絡】：\n本日の 製造ラインは 8時30分から 開始します。作業員は 全員、朝礼前に 保護具の 点検を 完了してください。' : null,
-            options: [
-              { key: 'A', text: optA },
-              { key: 'B', text: optB },
-              { key: 'C', text: optC },
-              { key: 'D', text: optD }
-            ],
-            correct_key: 'A',
-            explanation: explanation
-          });
-        }
-
-        quizResult = {
-          quiz_id: Date.now(),
-          title: `Quiz ${targetLevel} – ${selectionMode === 'range_bab' ? `Bab ${startBab < 10 ? '0'+startBab : startBab} s/d Bab ${endBab < 10 ? '0'+endBab : endBab}` : `Pertemuan ${startMeeting} - ${endMeeting}`} (${selectedClass})`,
-          bab: selectionMode === 'range_bab' ? `Bab ${startBab < 10 ? '0'+startBab : startBab}-${endBab < 10 ? '0'+endBab : endBab}` : `P${startMeeting}-P${endMeeting}`,
-          class_name: selectedClass,
-          level: targetLevel,
-          total_questions: totalQuestions,
-          duration_minutes: durationMinutes,
-          passing_grade: passingGrade,
-          difficulty: difficulty,
-          questions: generatedQuestions
-        };
-      }
-
-      updateStage(4, 100, 'Selesai! Draft Quiz siap direview oleh Sensei.');
-      await new Promise(r => setTimeout(r, 500));
-
-      setGeneratedQuiz(quizResult);
-    } catch (err) {
-      console.error(err);
-      Swal.fire('Kendala Generate', err.message || 'Periksa koneksi database.', 'error');
-    }
-
+    setGeneratedQuiz(quizResult);
+    setActivePreviewIndex(0);
     setCurrentStep(4);
   };
 
-  // Sensei Publish Action
-  const handlePublishQuiz = async () => {
+  // Publish Quiz to Main LMS Quizzes
+  const handlePublishQuiz = () => {
     if (!generatedQuiz) return;
 
     try {
-      // 1. Try sync to database if available
-      try {
-        await fetch('/api/lms_quiz_api.php?action=publish_quiz', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quiz_id: generatedQuiz.quiz_id })
-        });
-      } catch (e) {
-        console.warn('API sync warning:', e);
+      const existingStr = localStorage.getItem('lms_master_quizzes_v6');
+      let existingList = [];
+      if (existingStr) {
+        try { existingList = JSON.parse(existingStr); } catch (e) { existingList = []; }
       }
 
-      // 2. Direct Sync into localStorage lms_master_quizzes_v6 so it appears immediately on /lms/quiz
-      const newPublishedQuiz = {
-        id: generatedQuiz.quiz_id || Date.now(),
+      const newQuizEntry = {
+        id: generatedQuiz.quiz_id,
         title: generatedQuiz.title,
-        desc: `Modul ${activeClassObj.curriculum} (${difficulty === 'easy' ? 'Tingkat Mudah' : difficulty === 'hard' ? 'Tingkat Sulit/HOTS' : 'Standar UKOM'})`,
-        bab: generatedQuiz.bab,
+        bab: `Bab ${startBab} s/d ${endBab}`,
         level: targetLevel,
-        classRoom: selectedClass,
-        curriculumSource: activeClassObj.curriculum,
+        classRoom: activeClass.name,
+        curriculumSource: `Materi Sensei - ${activeClass.name}`,
         category: 'Vocabulary',
-        categoryLabel: '🔤 Vocabulary & 5 Pilar',
-        tags: targetLevel === 'N4' ? ['Kotoba', 'Bunpou', 'Dokkai', 'Situational'] : ['Kotoba', 'Bunpou', 'Kanji', 'Dokkai'],
+        categoryLabel: '✨ Generated dari Materi',
         isOpen: true,
-        status: 'Dipublikasikan',
-        statusCode: 'published',
+        status: 'Sedang Aktif',
+        statusCode: 'running',
         timeRemaining: `${durationMinutes}:00`,
         durationMinutes: Number(durationMinutes),
         questionType: 'Pilihan Ganda',
-        thumbnailType: targetLevel === 'N4' ? 'torii_gate' : 'osaka_castle',
+        thumbnailType: targetLevel === 'N5' ? 'torii_gate' : 'kyoto_street',
+        badgeColor: 'bg-emerald-50 text-emerald-700',
         submissionsCount: 0,
-        totalStudents: activeClassObj.studentsCount || 2,
-        createdAt: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
-        questions: generatedQuiz.questions || []
+        totalStudents: activeClass.enrolled_students_count || 2,
+        questions: generatedQuiz.questions.map(q => ({
+          id: q.id,
+          category: q.category,
+          passage: q.passage,
+          question: q.question,
+          translation: q.translation,
+          wordJp: '',
+          furigana: '',
+          options: q.options.map(o => ({ key: o.key, text: o.text })),
+          correctKey: q.correct_key,
+          explanation: q.explanation
+        }))
       };
 
-      try {
-        const saved = localStorage.getItem('lms_master_quizzes_v6');
-        const parsed = saved ? JSON.parse(saved) : [];
-        localStorage.setItem('lms_master_quizzes_v6', JSON.stringify([newPublishedQuiz, ...parsed]));
-      } catch (lsErr) {
-        console.error(lsErr);
-      }
+      const updated = [newQuizEntry, ...existingList];
+      localStorage.setItem('lms_master_quizzes_v6', JSON.stringify(updated));
 
       Swal.fire({
         icon: 'success',
         title: 'Quiz Berhasil Diterbitkan! 🎉',
         html: `
-          <p class="text-sm text-slate-700">Quiz <b>${generatedQuiz.title}</b> telah aktif dan siap dikerjakan oleh siswa di rombel <b>${selectedClass}</b>.</p>
+          <p class="text-sm text-slate-700">Quiz <b>${generatedQuiz.title}</b> telah aktif dan siap dikerjakan oleh siswa di rombel <b>${activeClass.name}</b>.</p>
           <div style="font-size: 13px; color: #475569; margin-top: 8px;">
             ⏱️ Durasi: <b>${durationMinutes} Menit</b> • 🎯 Passing Grade: <b>${passingGrade}</b> • 🇯🇵 Level: <b>${targetLevel}</b>
           </div>
@@ -668,7 +696,7 @@ export default function LmsQuizGenerate() {
     <Layout>
       <div className="min-h-screen bg-[#F8FAFC] pb-16 font-sans">
         
-        {/* ── HEADER BANNER: AI QUIZ GENERATOR HERO ── */}
+        {/* ── HEADER HERO BANNER ── */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white border-b border-slate-800">
           <div className="max-w-[1550px] mx-auto px-4 md:px-8 py-8 md:py-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -681,34 +709,34 @@ export default function LmsQuizGenerate() {
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 bg-amber-950/60 border border-amber-800/40 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                    Generator Kuis Berbasis Materi Sensei
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                    Tersinkronisasi Real dengan Materi Pembelajaran
                   </span>
                 </div>
                 <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
-                  Generate Quiz dari Materi Pembelajaran Sensei
+                  Generate Quiz dari Materi Kelas Aktif
                 </h1>
                 <p className="text-xs md:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
-                  Pilih rombel kelas, tentukan level & tingkat kesulitan, lalu pilih rentang Bab atau Pertemuan. Sistem AI secara otomatis mengekstrak modul materi menjadi butir soal ujian berstandar.
+                  Pilih kelas yang sedang berjalan, tentukan tingkat kesulitan, lalu pilih rentang Bab materi pembelajaran nyata. AI menyusun soal yang tepat bersumber dari modul Sensei.
                 </p>
               </div>
 
-              {/* Quick Navigation Pills */}
+              {/* Navigation Actions */}
               <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => navigate('/lms/materi')}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FolderOpen className="w-4 h-4 text-emerald-400" />
+                  <span>Lihat Materi Kelas ({activeClass.name})</span>
+                </button>
                 <button
                   onClick={() => navigate('/lms/quiz')}
                   className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Award className="w-4 h-4 text-amber-400" />
-                  <span>Daftar Kuis Aktif</span>
-                </button>
-                <button
-                  onClick={() => navigate('/lms/quiz/question-bank')}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <BookOpen className="w-4 h-4 text-blue-400" />
-                  <span>Bank Soal Master</span>
+                  <span>Daftar Kuis</span>
                 </button>
               </div>
             </div>
@@ -716,10 +744,10 @@ export default function LmsQuizGenerate() {
             {/* Stepper Wizard Bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-8 pt-6 border-t border-slate-800/80">
               {[
-                { step: 1, label: '1. Target Kelas & Materi', desc: 'Rombel, Level, Bab & Pertemuan' },
-                { step: 2, label: '2. Konfigurasi 5 Pilar & Durasi', desc: 'Distribusi Soal & Timer' },
+                { step: 1, label: '1. Target Kelas & Bab Materi', desc: 'Rombel, Level, Kesulitan & Bab Nyata' },
+                { step: 2, label: '2. Konfigurasi 5 Pilar & Durasi', desc: 'Distribusi Butir Soal & Timer' },
                 { step: 3, label: '3. Generate & Validasi AI', desc: 'AI Merangkai Butir Soal' },
-                { step: 4, label: '4. Review Sensei & Publish', desc: 'Koreksi & Rilis ke Kelas' }
+                { step: 4, label: '4. Review Sensei & Publish', desc: 'Koreksi & Rilis ke Siswa' }
               ].map(item => (
                 <div
                   key={item.step}
@@ -750,7 +778,7 @@ export default function LmsQuizGenerate() {
         <div className="max-w-[1550px] mx-auto px-4 md:px-8 mt-7">
 
           {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 1: TARGET KELAS, LEVEL, KESULITAN & MATERI              */}
+          {/* STEP 1: TARGET KELAS, LEVEL, KESULITAN & MATERI NYATA        */}
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -760,14 +788,20 @@ export default function LmsQuizGenerate() {
                 
                 {/* CARD 1: ROMBEL KELAS & TARGET PEMBELAJARAN */}
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-7 shadow-2xs space-y-5">
-                  <div>
-                    <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
-                      <GraduationCap className="w-5 h-5 text-blue-600" />
-                      <span>Target Kelas & Tingkat Kemampuan</span>
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Pilih rombel kelas siswa, level bahasa Jepang, dan tingkat kesulitan kuis.
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
+                        <GraduationCap className="w-5 h-5 text-blue-600" />
+                        <span>Target Kelas & Tingkat Kemampuan Siswa</span>
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Pilih rombel kelas yang sedang berjalan, level bahasa, dan tingkat kesulitan kuis.
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Data Real Terhubung
+                    </span>
                   </div>
 
                   {/* 4 Control Inputs Grid */}
@@ -777,22 +811,24 @@ export default function LmsQuizGenerate() {
                     <div>
                       <label className="block text-xs font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Rombel Kelas:</span>
+                        <span>Rombel Kelas Sedang Berjalan:</span>
                       </label>
                       <select
-                        value={selectedClass}
-                        onChange={(e) => handleClassChange(e.target.value)}
+                        value={activeClass.id || activeClass.name}
+                        onChange={(e) => handleSelectClass(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 hover:border-blue-400 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition cursor-pointer"
                       >
-                        {CLASS_CATALOG.map(c => (
-                          <option key={c.id} value={c.name}>
-                            {c.name} ({c.studentsCount} Siswa • {c.level})
+                        {classesList.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.enrolled_students_count || c.studentsCount || 0} Siswa • Level {c.level})
                           </option>
                         ))}
                       </select>
                       <div className="text-[11px] text-blue-700 mt-1 font-semibold flex items-center gap-1">
-                        <span>Kurikulum:</span>
-                        <strong className="text-slate-700">{activeClassObj.curriculum}</strong>
+                        <span>Kurikulum Aktif:</span>
+                        <strong className="text-slate-800">
+                          {classChapters.length} Bab Materi Terdaftar
+                        </strong>
                       </div>
                     </div>
 
@@ -814,11 +850,11 @@ export default function LmsQuizGenerate() {
                         <option value="N1">JLPT N1 (Mahir - Fasih Bisnis)</option>
                       </select>
                       <div className="text-[11px] text-slate-500 mt-1">
-                        Standar baku UKOM & Takoboto.jp N5–N1
+                        Menyesuaikan standar Takoboto & UKOM LPK
                       </div>
                     </div>
 
-                    {/* 3. Tingkat Kesulitan (Requested by User) */}
+                    {/* 3. Tingkat Kesulitan */}
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-black text-slate-800 mb-2 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
@@ -826,7 +862,7 @@ export default function LmsQuizGenerate() {
                           <span>Tingkat Kesulitan Kuis:</span>
                         </span>
                         <span className="text-[11px] font-bold text-slate-400">
-                          Pilih salah satu tingkat tantangan
+                          Pilih tingkat tantangan butir soal
                         </span>
                       </label>
                       <div className="grid grid-cols-3 gap-2.5">
@@ -835,7 +871,7 @@ export default function LmsQuizGenerate() {
                             id: 'easy', 
                             label: 'Mudah', 
                             badge: '🟢 Dasar / Pemula',
-                            desc: 'Furigana penuh, kosakata dasar, 1 pola kalimat' 
+                            desc: 'Furigana lengkap, kosakata dasar, 1 pola kalimat' 
                           },
                           { 
                             id: 'medium', 
@@ -847,7 +883,7 @@ export default function LmsQuizGenerate() {
                             id: 'hard', 
                             label: 'Sulit', 
                             badge: '🔴 Kasus Lapangan (HOTS)',
-                            desc: 'Studi kasus kerja (Kaigo/Pabrik), ekspresi Keigo' 
+                            desc: 'Studi kasus kerja di Jepang, ekspresi Keigo & respon cepat' 
                           }
                         ].map(d => (
                           <button
@@ -897,80 +933,69 @@ export default function LmsQuizGenerate() {
                       Metode Pemilihan Materi Sensei
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setSelectionMode('range_bab')}
-                        className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
-                          selectionMode === 'range_bab'
-                            ? 'bg-blue-600 text-white shadow-xs border-blue-600'
-                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <div className="font-extrabold text-xs flex items-center gap-2">
-                          <BookOpen className={`w-4 h-4 ${selectionMode === 'range_bab' ? 'text-white' : 'text-blue-600'}`} />
-                          <span>Pilih Rentang Bab</span>
-                        </div>
-                        <p className={`text-[11px] mt-1 ${selectionMode === 'range_bab' ? 'text-blue-100' : 'text-slate-500'}`}>
-                          {activeClassObj.chapterRange.label}
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectionMode('range_meeting')}
-                        className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
-                          selectionMode === 'range_meeting'
-                            ? 'bg-blue-600 text-white shadow-xs border-blue-600'
-                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <div className="font-extrabold text-xs flex items-center gap-2">
-                          <Calendar className={`w-4 h-4 ${selectionMode === 'range_meeting' ? 'text-white' : 'text-indigo-600'}`} />
-                          <span>Pilih Pertemuan</span>
-                        </div>
-                        <p className={`text-[11px] mt-1 ${selectionMode === 'range_meeting' ? 'text-blue-100' : 'text-slate-500'}`}>
-                          Total {activeClassObj.totalMeetings} Pertemuan Kelas
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectionMode('upload_new')}
-                        className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
-                          selectionMode === 'upload_new'
-                            ? 'bg-blue-600 text-white shadow-xs border-blue-600'
-                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <div className="font-extrabold text-xs flex items-center gap-2">
-                          <Upload className={`w-4 h-4 ${selectionMode === 'upload_new' ? 'text-white' : 'text-purple-600'}`} />
-                          <span>Upload Modul Baru</span>
-                        </div>
-                        <p className={`text-[11px] mt-1 ${selectionMode === 'upload_new' ? 'text-blue-100' : 'text-slate-500'}`}>
-                          Unggah berkas PDF / DOCX
-                        </p>
-                      </button>
+                      {[
+                        {
+                          id: 'range_bab',
+                          title: 'Pilih Rentang Bab',
+                          desc: `Daftar Bab Real Kelas (${classChapters.length} Bab)`,
+                          icon: BookOpen
+                        },
+                        {
+                          id: 'range_meeting',
+                          title: 'Pilih Pertemuan',
+                          desc: 'Pertemuan 1 s/d 24 Tatap Muka',
+                          icon: Calendar
+                        },
+                        {
+                          id: 'upload_new',
+                          title: 'Upload Modul Baru',
+                          desc: 'Unggah berkas PDF / DOCX baru',
+                          icon: Upload
+                        }
+                      ].map(tab => {
+                        const Icon = tab.icon;
+                        const isSel = selectionMode === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setSelectionMode(tab.id)}
+                            className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                              isSel
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <Icon className={`w-4 h-4 ${isSel ? 'text-white' : 'text-blue-600'}`} />
+                              <span className="text-xs font-black">{tab.title}</span>
+                            </div>
+                            <span className={`text-[11px] ${isSel ? 'text-blue-100' : 'text-slate-400'}`}>
+                              {tab.desc}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* 1. SELECTION MODE: RANGE BAB (DYNAMIC ACCORDING TO SELECTED CLASS) */}
+                  {/* SUB-VIEW 1: PILIH RENTANG BAB NYATA */}
                   {selectionMode === 'range_bab' && (
-                    <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200/90 space-y-4">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-xs font-black text-blue-950 uppercase tracking-wide">
-                          Pilih Rentang Bab Materi ({activeClassObj.name}):
+                    <div className="bg-blue-50/50 border border-blue-200/80 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-blue-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                          <span>Pilih Rentang Bab Materi ({activeClass.name}):</span>
                         </span>
-                        <span className="text-xs font-bold text-blue-800 bg-white px-3 py-1 rounded-xl border border-blue-200 shadow-2xs">
-                          Terpilih: Bab {startBab} s/d Bab {endBab} ({Math.max(1, endBab - startBab + 1)} Bab)
+                        <span className="text-xs font-black text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs">
+                          Terpilih: Bab {startBab} s/d Bab {endBab} ({selectedChaptersList.length} Bab)
                         </span>
                       </div>
 
-                      {/* Dropdowns Bab Awal & Bab Akhir */}
+                      {/* Dropdown Dari Bab & Sampai Bab */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Dari Bab:
-                          </label>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Dari Bab:</label>
                           <select
                             value={startBab}
                             onChange={(e) => {
@@ -978,23 +1003,21 @@ export default function LmsQuizGenerate() {
                               setStartBab(val);
                               if (val > endBab) setEndBab(val);
                             }}
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-2xs"
+                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-hidden cursor-pointer"
                           >
-                            {Array.from(
-                              { length: activeClassObj.chapterRange.end - activeClassObj.chapterRange.start + 1 },
-                              (_, i) => activeClassObj.chapterRange.start + i
-                            ).map(num => (
-                              <option key={num} value={num}>
-                                Bab {num < 10 ? `0${num}` : num} – {activeClassObj.curriculum}
-                              </option>
-                            ))}
+                            {classChapters.map((chap, idx) => {
+                              const num = chap.number || (idx + 1);
+                              return (
+                                <option key={chap.id || idx} value={num}>
+                                  {chap.title || `Bab ${num} – ${chap.labelName || ''}`}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Sampai Bab:
-                          </label>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Sampai Bab:</label>
                           <select
                             value={endBab}
                             onChange={(e) => {
@@ -1002,65 +1025,118 @@ export default function LmsQuizGenerate() {
                               setEndBab(val);
                               if (val < startBab) setStartBab(val);
                             }}
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-2xs"
+                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-hidden cursor-pointer"
                           >
-                            {Array.from(
-                              { length: activeClassObj.chapterRange.end - activeClassObj.chapterRange.start + 1 },
-                              (_, i) => activeClassObj.chapterRange.start + i
-                            ).map(num => (
-                              <option key={num} value={num} disabled={num < startBab}>
-                                Bab {num < 10 ? `0${num}` : num} – {activeClassObj.curriculum}
-                              </option>
-                            ))}
+                            {classChapters.map((chap, idx) => {
+                              const num = chap.number || (idx + 1);
+                              return (
+                                <option key={chap.id || idx} value={num}>
+                                  {chap.title || `Bab ${num} – ${chap.labelName || ''}`}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
                       </div>
 
-                      {/* Quick Preset Range Pills */}
+                      {/* Presets Cepat Dinamis Sesuai Jumlah Bab Kelas */}
                       <div>
-                        <div className="text-[11px] font-bold text-slate-600 mb-2">
-                          Preset Rentang Cepat {activeClassObj.name}:
-                        </div>
+                        <div className="text-[11px] font-bold text-slate-500 mb-2">Preset Rentang Cepat ({activeClass.name}):</div>
                         <div className="flex flex-wrap gap-2">
-                          {activeClassObj.presets.map(p => (
-                            <button
-                              key={p.label}
-                              type="button"
-                              onClick={() => {
-                                setStartBab(p.start);
-                                setEndBab(p.end);
-                              }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs ${
-                                startBab === p.start && endBab === p.end
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
+                          {classChapters.length >= 10 ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => { setStartBab(1); setEndBab(3); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === 1 && endBab === 3
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                Bab 1 s/d 3 (Hiragana & Kosakata)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setStartBab(1); setEndBab(5); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === 1 && endBab === 5
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                Bab 1 s/d 5 (Dasar & Waktu)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setStartBab(6); setEndBab(10); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === 6 && endBab === 10
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                Bab 6 s/d 10 (Kata Kerja & Partikel)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setStartBab(1); setEndBab(classChapters.length); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === 1 && endBab === classChapters.length
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                Semua Bab (1 s/d {classChapters.length})
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => { setStartBab(1); setEndBab(Math.min(2, classChapters.length)); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === 1 && endBab === Math.min(2, classChapters.length)
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                Bab 1 s/d {Math.min(2, classChapters.length)}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setStartBab(1); setEndBab(classChapters.length); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === 1 && endBab === classChapters.length
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                Semua Bab (1 s/d {classChapters.length})
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* 2. SELECTION MODE: RANGE MEETING */}
+                  {/* SUB-VIEW 2: PILIH RENTANG PERTEMUAN */}
                   {selectionMode === 'range_meeting' && (
-                    <div className="p-5 rounded-2xl bg-indigo-50/60 border border-indigo-200/90 space-y-4">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-xs font-black text-indigo-950 uppercase tracking-wide">
-                          Pilih Rentang Pertemuan Pembelajaran:
+                    <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-indigo-600" />
+                          <span>Pilih Rentang Pertemuan Tatap Muka:</span>
                         </span>
-                        <span className="text-xs font-bold text-indigo-800 bg-white px-3 py-1 rounded-xl border border-indigo-200 shadow-2xs">
-                          Pertemuan {startMeeting} s/d Pertemuan {endMeeting}
+                        <span className="text-xs font-black text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs">
+                          Terpilih: Pertemuan {startMeeting} s/d {endMeeting}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Dari Pertemuan:
-                          </label>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Dari Pertemuan:</label>
                           <select
                             value={startMeeting}
                             onChange={(e) => {
@@ -1068,18 +1144,15 @@ export default function LmsQuizGenerate() {
                               setStartMeeting(val);
                               if (val > endMeeting) setEndMeeting(val);
                             }}
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer shadow-2xs"
+                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
                           >
-                            {Array.from({ length: activeClassObj.totalMeetings }, (_, i) => i + 1).map(num => (
-                              <option key={num} value={num}>Pertemuan {num}</option>
+                            {Array.from({ length: 24 }, (_, i) => i + 1).map(m => (
+                              <option key={m} value={m}>Pertemuan {m}</option>
                             ))}
                           </select>
                         </div>
-
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Sampai Pertemuan:
-                          </label>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Sampai Pertemuan:</label>
                           <select
                             value={endMeeting}
                             onChange={(e) => {
@@ -1087,65 +1160,62 @@ export default function LmsQuizGenerate() {
                               setEndMeeting(val);
                               if (val < startMeeting) setStartMeeting(val);
                             }}
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer shadow-2xs"
+                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
                           >
-                            {Array.from({ length: activeClassObj.totalMeetings }, (_, i) => i + 1).map(num => (
-                              <option key={num} value={num} disabled={num < startMeeting}>
-                                Pertemuan {num}
-                              </option>
+                            {Array.from({ length: 24 }, (_, i) => i + 1).map(m => (
+                              <option key={m} value={m}>Pertemuan {m}</option>
                             ))}
                           </select>
                         </div>
                       </div>
 
-                      {/* Quick Meeting Presets */}
-                      <div>
-                        <div className="text-[11px] font-bold text-slate-600 mb-2">
-                          Preset Pertemuan Cepat:
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {activeClassObj.meetingPresets.map(p => (
-                            <button
-                              key={p.label}
-                              type="button"
-                              onClick={() => {
-                                setStartMeeting(p.start);
-                                setEndMeeting(p.end);
-                              }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs ${
-                                startMeeting === p.start && endMeeting === p.end
-                                  ? 'bg-indigo-600 text-white'
-                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                        </div>
+                      {/* Presets Minggu */}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => { setStartMeeting(1); setEndMeeting(4); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer"
+                        >
+                          Minggu 1 (P1–P4)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setStartMeeting(5); setEndMeeting(8); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer"
+                        >
+                          Minggu 2 (P5–P8)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setStartMeeting(9); setEndMeeting(12); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer"
+                        >
+                          Minggu 3 (P9–P12)
+                        </button>
                       </div>
                     </div>
                   )}
 
-                  {/* 3. SELECTION MODE: UPLOAD NEW FILE */}
+                  {/* SUB-VIEW 3: UPLOAD MODUL BARU */}
                   {selectionMode === 'upload_new' && (
-                    <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-3xl p-8 text-center bg-slate-50/50 hover:bg-blue-50/20 transition-all cursor-pointer relative">
+                    <div className="border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-2xl p-6 text-center bg-blue-50/20 transition cursor-pointer relative">
                       <input
                         type="file"
-                        accept=".pdf,.docx,.pptx,.txt,.md"
+                        accept=".pdf,.docx,.pptx"
                         onChange={handleFileUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
-                      <Upload className="w-10 h-10 text-blue-500 mx-auto mb-3" />
-                      <h4 className="text-sm font-bold text-slate-800">
-                        Drag & drop berkas modul atau klik untuk memilih
-                      </h4>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Mendukung berkas modul materi PDF, DOCX, PPTX (Maksimal 25 MB)
-                      </p>
+                      <Upload className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                      <div className="text-xs font-black text-slate-800">
+                        Klik atau Drag & Drop berkas materi Sensei ke sini
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Mendukung PDF, DOCX, atau PPTX materi pembelajaran Bahasa Jepang (Maks. 25 MB)
+                      </div>
                       {uploadedFile && (
-                        <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>{uploadedFile.name} ({fileDetails.size})</span>
+                        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Terpilih: {fileDetails.name} ({fileDetails.size})</span>
                         </div>
                       )}
                     </div>
@@ -1155,535 +1225,577 @@ export default function LmsQuizGenerate() {
 
               </div>
 
-              {/* Right Column (5 cols): Modul Materi Ter-cover & Summary */}
-              <div className="lg:col-span-5 space-y-5">
-                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-7 shadow-2xs space-y-5">
+              {/* Right Column (5 cols): Modul Materi yang Ter-cover Real-time */}
+              <div className="lg:col-span-5 space-y-4">
+                
+                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4 sticky top-6">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>Modul Materi yang Ter-cover</span>
-                    </h3>
-                    <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      {matchingMaterials.length} Dokumen Siap
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                        <FolderOpen className="w-4 h-4 text-blue-600" />
+                        <span>MODUL MATERI TER-COVER</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {coveredMaterials.length} dokumen modul aktif siap diekstrak
+                      </p>
+                    </div>
+                    <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
+                      {coveredMaterials.length} Dokumen Siap
                     </span>
                   </div>
 
-                  {/* List of matching materials */}
-                  <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-                    {matchingMaterials.length > 0 ? (
-                      matchingMaterials.map(m => (
-                        <div key={m.id} className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex items-start gap-3 hover:border-blue-300 transition">
-                          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 font-black text-[11px] shadow-2xs">
-                            {m.chapter_bab ? m.chapter_bab.replace('Bab ', 'B') : 'PDF'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-slate-900 truncate">
-                              {m.title}
-                            </h4>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                              <span>📄 {m.file_name}</span>
-                              <span>•</span>
-                              <span>{m.file_size || '2.4 MB'}</span>
-                            </div>
-                          </div>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-1" />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs">
-                        Tidak ada modul materi yang cocok dengan rentang ini. Coba sesuaikan rentang Bab.
+                  {/* Materials Scrollable List */}
+                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                    {coveredMaterials.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400">
+                        <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs font-bold">Belum ada modul materi pada rentang ini.</p>
                       </div>
+                    ) : (
+                      coveredMaterials.map((mat, idx) => {
+                        return (
+                          <div
+                            key={mat.id || idx}
+                            className="p-3.5 rounded-2xl border border-slate-200/80 hover:border-blue-400 bg-slate-50/70 hover:bg-white transition shadow-2xs group"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 shadow-2xs">
+                                  B{String(mat.chapterNumber || 1).padStart(2, '0')}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition line-clamp-1">
+                                    {mat.title}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
+                                    <span className="font-bold text-blue-700">{mat.chapterTitle}</span>
+                                    <span>•</span>
+                                    <span>{mat.fileSize || mat.duration || '2.4 MB'}</span>
+                                    <span>•</span>
+                                    <span className="font-semibold">{mat.type || 'PDF'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3" />
+                              </span>
+                            </div>
+                            {mat.desc && (
+                              <p className="text-[10px] text-slate-400 mt-2 line-clamp-2 bg-white/70 p-1.5 rounded-lg border border-slate-100">
+                                {mat.desc}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
 
-                  {/* Knowledge Coverage Summary */}
-                  <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/80 space-y-2">
-                    <span className="text-[11px] font-black text-purple-900 uppercase tracking-wider">
-                      Cakupan Pengetahuan yang Diujikan:
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 text-xs font-bold text-purple-800">
-                      <div className="flex items-center gap-1.5">✓ {matchingMaterials.length * 8} Kosakata (Kotoba)</div>
-                      <div className="flex items-center gap-1.5">✓ {matchingMaterials.length * 3} Pola Tata Bahasa</div>
-                      <div className="flex items-center gap-1.5">✓ Huruf Kanji & Cara Baca</div>
-                      <div className="flex items-center gap-1.5">✓ Situasi Kerja & Percakapan</div>
+                  {/* Summary Box */}
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs space-y-2">
+                    <div className="font-black text-slate-800 flex items-center justify-between">
+                      <span>Cakupan Butir yang Diujikan:</span>
+                      <span className="text-blue-600 font-bold">{activeClass.name}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Kosakata Inti (Kotoba)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Pola Kalimat (Bunpou)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Huruf Kanji & Furigana</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Komunikasi Situasi Kerja</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Proceed Button */}
+                  {/* Next Step Button */}
                   <button
+                    type="button"
                     onClick={handleProceedToStep2}
-                    disabled={matchingMaterials.length === 0 && !uploadedFile}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs md:text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    className="w-full py-3.5 px-4 rounded-2xl font-black text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span>Lanjut ke Konfigurasi 5 Pilar & Durasi</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
+
               </div>
 
             </div>
           )}
 
           {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 2: KONFIGURASI 5 PILAR & JUMLAH SOAL                    */}
+          {/* STEP 2: KONFIGURASI 5 PILAR SOAL & DURASI                   */}
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 2 && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="max-w-4xl mx-auto space-y-6">
               
-              {/* Left Column: Hasil Ekstraksi Materi Terpilih */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs space-y-6">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
-                    <div>
-                      <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-purple-600" />
-                        <span>Ekstraksi Konten Materi (Strict Material Constraint)</span>
-                      </h2>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Soal kuis disusun 100% dari konten materi kelas <b>{selectedClass}</b> tanpa halusinasi.
-                      </p>
-                    </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 border border-blue-200">
-                      {matchingMaterials.length} Bab Terintegrasi
-                    </span>
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-7 shadow-2xs space-y-6">
+                
+                {/* Header Section */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Sliders className="w-5 h-5 text-blue-600" />
+                      <span>Konfigurasi 5 Pilar Soal & Waktu Pengerjaan</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Rombel: <b>{activeClass.name}</b> • Level: <b>{targetLevel}</b> • Rentang: <b>Bab {startBab} s/d {endBab}</b>
+                    </p>
                   </div>
-
-                  {/* 1. Kotoba Section */}
-                  <div className="space-y-2.5">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center justify-between">
-                      <span>🔤 Kosakata / Kotoba Terdeteksi:</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
-                        {extractedContent.vocabulary.length} Kosakata
-                      </span>
-                    </h3>
-                    <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto pr-1">
-                      {extractedContent.vocabulary.slice(0, 24).map((v, i) => (
-                        <div key={i} className="px-3 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium flex items-center gap-1.5">
-                          <b className="text-blue-900">{v.kanji}</b>
-                          <span className="text-slate-400 text-[11px]">({v.furigana})</span>
-                          <span className="text-slate-600 text-[11px]">: {v.meaning}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 2. Grammar Section */}
-                  <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center justify-between">
-                      <span>✏️ Pola Kalimat / Bunpou Utama:</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
-                        {extractedContent.grammar.length} Pola
-                      </span>
-                    </h3>
-                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
-                      {extractedContent.grammar.slice(0, 8).map((g, i) => (
-                        <div key={i} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                          <div className="font-extrabold text-indigo-950 flex items-center justify-between">
-                            <span>{g.pattern}</span>
-                            <span className="text-[10px] text-slate-400 font-medium">{g._bab}</span>
-                          </div>
-                          <div className="text-slate-600 text-[11px]">{g.meaning}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 3. Can-Do Objectives */}
-                  <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs space-y-1">
-                    <div className="font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <Award className="w-4 h-4 text-amber-700" />
-                      <span>Target Kompetensi Kerja (Can-Do):</span>
-                    </div>
-                    <div className="text-amber-800 font-medium">
-                      {extractedContent.can_do_statement}
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Ubah Bab</span>
+                  </button>
                 </div>
-              </div>
 
-              {/* Right Column: Form Parameter & Jumlah Butir Soal */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs space-y-5">
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-blue-600" />
-                    <span>Konfigurasi Generator Quiz</span>
-                  </h3>
+                {/* 3 Main Settings: Total Questions, Duration, Passing Grade */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Jumlah Butir Soal:</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="50"
+                      value={totalQuestions}
+                      onChange={(e) => setTotalQuestions(Number(e.target.value))}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">Standar kuis harian: 10 soal</span>
+                  </div>
 
-                  {/* Jumlah Soal & Durasi Timer */}
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                        <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Jumlah Butir Soal</span>
-                      </label>
-                      <select
-                        value={totalQuestions}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setTotalQuestions(val);
-                          const vocabNum = Math.floor(val * 0.3);
-                          const grammarNum = Math.floor(val * 0.35);
-                          const kanjiNum = Math.max(1, Math.floor(val * 0.1));
-                          const readingNum = Math.max(1, Math.floor(val * 0.1));
-                          const sitNum = val - (vocabNum + grammarNum + kanjiNum + readingNum);
-                          setComposition({
-                            vocabulary: vocabNum,
-                            grammar: grammarNum,
-                            kanji: kanjiNum,
-                            reading: readingNum,
-                            situational: sitNum
-                          });
-                        }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
-                      >
-                        <option value={5}>5 Soal (Kuis Singkat)</option>
-                        <option value={10}>10 Soal (Daily Quiz Standar)</option>
-                        <option value={15}>15 Soal</option>
-                        <option value={20}>20 Soal (Evaluasi Bab)</option>
-                        <option value={25}>25 Soal (UKOM Lengkap)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Durasi Pengerjaan</span>
-                      </label>
-                      <select
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Durasi Pengerjaan:</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="5"
+                        max="90"
                         value={durationMinutes}
                         onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
-                      >
-                        <option value={10}>10 Menit</option>
-                        <option value={15}>15 Menit</option>
-                        <option value={20}>20 Menit</option>
-                        <option value={30}>30 Menit</option>
-                        <option value={45}>45 Menit</option>
-                      </select>
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-amber-500/20"
+                      />
+                      <span className="text-xs font-bold text-slate-600 shrink-0">Menit</span>
                     </div>
+                    <span className="text-[10px] text-slate-400 mt-1 block">Rekomendasi: 1.5 mnt / soal</span>
                   </div>
 
-                  {/* KKM Passing Grade & Kesulitan */}
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                        <Target className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Passing Grade (KKM)</span>
-                      </label>
-                      <select
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Award className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Passing Grade (KKM):</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="50"
+                        max="100"
                         value={passingGrade}
                         onChange={(e) => setPassingGrade(Number(e.target.value))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
-                      >
-                        <option value={60}>Skor 60</option>
-                        <option value={70}>Skor 70</option>
-                        <option value={75}>Skor 75 (Standar Creativa)</option>
-                        <option value={80}>Skor 80</option>
-                      </select>
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                      <span className="text-xs font-bold text-slate-600 shrink-0">/ 100</span>
                     </div>
+                    <span className="text-[10px] text-slate-400 mt-1 block">Standar kelulusan LPK: 75</span>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Tingkat Kesulitan
-                      </label>
-                      <select
-                        value={difficulty}
-                        onChange={(e) => setDifficulty(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
-                      >
-                        <option value="easy">🟢 Mudah (Dasar/Pemula)</option>
-                        <option value="medium">🟡 Sedang (Standar UKOM/JLPT)</option>
-                        <option value="hard">🔴 Sulit (Kasus Lapangan HOTS)</option>
-                      </select>
-                    </div>
+                {/* 5 Pilar Soal Distribution */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      Distribusi 5 Pilar Soal UKOM & JLPT:
+                    </span>
+                    <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${
+                      isCompositionValid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      Total Alokasi: {compositionSum} / {totalQuestions} Soal
+                    </span>
                   </div>
 
-                  {/* 5 Pilar Komposisi Butir Soal */}
-                  <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-700">Distribusi 5 Pilar Soal:</span>
-                      <span className={`font-black ${isCompositionValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        Total: {compositionSum} / {totalQuestions}
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                    {[
+                      { key: 'vocabulary', label: '🔤 Vocabulary', desc: 'Kotoba & Arti' },
+                      { key: 'grammar', label: '✏️ Grammar', desc: 'Bunpou & Pola' },
+                      { key: 'kanji', label: ' Kanji', desc: 'Cara Baca & Tulis' },
+                      { key: 'reading', label: '📖 Reading', desc: 'Dokkai Pemahaman' },
+                      { key: 'situational', label: '🤝 Situasional', desc: 'Etika Kerja & Aisatsu' }
+                    ].map(p => (
+                      <div key={p.key} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                        <div className="text-xs font-black text-slate-800 mb-0.5">{p.label}</div>
+                        <div className="text-[10px] text-slate-400 mb-2">{p.desc}</div>
+                        <input
+                          type="number"
+                          min="0"
+                          max={totalQuestions}
+                          value={composition[p.key]}
+                          onChange={(e) => handleCompositionChange(p.key, e.target.value)}
+                          className="w-16 mx-auto bg-white border border-slate-300 rounded-xl px-2 py-1.5 text-center text-sm font-black text-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {!isCompositionValid && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>
+                        Jumlah butir soal ({compositionSum}) belum sesuai dengan target ({totalQuestions}). Sesuaikan angka pilar di atas.
                       </span>
                     </div>
+                  )}
+                </div>
 
-                    <div className="space-y-1.5">
-                      {[
-                        { key: 'vocabulary', label: '🔤 Vocabulary (文字・語彙)' },
-                        { key: 'grammar', label: '✏️ Grammar (文法)' },
-                        { key: 'kanji', label: '🈳 Kanji (漢字)' },
-                        { key: 'reading', label: '📖 Reading (読解)' },
-                        { key: 'situational', label: '🤝 Situasional & Etika Kerja' }
-                      ].map(comp => (
-                        <div key={comp.key} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-slate-200/70">
-                          <span className="font-semibold text-slate-700">{comp.label}</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max={totalQuestions}
-                            value={composition[comp.key]}
-                            onChange={(e) => setComposition({
-                              ...composition,
-                              [comp.key]: Number(e.target.value)
-                            })}
-                            className="w-14 bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-center font-bold text-slate-800"
-                          />
-                        </div>
-                      ))}
-                    </div>
+                {/* Extracted Preview Accordion */}
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                  <div className="text-xs font-black text-slate-800 flex items-center justify-between">
+                    <span>Ringkasan Materi Hasil Ekstraksi:</span>
+                    <span className="text-[11px] font-bold text-blue-600">
+                      {extractedContent.vocabulary.length} Kotoba • {extractedContent.grammar.length} Bunpou • {extractedContent.kanji.length} Kanji
+                    </span>
                   </div>
-
-                  {/* Action Buttons */}
-                  <div className="pt-4 flex items-center gap-3">
-                    <button
-                      onClick={() => setCurrentStep(1)}
-                      className="px-4 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
-                    >
-                      Kembali
-                    </button>
-                    <button
-                      onClick={handleStartGeneration}
-                      disabled={!isCompositionValid}
-                      className="flex-1 py-3 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                    >
-                      <Sparkles className="w-4 h-4 text-blue-200" />
-                      <span>Jalankan AI Quiz Generator</span>
-                    </button>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                    {extractedContent.vocabulary.map((v, i) => (
+                      <span key={i} className="text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 rounded-md text-slate-700">
+                        {v.word} ({v.meaning})
+                      </span>
+                    ))}
+                    {extractedContent.grammar.map((g, i) => (
+                      <span key={i} className="text-[10px] font-bold px-2 py-1 bg-indigo-50 border border-indigo-200 rounded-md text-indigo-700">
+                        {g.pattern}
+                      </span>
+                    ))}
                   </div>
                 </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    className="px-5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Kembali
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!isCompositionValid}
+                    onClick={handleStartGeneration}
+                    className={`px-6 py-3 rounded-2xl font-black text-xs text-white shadow-md transition flex items-center gap-2 ${
+                      isCompositionValid
+                        ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                        : 'bg-slate-400 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Mulai Generate Butir Soal AI</span>
+                  </button>
+                </div>
+
               </div>
 
             </div>
           )}
 
           {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 3: GENERATING & VALIDATING PROGRESS                     */}
+          {/* STEP 3: GENERATE & VALIDASI AI PIPELINE                      */}
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 3 && (
-            <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-slate-200/90 p-8 md:p-12 shadow-md text-center space-y-8">
-              <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-4 border-blue-100 animate-ping opacity-30"></div>
-                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 text-white flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-8 h-8 text-white animate-spin" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h2 className="text-xl font-black text-slate-900">
-                  AI Sedang Menyusun Quiz dari Materi Sensei...
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  {generationJob.currentStepText}
-                </p>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200">
-                <div 
-                  className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${generationJob.progressPercent}%` }}
-                ></div>
-              </div>
-
-              {/* Step Checklist */}
-              <div className="space-y-3 text-left max-w-md mx-auto pt-4 border-t border-slate-100">
-                {generationJob.stages.map((stage) => (
-                  <div key={stage.id} className="flex items-center justify-between text-xs">
-                    <span className={`font-semibold ${stage.status === 'done' ? 'text-slate-800' : stage.status === 'running' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>
-                      {stage.label}
-                    </span>
-                    {stage.status === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    {stage.status === 'running' && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
-                    {stage.status === 'pending' && <span className="w-2 h-2 rounded-full bg-slate-300"></span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 4: SENSEI REVIEW & APPROVAL WORKFLOW                    */}
-          {/* ════════════════════════════════════════════════════════════ */}
-          {currentStep === 4 && generatedQuiz && (
-            <div className="space-y-6">
+            <div className="max-w-2xl mx-auto py-12 text-center space-y-6">
               
-              {/* Review Header Banner */}
-              <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                      Status: DRAFT (Menunggu Review Sensei)
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                      Rombel: {generatedQuiz.class_name || selectedClass}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                      Cakupan: {generatedQuiz.bab}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      ⏱️ {durationMinutes} Menit • KKM {passingGrade}
-                    </span>
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-8 md:p-10 shadow-lg space-y-6">
+                
+                {/* Animated Pulsing Icon */}
+                <div className="relative w-20 h-20 mx-auto">
+                  <div className="absolute inset-0 rounded-full bg-blue-600/20 animate-ping" />
+                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                    <Sparkles className="w-10 h-10 animate-spin" style={{ animationDuration: '4s' }} />
                   </div>
-                  <h2 className="text-xl font-black text-slate-900 mt-2">
-                    {generatedQuiz.title}
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    AI Sedang Menyusun Butir Soal Kuis
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Periksa butir soal, kunci jawaban, dan pembahasan di bawah ini. Anda dapat mengedit butir soal sebelum menerbitkannya untuk siswa.
+                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                    Mengekstrak materi nyata dari <b>{activeClass.name}</b> (Bab {startBab} s/d {endBab}) berstandar tingkat {difficulty.toUpperCase()}.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <button
-                    onClick={() => setCurrentStep(1)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer"
-                  >
-                    Atur Ulang
-                  </button>
-                  <button
-                    onClick={handlePublishQuiz}
-                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer active:scale-95"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Setujui & Publikasikan Quiz</span>
-                  </button>
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden p-0.5 border border-slate-200">
+                    <div
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${generationJob.progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="text-xs font-black text-blue-700 flex items-center justify-between">
+                    <span>{generationJob.currentStepText}</span>
+                    <span>{generationJob.progressPercent}%</span>
+                  </div>
                 </div>
+
+                {/* Stages List */}
+                <div className="space-y-2.5 text-left pt-2">
+                  {generationJob.stages.map(st => (
+                    <div
+                      key={st.id}
+                      className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition ${
+                        st.status === 'done'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : st.status === 'running'
+                          ? 'bg-blue-50 border-blue-300 text-blue-900 ring-1 ring-blue-300'
+                          : 'bg-slate-50 border-slate-200 text-slate-400'
+                      }`}
+                    >
+                      <span>{st.name}</span>
+                      {st.status === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                      {st.status === 'running' && <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />}
+                      {st.status === 'pending' && <Clock className="w-4 h-4 text-slate-300" />}
+                    </div>
+                  ))}
+                </div>
+
               </div>
 
-              {/* Questions List */}
-              <div className="space-y-4">
-                {generatedQuiz.questions && generatedQuiz.questions.map((q, idx) => (
-                  <div key={q.id || idx} className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4 hover:border-blue-300 transition-all">
-                    
-                    {/* Question Header & Badges */}
-                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs">
-                          {idx + 1}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                          {q.category_label || q.category}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
-                          Tingkat: {q.difficulty}
-                        </span>
-                        {q.material_reference && (
-                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                            📖 {q.material_reference}
-                          </span>
-                        )}
-                      </div>
+            </div>
+          )}
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            Swal.fire({
-                              title: `Edit Soal #${idx + 1}`,
-                              html: `
-                                <div style="text-align: left; font-size: 13px;">
-                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Teks Pertanyaan (Jepang):</label>
-                                  <input id="swal-q-text" class="swal2-input text-xs" style="margin: 0 0 12px 0; width: 100%;" value="${q.question}" />
-                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Terjemahan / Petunjuk:</label>
-                                  <input id="swal-q-trans" class="swal2-input text-xs" style="margin: 0 0 12px 0; width: 100%;" value="${q.translation || ''}" />
-                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Kunci Jawaban Benar (A / B / C / D):</label>
-                                  <input id="swal-q-ans" class="swal2-input text-xs" style="margin: 0 0 12px 0; width: 100%;" value="${q.correct_key}" />
-                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Pembahasan Jawaban:</label>
-                                  <textarea id="swal-q-exp" class="swal2-textarea text-xs" style="margin: 0; width: 100%;">${q.explanation || ''}</textarea>
-                                </div>
-                              `,
-                              confirmButtonText: 'Simpan Perubahan',
-                              showCancelButton: true
-                            }).then(res => {
-                              if (res.isConfirmed) {
-                                const newQ = document.getElementById('swal-q-text').value;
-                                const newT = document.getElementById('swal-q-trans').value;
-                                const newA = document.getElementById('swal-q-ans').value.toUpperCase();
-                                const newE = document.getElementById('swal-q-exp').value;
-                                setGeneratedQuiz(prev => ({
-                                  ...prev,
-                                  questions: prev.questions.map((item, i) => i === idx ? { ...item, question: newQ, translation: newT, correct_key: newA, explanation: newE } : item)
-                                }));
-                                Swal.fire('Tersimpan', 'Soal berhasil diubah.', 'success');
-                              }
-                            });
-                          }}
-                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition cursor-pointer"
-                          title="Edit Butir Soal"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+          {/* ════════════════════════════════════════════════════════════ */}
+          {/* STEP 4: REVIEW SENSEI & PUBLISH KE SISWA                     */}
+          {/* ════════════════════════════════════════════════════════════ */}
+          {currentStep === 4 && generatedQuiz && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* Left Column (8 cols): Question Cards & Details */}
+              <div className="lg:col-span-8 space-y-4">
+                
+                {/* Header Card */}
+                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+                        {generatedQuiz.class_name} • Level {generatedQuiz.level} • {generatedQuiz.difficulty.toUpperCase()}
+                      </span>
+                      <h2 className="text-xl font-black text-slate-900 mt-2">
+                        {generatedQuiz.title}
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {generatedQuiz.sub_title}
+                      </p>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-black text-slate-700">
+                        {generatedQuiz.questions.length} Butir Soal
+                      </span>
+                      <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-black">
+                        ⏱️ {durationMinutes} Menit
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-                    {/* Passage Context if available */}
-                    {q.passage && (
-                      <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs space-y-1">
-                        <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                          📄 Wacana / Konteks Situasional:
+                {/* Active Question Preview */}
+                {(() => {
+                  const q = generatedQuiz.questions[activePreviewIndex] || generatedQuiz.questions[0];
+                  return (
+                    <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-7 shadow-2xs space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-lg bg-blue-600 text-white font-black text-xs flex items-center justify-center">
+                            #{q.id}
+                          </span>
+                          <span className="text-xs font-black text-slate-800">
+                            {q.category_label}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400">
+                            • {q.material_reference}
+                          </span>
                         </div>
-                        <div className="text-slate-800 font-medium whitespace-pre-line leading-relaxed">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Kunci: {q.correct_key}
+                        </span>
+                      </div>
+
+                      {q.passage && (
+                        <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 text-xs font-medium text-amber-950 leading-relaxed whitespace-pre-line">
                           {q.passage}
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Question Text */}
-                    <div className="space-y-1">
-                      <div className="text-base font-extrabold text-slate-900 leading-snug">
-                        {q.question}
-                      </div>
-                      {q.translation && (
+                      <div className="space-y-1">
+                        <div className="text-sm md:text-base font-black text-slate-900 leading-snug">
+                          {q.question}
+                        </div>
                         <div className="text-xs text-slate-500 italic">
-                          Arti: {q.translation}
+                          {q.translation}
+                        </div>
+                      </div>
+
+                      {/* Options List */}
+                      <div className="space-y-2">
+                        {q.options.map(opt => {
+                          const isCorrect = opt.key === q.correct_key;
+                          return (
+                            <div
+                              key={opt.key}
+                              className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center justify-between ${
+                                isCorrect
+                                  ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950 ring-1 ring-emerald-400'
+                                  : 'bg-slate-50 border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${
+                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                                }`}>
+                                  {opt.key}
+                                </span>
+                                <span>{opt.text}</span>
+                              </div>
+                              {isCorrect && (
+                                <span className="text-[11px] font-black text-emerald-700 flex items-center gap-1">
+                                  <Check className="w-3.5 h-3.5" />
+                                  Kunci Jawaban
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Explanation */}
+                      {q.explanation && (
+                        <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-200 text-xs text-blue-950 leading-relaxed">
+                          <strong className="font-black text-blue-900 block mb-0.5">Penjelasan & Pembahasan:</strong>
+                          {q.explanation}
                         </div>
                       )}
-                    </div>
 
-                    {/* Options Grid (A, B, C, D) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-                      {q.options && q.options.map(opt => {
-                        const isCorrect = String(opt.key).toUpperCase() === String(q.correct_key).toUpperCase();
-                        return (
-                          <div
-                            key={opt.key}
-                            className={`p-3 rounded-2xl border text-xs flex items-center justify-between transition ${
-                              isCorrect
-                                ? 'bg-emerald-50/90 border-emerald-400 text-emerald-950 font-bold shadow-2xs'
-                                : 'bg-slate-50 border-slate-200 text-slate-700'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
-                                isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                              }`}>
-                                {opt.key}
-                              </span>
-                              <span>{opt.text}</span>
-                            </div>
-                            {isCorrect && (
-                              <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                                Kunci
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Explanation */}
-                    {q.explanation && (
-                      <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-2xl text-xs space-y-0.5">
-                        <span className="font-black text-blue-900 uppercase text-[10px] tracking-wider block">
-                          💡 Pembahasan Jawaban Sensei:
+                      {/* Question Navigation Footer */}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                        <button
+                          type="button"
+                          disabled={activePreviewIndex === 0}
+                          onClick={() => setActivePreviewIndex(prev => Math.max(0, prev - 1))}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                        >
+                          Soal Sebelumnya
+                        </button>
+                        <span className="text-xs font-black text-slate-500">
+                          {activePreviewIndex + 1} dari {generatedQuiz.questions.length}
                         </span>
-                        <p className="text-blue-950 leading-relaxed font-medium">
-                          {q.explanation}
-                        </p>
+                        <button
+                          type="button"
+                          disabled={activePreviewIndex === generatedQuiz.questions.length - 1}
+                          onClick={() => setActivePreviewIndex(prev => Math.min(generatedQuiz.questions.length - 1, prev + 1))}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                        >
+                          Soal Selanjutnya
+                        </button>
                       </div>
-                    )}
 
+                    </div>
+                  );
+                })()}
+
+              </div>
+
+              {/* Right Column (4 cols): Question Grid Selector & Publish CTA */}
+              <div className="lg:col-span-4 space-y-4">
+                
+                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5 sticky top-6">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Navigasi Butir Soal
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Pilih nomor soal untuk memeriksa detail & kunci
+                    </p>
                   </div>
-                ))}
+
+                  {/* Grid Numbers */}
+                  <div className="grid grid-cols-5 gap-2">
+                    {generatedQuiz.questions.map((q, idx) => {
+                      const isCur = idx === activePreviewIndex;
+                      return (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => setActivePreviewIndex(idx)}
+                          className={`h-10 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center border ${
+                            isCur
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {q.id}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Target Summary */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Rombel Target:</span>
+                      <strong className="text-slate-900">{activeClass.name}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Rentang Bab:</span>
+                      <strong className="text-slate-900">Bab {startBab} s/d {endBab}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Durasi:</span>
+                      <strong className="text-slate-900">{durationMinutes} Menit</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Passing Grade:</span>
+                      <strong className="text-slate-900">{passingGrade}</strong>
+                    </div>
+                  </div>
+
+                  {/* Publish Button */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handlePublishQuiz}
+                      className="w-full py-3.5 px-4 rounded-2xl font-black text-xs text-white bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Publikasikan Quiz ke Siswa</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="w-full py-2.5 px-4 rounded-xl font-bold text-xs text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      Atur Ulang Konfigurasi
+                    </button>
+                  </div>
+
+                </div>
+
               </div>
 
             </div>

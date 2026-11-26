@@ -39,12 +39,12 @@ export default function LmsAnalytics() {
     <Layout appearance={{}}>
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         {/* Banner with 3D Graphic */}
-        <div className="relative rounded-3xl bg-gradient-to-r from-[#0d2238] via-[#0f2e4d] to-[#143d63] shadow-md overflow-hidden text-white p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 min-h-[160px]">
+        <div className="relative rounded-3xl bg-gradient-to-r from-[#0d2238] via-[#0f2e4d] to-[#143d63] shadow-md overflow-hidden text-white p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 min-h-[185px] md:min-h-[200px]">
           {/* Photo on Right with Smooth Mask */}
           <div
-            className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 opacity-40 md:opacity-90 pointer-events-none bg-right bg-cover"
+            className="absolute right-0 top-0 bottom-0 w-full md:w-1/2 lg:w-2/5 opacity-50 md:opacity-95 pointer-events-none"
             style={{
-              backgroundImage: 'url(/daily_report_3d.jpg)',
+              backgroundImage: 'url(/daily_report_3d.jpg)', backgroundSize: 'cover', backgroundPosition: 'right top',
               maskImage: 'linear-gradient(to right, transparent, black 30%)',
               WebkitMaskImage: 'linear-gradient(to right, transparent, black 30%)'
             }}

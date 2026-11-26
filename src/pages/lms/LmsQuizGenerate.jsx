@@ -812,7 +812,7 @@ export default function LmsQuizGenerate() {
 
               {/* Right Column: 3D Character (Tinggi pas, atas bawah tidak terpotong) */}
               <div className="hidden sm:flex items-center justify-end shrink-0 relative lg:pr-4">
-                <div className="relative flex items-center justify-center h-36 md:h-40">
+                <div className="relative flex items-center justify-center h-36 md:h-44 py-0.5">
                   <img
                     src={quiz3dCharacter}
                     alt="3D Quiz Character"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import {
   Sparkles,
@@ -28,76 +28,78 @@ import {
   Users,
   GraduationCap,
   Award,
-  Filter
+  Filter,
+  CheckSquare,
+  Clock,
+  Target
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function LmsQuizGenerate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Parse query params if available
+  const initialMode = searchParams.get('mode') || 'range_bab';
+  const initialStart = Number(searchParams.get('start')) || 1;
+  const initialEnd = Number(searchParams.get('end')) || (initialMode === 'range_meeting' ? 4 : 5);
+  const initialClass = searchParams.get('class') || 'N5 Pagi';
+  const initialQuestions = Number(searchParams.get('questions')) || 10;
+  const initialLevel = searchParams.get('level') || 'N5';
 
   // ── STEPPER: 1 = Pilih Materi, 2 = Ekstraksi & Konfigurasi, 3 = Generating, 4 = Review & Approval ──
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ── STEP 1: MATERIAL SELECTION & UPLOAD STATE ──
+  // ── STEP 1: MATERIAL SELECTION & RANGE STATE ──
+  // Mode: 'range_bab', 'range_meeting', 'specific_materials', 'upload_new'
+  const [selectionMode, setSelectionMode] = useState(initialMode);
+  const [startBab, setStartBab] = useState(initialMode === 'range_bab' ? initialStart : 1);
+  const [endBab, setEndBab] = useState(initialMode === 'range_bab' ? initialEnd : 5);
+  const [startMeeting, setStartMeeting] = useState(initialMode === 'range_meeting' ? initialStart : 1);
+  const [endMeeting, setEndMeeting] = useState(initialMode === 'range_meeting' ? initialEnd : 4);
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState([]);
+
   const [materialsList, setMaterialsList] = useState([]);
-  const [selectedMaterialId, setSelectedMaterialId] = useState('');
-  const [selectedClass, setSelectedClass] = useState('N5 Pagi');
-  const [selectedMeeting, setSelectedMeeting] = useState('Pertemuan 12');
-  const [selectedDate, setSelectedDate] = useState('2026-11-23');
-  const [isUploadingNew, setIsUploadingNew] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(initialClass);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [targetLevel, setTargetLevel] = useState(initialLevel);
+  const [quizMode, setQuizMode] = useState('daily'); // 'daily', 'review', 'remedial', 'exam'
+
+  // Upload new file state
   const [uploadedFile, setUploadedFile] = useState(null);
   const [fileDetails, setFileDetails] = useState({
-    name: 'Minna_no_Nihongo_Bab05.pdf',
-    pages: 24,
-    size: '2.4 MB',
+    name: 'Minna_no_Nihongo_Bab01-05.pdf',
+    pages: 48,
+    size: '4.8 MB',
     type: 'PDF'
   });
 
   // ── STEP 2: EXTRACTED CONTENT & CONFIGURATION STATE ──
   const [extractedContent, setExtractedContent] = useState({
-    vocabulary: [
-      { kanji: '行きます', furigana: 'いきます', meaning: 'Pergi (To go)', pos: 'Verb' },
-      { kanji: '来ます', furigana: 'きます', meaning: 'Datang (To come)', pos: 'Verb' },
-      { kanji: '帰ります', furigana: 'かえります', meaning: 'Pulang (To return home)', pos: 'Verb' },
-      { kanji: '学校', furigana: 'がっこう', meaning: 'Sekolah (School)', pos: 'Noun' },
-      { kanji: '駅', furigana: 'えき', meaning: 'Stasiun kereta api (Station)', pos: 'Noun' },
-      { kanji: '電車', furigana: 'でんしゃ', meaning: 'Kereta listrik (Electric train)', pos: 'Noun' },
-      { kanji: '会社', furigana: 'かいしゃ', meaning: 'Perusahaan / Tempat kerja', pos: 'Noun' }
-    ],
-    kanji: [
-      { kanji: '行', onyomi: 'コウ', kunyomi: 'い・く', meaning: 'Pergi' },
-      { kanji: '来', onyomi: 'ライ', kunyomi: 'く・る', meaning: 'Datang' },
-      { kanji: '校', onyomi: 'コウ', kunyomi: '-', meaning: 'Sekolah' },
-      { kanji: '駅', onyomi: 'エキ', kunyomi: '-', meaning: 'Stasiun' }
-    ],
-    grammar: [
-      { pattern: '【Tempat】+ へ + 行きます / 来ます / 帰ります', meaning: 'Menyatakan arah tujuan pergerakan.', example: 'わたしは 毎朝 会社へ 行きます。' },
-      { pattern: 'どこ［へ］も 行きません / 行きませんでした', meaning: 'Penyangkalan total terhadap arah tujuan.', example: '日曜日は どこへも 行きませんでした。' },
-      { pattern: '【Sarana】+ で + 行きます', meaning: 'Menyatakan sarana transportasi.', example: '電車で 会社へ 行きます。' },
-      { pattern: '【Rekan】+ と + 行きます', meaning: 'Menyatakan rekan bepergian.', example: '友達と スーパーへ 行きました。' }
-    ],
-    reading_passage: '【週末の予定：ファイザルさんの日記】\nわたしは 来週の 月曜日に 東京へ 行きます。新幹線で 行きます。東京駅で 田中さんと 会います。一緒に 会社へ 行きます。夕方 6時に 寮へ 帰ります。とても 楽しみに しています。',
-    can_do_statement: 'Siswa mampu menyatakan dan menanyakan tujuan arah perjalanan, sarana transportasi, serta rekan bepergian dalam kehidupan kerja di Jepang secara akurat.'
+    vocabulary: [],
+    kanji: [],
+    grammar: [],
+    reading_passage: '',
+    can_do_statement: ''
   });
 
   // Form Config
-  const [totalQuestions, setTotalQuestions] = useState(10);
+  const [totalQuestions, setTotalQuestions] = useState(initialQuestions);
+  const [durationMinutes, setDurationMinutes] = useState(15);
+  const [passingGrade, setPassingGrade] = useState(75);
+  const [difficulty, setDifficulty] = useState('medium');
   const [composition, setComposition] = useState({
     vocabulary: 3,
-    grammar: 3,
+    grammar: 4,
     kanji: 1,
     reading: 1,
-    situational: 2
+    situational: 1
   });
-  const [difficulty, setDifficulty] = useState('medium');
-  const [targetLevel, setTargetLevel] = useState('N5');
-  const [quizMode, setQuizMode] = useState('daily'); // 'daily', 'review', 'remedial'
 
   // Validation: total sum of composition must equal totalQuestions
   const compositionSum = useMemo(() => {
     return Object.values(composition).reduce((a, b) => a + Number(b), 0);
   }, [composition]);
-
   const isCompositionValid = compositionSum === Number(totalQuestions);
 
   // ── STEP 3: GENERATION JOB PROGRESS ──
@@ -105,53 +107,58 @@ export default function LmsQuizGenerate() {
     progressPercent: 0,
     currentStepText: 'Inisialisasi Generator...',
     stages: [
-      { id: 1, label: 'Ekstraksi Materi Pembelajaran', status: 'pending' },
-      { id: 2, label: 'Analisis Kosakata, Grammar & Konteks Can-Do', status: 'pending' },
-      { id: 3, label: 'AI Generation Berbasis Konten (Strict Constraint)', status: 'pending' },
+      { id: 1, label: 'Memindai & Mengumpulkan Modul Materi Terpilih', status: 'pending' },
+      { id: 2, label: 'Ekstraksi Kotoba, Pola Bunpou & Kanji Sesuai Rentang Bab', status: 'pending' },
+      { id: 3, label: 'AI Generation Berbasis Konten (Strict Material Constraint)', status: 'pending' },
       { id: 4, label: 'Academic & Technical Validation (No Hallucination)', status: 'pending' },
-      { id: 5, label: 'Penyimpanan Draft Question Bank', status: 'pending' }
+      { id: 5, label: 'Penyusunan Draft Kuis Siap Review', status: 'pending' }
     ]
   });
 
   // ── STEP 4: GENERATED DRAFT QUIZ & QUESTIONS STATE ──
   const [generatedQuiz, setGeneratedQuiz] = useState(null);
-  const [editingQuestion, setEditingQuestion] = useState(null);
 
-  // Fetch materials list on mount
+  // Fetch materials on mount
   useEffect(() => {
-    fetch('/backend/api/lms_quiz_api.php?action=materials')
-      .then(res => res.json())
-      .then(json => {
-        if (json.status === 'success' && json.data.length > 0) {
+    const fetchApi = async () => {
+      try {
+        const res = await fetch('/api/lms_quiz_api.php?action=materials');
+        const json = await res.json();
+        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
           setMaterialsList(json.data);
-          setSelectedMaterialId(json.data[0].id);
+          setSelectedMaterialIds([json.data[0].id]);
         }
-      })
-      .catch(() => {});
+      } catch (err) {
+        console.error('Error fetching materials:', err);
+      }
+    };
+    fetchApi();
   }, []);
 
-  // Sync real extracted content when material is selected from database (NO DUMMY)
-  useEffect(() => {
-    if (!selectedMaterialId || materialsList.length === 0) return;
-    const mat = materialsList.find(m => String(m.id) === String(selectedMaterialId));
-    if (mat) {
-      setExtractedContent({
-        vocabulary: mat.extracted_vocab_parsed || [],
-        kanji: mat.extracted_kanji_parsed || [],
-        grammar: mat.extracted_grammar_parsed || [],
-        reading_passage: mat.extracted_reading || '',
-        can_do_statement: mat.can_do_statement || ''
+  // Filter matching materials based on active selection mode
+  const matchingMaterials = useMemo(() => {
+    if (!materialsList || materialsList.length === 0) return [];
+    if (selectionMode === 'range_bab') {
+      return materialsList.filter(m => {
+        const b = m.bab_number || 0;
+        return b >= startBab && b <= endBab;
       });
-      if (mat.level) setTargetLevel(mat.level);
-      if (mat.class_name) setSelectedClass(mat.class_name);
-      setFileDetails({
-        name: mat.file_name || mat.title,
-        pages: mat.page_count || 20,
-        size: mat.file_size || '2.5 MB',
-        type: mat.file_type ? mat.file_type.toUpperCase() : 'PDF'
+    } else if (selectionMode === 'range_meeting') {
+      return materialsList.filter(m => {
+        const mt = m.meeting_number || (m.meeting_id ? Number(m.meeting_id) : 0);
+        return mt >= startMeeting && mt <= endMeeting;
       });
+    } else if (selectionMode === 'specific_materials') {
+      return materialsList.filter(m => selectedMaterialIds.includes(m.id));
     }
-  }, [selectedMaterialId, materialsList]);
+    return materialsList;
+  }, [materialsList, selectionMode, startBab, endBab, startMeeting, endMeeting, selectedMaterialIds]);
+
+  // Handle Preset Bab Range click
+  const handleApplyBabPreset = (start, end) => {
+    setStartBab(start);
+    setEndBab(end);
+  };
 
   // Handle file drop / select
   const handleFileUpload = (e) => {
@@ -161,35 +168,63 @@ export default function LmsQuizGenerate() {
     setUploadedFile(file);
     setFileDetails({
       name: file.name,
-      pages: Math.floor(Math.random() * 20) + 10,
+      pages: Math.floor(Math.random() * 20) + 12,
       size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
       type: file.name.split('.').pop().toUpperCase()
     });
 
     Swal.fire({
       icon: 'success',
-      title: 'Berkas Materi Terdeteksi! 📄',
-      text: `File "${file.name}" siap dibaca dan diekstrak oleh sistem.`,
+      title: 'Berkas Modul Terdeteksi! 📄',
+      text: `File "${file.name}" siap diproses oleh Content Extractor.`,
       timer: 1800,
       showConfirmButton: false
     });
   };
 
-  // Run Content Extraction & Move to Step 2
+  // Proceed from Step 1 to Step 2 (Aggregate extracted content)
   const handleProceedToStep2 = () => {
+    const aggVocabs = [];
+    const aggGrammar = [];
+    const aggKanji = [];
+    let readingText = '';
+    let canDoText = '';
+
+    matchingMaterials.forEach(m => {
+      const v = m.extracted_vocab_parsed || [];
+      const g = m.extracted_grammar_parsed || [];
+      const k = m.extracted_kanji_parsed || [];
+      v.forEach(item => aggVocabs.push({ ...item, _bab: m.chapter_bab }));
+      g.forEach(item => aggGrammar.push({ ...item, _bab: m.chapter_bab }));
+      k.forEach(item => aggKanji.push({ ...item, _bab: m.chapter_bab }));
+      if (m.extracted_reading && !readingText) readingText = m.extracted_reading;
+      if (m.can_do_statement && !canDoText) canDoText = m.can_do_statement;
+    });
+
+    setExtractedContent({
+      vocabulary: aggVocabs,
+      grammar: aggGrammar,
+      kanji: aggKanji,
+      reading_passage: readingText || 'わたしは 毎朝 会社へ 行きます。電車で 行きます。',
+      can_do_statement: canDoText || 'Siswa mampu menguasai kosakata dan pola kalimat kerja Jepang sesuai cakupan materi.'
+    });
+
     setCurrentStep(2);
   };
 
-  // Run AI Generation Pipeline (Simulated Job with Step Animation & Backend Call)
+  // Run AI Generation Pipeline
   const handleStartGeneration = async () => {
     if (!isCompositionValid) {
-      Swal.fire('Komposisi Belum Sesuai', `Total butir kategori (${compositionSum}) harus tepat sama dengan Jumlah Soal (${totalQuestions}).`, 'warning');
+      Swal.fire(
+        'Komposisi Belum Sesuai',
+        `Total butir kategori (${compositionSum}) harus tepat sama dengan Jumlah Soal (${totalQuestions}).`,
+        'warning'
+      );
       return;
     }
 
     setCurrentStep(3);
 
-    // Animate stages smoothly
     const updateStage = (stageIdx, pct, text) => {
       setGenerationJob(prev => ({
         progressPercent: pct,
@@ -201,32 +236,38 @@ export default function LmsQuizGenerate() {
       }));
     };
 
-    updateStage(0, 20, 'Mengekstrak teks dokumen PDF & materi pembelajaran...');
+    updateStage(0, 20, 'Memindai berkas modul materi Sensei...');
+    await new Promise(r => setTimeout(r, 600));
+
+    updateStage(1, 40, `Mengekstrak Kotoba & Bunpou untuk ${selectionMode === 'range_bab' ? `Bab ${startBab} s/d Bab ${endBab}` : 'cakupan pertemuan'}...`);
     await new Promise(r => setTimeout(r, 700));
 
-    updateStage(1, 45, 'Menganalisis daftar Kotoba, pola Bunpou, dan konteks Can-Do...');
+    updateStage(2, 65, 'AI Generator merangkai butir soal pilihan ganda 4 opsi...');
     await new Promise(r => setTimeout(r, 800));
 
-    updateStage(2, 70, 'AI Generator merangkai butir soal pilihan ganda berstandar...');
-    await new Promise(r => setTimeout(r, 900));
+    updateStage(3, 85, 'Memvalidasi kunci jawaban, distractor, dan level N5/N4...');
+    await new Promise(r => setTimeout(r, 700));
 
-    updateStage(3, 90, 'Memvalidasi kunci jawaban, distractor, dan level N5/N4...');
-    await new Promise(r => setTimeout(r, 800));
-
-    // Call backend API
     try {
       const payload = {
-        material_id: selectedMaterialId || 1,
+        selection_mode: selectionMode,
+        start_bab: Number(startBab),
+        end_bab: Number(endBab),
+        start_meeting: Number(startMeeting),
+        end_meeting: Number(endMeeting),
+        material_ids: matchingMaterials.map(m => m.id),
         class_id: selectedClass === 'N5 Pagi' ? 19 : 20,
         class_name: selectedClass,
         level: targetLevel,
         mode: quizMode,
         total_questions: Number(totalQuestions),
+        duration_minutes: Number(durationMinutes),
+        passing_grade: Number(passingGrade),
         difficulty: difficulty,
         composition: composition
       };
 
-      const res = await fetch('/backend/api/lms_quiz_api.php?action=generate_quiz', {
+      const res = await fetch('/api/lms_quiz_api.php?action=generate_quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -238,9 +279,12 @@ export default function LmsQuizGenerate() {
 
       if (resJson.status === 'success' && resJson.data) {
         setGeneratedQuiz(resJson.data);
+      } else {
+        throw new Error(resJson.message || 'Gagal generate quiz');
       }
     } catch (err) {
       console.error(err);
+      Swal.fire('Kendala Generate', err.message || 'Periksa koneksi database.', 'error');
     }
 
     setCurrentStep(4);
@@ -248,55 +292,44 @@ export default function LmsQuizGenerate() {
 
   // Sensei Publish Action
   const handlePublishQuiz = async () => {
-    if (!generatedQuiz) return;
+    if (!generatedQuiz || !generatedQuiz.quiz_id) return;
 
-    const confirm = await Swal.fire({
-      title: 'Publikasikan Quiz? 🚀',
-      html: `
-        <div class="text-xs text-slate-600 space-y-2 text-left bg-slate-50 p-3 rounded-xl border border-slate-200">
-          <div><b>Judul:</b> ${generatedQuiz.title}</div>
-          <div><b>Rombel Kelas:</b> ${generatedQuiz.class_name || selectedClass}</div>
-          <div><b>Jumlah Soal:</b> ${generatedQuiz.total_questions} Soal</div>
-          <div><b>Status:</b> Akan langsung berstatus <b>PUBLISHED</b> dan dapat dikerjakan siswa di halaman Daily Quiz.</div>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#2563eb',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Ya, Publikasikan Sekarang',
-      cancelButtonText: 'Batal'
-    });
+    try {
+      const res = await fetch('/api/lms_quiz_api.php?action=publish_quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quiz_id: generatedQuiz.quiz_id })
+      });
+      const json = await res.json();
 
-    if (confirm.isConfirmed) {
-      try {
-        await fetch('/backend/api/lms_quiz_api.php?action=publish_quiz', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quiz_id: generatedQuiz.quiz_id })
-        });
-
+      if (json.status === 'success') {
         Swal.fire({
           icon: 'success',
-          title: 'Quiz Berhasil Dipublikasikan! 🎉',
-          text: `Quiz telah aktif untuk siswa rombel ${selectedClass}.`,
-          confirmButtonText: 'Buka Daily Quiz'
+          title: 'Quiz Berhasil Diterbitkan! 🎉',
+          html: `
+            <p>Quiz <b>${generatedQuiz.title}</b> telah aktif dan siap dikerjakan oleh siswa di rombel <b>${selectedClass}</b>.</p>
+            <div style="font-size: 13px; color: #475569; margin-top: 8px;">
+              ⏱️ Durasi: <b>${durationMinutes} Menit</b> • 🎯 Passing Grade: <b>${passingGrade}</b>
+            </div>
+          `,
+          confirmButtonText: 'Buka Halaman Quiz',
+          confirmButtonColor: '#2563eb'
         }).then(() => {
-          navigate('/lms/quiz/daily');
+          navigate('/lms/quiz');
         });
-      } catch (e) {
-        Swal.fire('Gagal', 'Terjadi gangguan saat mempublikasikan kuis.', 'error');
       }
+    } catch (e) {
+      Swal.fire('Gagal Publikasi', 'Terjadi kesalahan saat mempublikasikan kuis.', 'error');
     }
   };
 
   return (
     <Layout>
-      <div className="min-h-screen bg-slate-50/60 pb-20">
+      <div className="min-h-screen bg-slate-50/60 pb-16">
         
-        {/* ── HEADER BANNER ── */}
+        {/* ── HEADER BANNER: AI QUIZ GENERATOR HERO ── */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white border-b border-slate-800">
-          <div className="max-w-[1550px] mx-auto px-4 md:px-8 py-8">
+          <div className="max-w-[1550px] mx-auto px-4 md:px-8 py-8 md:py-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -307,34 +340,34 @@ export default function LmsQuizGenerate() {
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-xs font-black uppercase tracking-wider text-purple-400 bg-purple-950/60 border border-purple-800/40 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-300 animate-pulse" />
-                    AI Quiz Generator
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 bg-amber-950/60 border border-amber-800/40 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                    Generator Kuis Berbasis Materi Sensei
                   </span>
                 </div>
                 <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
-                  Generate Quiz dari Materi Pembelajaran
+                  Generate Quiz dari Materi yang Diunggah Sensei
                 </h1>
                 <p className="text-xs md:text-sm text-slate-300 mt-1 max-w-3xl">
-                  Buat quiz interaktif otomatis berdasarkan materi nyata yang diajarkan Sensei pada hari ini. Membaca berkas PDF/DOCX, mengekstrak Kotoba & Bunpou, dan menyusun bank soal tervalidasi.
+                  Pilih rentang Bab (misal <strong>Bab 1 s/d Bab 5</strong>) atau <strong>Pertemuan</strong> dari materi yang diunggah. Sistem otomatis mengekstrak Kotoba, Bunpou, dan Kanji untuk menyusun kuis interaktif berstandar.
                 </p>
               </div>
 
               {/* Quick Navigation Pills */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => navigate('/lms/quiz/daily')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => navigate('/lms/quiz')}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Calendar className="w-4 h-4 text-emerald-400" />
-                  <span>Daily Quiz</span>
+                  <Award className="w-4 h-4 text-amber-400" />
+                  <span>Daftar Kuis Aktif</span>
                 </button>
                 <button
                   onClick={() => navigate('/lms/quiz/question-bank')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <BookOpen className="w-4 h-4 text-blue-400" />
-                  <span>Bank Soal</span>
+                  <span>Bank Soal Master</span>
                 </button>
               </div>
             </div>
@@ -342,10 +375,10 @@ export default function LmsQuizGenerate() {
             {/* Stepper Wizard Bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-8 pt-6 border-t border-slate-800/80">
               {[
-                { step: 1, label: '1. Pilih / Upload Materi', desc: 'Sumber Pembelajaran' },
-                { step: 2, label: '2. Ekstraksi & Konfigurasi', desc: 'Kotoba & 5 Pilar Soal' },
-                { step: 3, label: '3. AI Generation & Validasi', desc: 'Pipeline Tanpa Halusinasi' },
-                { step: 4, label: '4. Sensei Review & Publish', desc: 'Approval & Rilis Siswa' }
+                { step: 1, label: '1. Pilih Bab & Materi', desc: 'Rentang Bab / Pertemuan' },
+                { step: 2, label: '2. Ekstraksi & Konfigurasi', desc: '5 Pilar Soal & Durasi' },
+                { step: 3, label: '3. Generate & Validasi', desc: 'AI Merangkai Butir Soal' },
+                { step: 4, label: '4. Sensei Review & Publish', desc: 'Koreksi & Rilis ke Siswa' }
               ].map(item => (
                 <div
                   key={item.step}
@@ -376,28 +409,30 @@ export default function LmsQuizGenerate() {
         <div className="max-w-[1550px] mx-auto px-4 md:px-8 mt-8">
 
           {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 1: PILIH ATAU UPLOAD MATERI                             */}
+          {/* STEP 1: PILIH RENTANG BAB / PERTEMUAN / UPLOAD MATERI        */}
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
-              {/* Left Column: Form Pemilihan Kelas & Materi */}
+              {/* Left Column: Form Pemilihan Rentang Bab & Rombel */}
               <div className="lg:col-span-7 space-y-6">
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs space-y-6">
+                  
+                  {/* Class & Date Header */}
                   <div>
                     <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                      <BookOpen className="w-5 h-5 text-blue-600" />
-                      <span>Identitas Pembelajaran & Rombel Kelas</span>
+                      <GraduationCap className="w-5 h-5 text-blue-600" />
+                      <span>Rombel Kelas & Target Pembelajaran</span>
                     </h2>
                     <p className="text-xs text-slate-500 mt-1">
-                      Pilih rombel kelas dan pertemuan target yang diajarkan pada sesi hari ini.
+                      Tentukan rombel kelas siswa yang akan menerima quiz ini.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Rombel Kelas Siswa
+                        Rombel Kelas
                       </label>
                       <select
                         value={selectedClass}
@@ -406,28 +441,28 @@ export default function LmsQuizGenerate() {
                       >
                         <option value="N5 Pagi">N5 Pagi (2 Siswa Resmi)</option>
                         <option value="N4 A - PAGI">N4 A - PAGI (1 Siswa Resmi)</option>
-                        <option value="Kelas Persiapan Mensetsu">Kelas Persiapan Mensetsu</option>
+                        <option value="Semua Kelas">Semua Kelas Terdaftar</option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Pertemuan Sesi
+                        Tingkat Level
                       </label>
                       <select
-                        value={selectedMeeting}
-                        onChange={(e) => setSelectedMeeting(e.target.value)}
+                        value={targetLevel}
+                        onChange={(e) => setTargetLevel(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-hidden"
                       >
-                        <option value="Pertemuan 12">Pertemuan 12 (Bab 05)</option>
-                        <option value="Pertemuan 13">Pertemuan 13 (Bab 05 - Evaluasi)</option>
-                        <option value="Pertemuan 14">Pertemuan 14 (Bab 06)</option>
+                        <option value="N5">JLPT N5 (Dasar 1)</option>
+                        <option value="N4">JLPT N4 (Menengah Bawah)</option>
+                        <option value="N3">JLPT N3 (Menengah)</option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Tanggal Diajarkan
+                        Tanggal Kuis
                       </label>
                       <input
                         type="date"
@@ -438,60 +473,237 @@ export default function LmsQuizGenerate() {
                     </div>
                   </div>
 
-                  {/* Mode Pilihan: Pilih Materi Tersimpan vs Upload Baru */}
+                  {/* Mode Selector Tabs: Rentang Bab vs Rentang Pertemuan vs Upload Baru */}
                   <div className="pt-4 border-t border-slate-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                        Sumber Berkas Materi Pembelajaran
-                      </span>
-                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                    <div>
+                      <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+                        Metode Pemilihan Materi Sensei
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <button
                           type="button"
-                          onClick={() => setIsUploadingNew(false)}
-                          className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
-                            !isUploadingNew ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600'
+                          onClick={() => setSelectionMode('range_bab')}
+                          className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                            selectionMode === 'range_bab'
+                              ? 'bg-blue-50/80 border-blue-500 text-blue-950 shadow-2xs'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
                           }`}
                         >
-                          Materi Tersedia
+                          <div className="font-extrabold text-xs flex items-center gap-1.5">
+                            <BookOpen className="w-4 h-4 text-blue-600" />
+                            <span>Pilih Rentang Bab</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Contoh: Bab 1 s/d Bab 5
+                          </p>
                         </button>
+
                         <button
                           type="button"
-                          onClick={() => setIsUploadingNew(true)}
-                          className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
-                            isUploadingNew ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600'
+                          onClick={() => setSelectionMode('range_meeting')}
+                          className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                            selectionMode === 'range_meeting'
+                              ? 'bg-blue-50/80 border-blue-500 text-blue-950 shadow-2xs'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
                           }`}
                         >
-                          + Upload Baru
+                          <div className="font-extrabold text-xs flex items-center gap-1.5">
+                            <Calendar className="w-4 h-4 text-indigo-600" />
+                            <span>Pilih Pertemuan</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Contoh: Pertemuan 1 - 4
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectionMode('upload_new')}
+                          className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                            selectionMode === 'upload_new'
+                              ? 'bg-blue-50/80 border-blue-500 text-blue-950 shadow-2xs'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="font-extrabold text-xs flex items-center gap-1.5">
+                            <Upload className="w-4 h-4 text-purple-600" />
+                            <span>Upload Modul Baru</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Upload berkas PDF/DOCX
+                          </p>
                         </button>
                       </div>
                     </div>
 
-                    {!isUploadingNew ? (
-                      <div className="space-y-3">
-                        <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 flex items-start gap-3.5">
-                          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 font-black text-xs shadow-2xs">
-                            PDF
+                    {/* 1. SELECTION MODE: RANGE BAB */}
+                    {selectionMode === 'range_bab' && (
+                      <div className="p-5 rounded-2xl bg-blue-50/50 border border-blue-200/80 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-blue-950 uppercase tracking-wide">
+                            Pilih Rentang Bab Materi:
+                          </span>
+                          <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200">
+                            Terpilih: Bab {startBab} s/d Bab {endBab} ({endBab - startBab + 1} Bab)
+                          </span>
+                        </div>
+
+                        {/* Dropdowns Bab Awal & Bab Akhir */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Dari Bab:
+                            </label>
+                            <select
+                              value={startBab}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setStartBab(val);
+                                if (val > endBab) setEndBab(val);
+                              }}
+                              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              {Array.from({ length: 25 }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={num}>
+                                  Bab {num < 10 ? `0${num}` : num} – Minna no Nihongo
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-slate-900 truncate">
-                              Minna no Nihongo Bab 05 – Arah, Transportasi & Tanggal.pdf
-                            </h4>
-                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 font-medium">
-                              <span>📄 24 Halaman</span>
-                              <span>•</span>
-                              <span>💾 2.4 MB</span>
-                              <span>•</span>
-                              <span className="text-emerald-700 font-bold">✓ Konten Sudah Terverifikasi</span>
-                            </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Sampai Bab:
+                            </label>
+                            <select
+                              value={endBab}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEndBab(val);
+                                if (val < startBab) setStartBab(val);
+                              }}
+                              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              {Array.from({ length: 25 }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={num} disabled={num < startBab}>
+                                  Bab {num < 10 ? `0${num}` : num} – Minna no Nihongo
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
 
-                        <p className="text-[11px] text-slate-500">
-                          💡 Sistem akan mengekstrak langsung materi Bab 05 yang baru saja dipelajari siswa di kelas N5 Pagi.
-                        </p>
+                        {/* Preset Range Pills */}
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-500 mb-1.5">
+                            Preset Rentang Cepat:
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: 'Bab 1 s/d 5 (Dasar)', start: 1, end: 5 },
+                              { label: 'Bab 6 s/d 10 (Aktivitas & Sifat)', start: 6, end: 10 },
+                              { label: 'Bab 1 s/d 10 (Semester 1)', start: 1, end: 10 },
+                              { label: 'Bab 11 s/d 15 (Hitungan & Te-form)', start: 1, end: 15 },
+                              { label: 'Bab 1 s/d 25 (N5 Lengkap)', start: 1, end: 25 }
+                            ].map(p => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => handleApplyBabPreset(p.start, p.end)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  startBab === p.start && endBab === p.end
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      /* Drag & Drop Upload Area */
+                    )}
+
+                    {/* 2. SELECTION MODE: RANGE MEETING */}
+                    {selectionMode === 'range_meeting' && (
+                      <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-200/80 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-indigo-950 uppercase tracking-wide">
+                            Pilih Rentang Pertemuan Pembelajaran:
+                          </span>
+                          <span className="text-xs font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200">
+                            Pertemuan {startMeeting} s/d Pertemuan {endMeeting}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Dari Pertemuan:
+                            </label>
+                            <select
+                              value={startMeeting}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setStartMeeting(val);
+                                if (val > endMeeting) setEndMeeting(val);
+                              }}
+                              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                            >
+                              {Array.from({ length: 32 }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={num}>Pertemuan {num}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Sampai Pertemuan:
+                            </label>
+                            <select
+                              value={endMeeting}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEndMeeting(val);
+                                if (val < startMeeting) setStartMeeting(val);
+                              }}
+                              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                            >
+                              {Array.from({ length: 32 }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={num} disabled={num < startMeeting}>
+                                  Pertemuan {num}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {[
+                            { label: 'Minggu 1 (P1 - P4)', start: 1, end: 4 },
+                            { label: 'Minggu 2 (P5 - P8)', start: 5, end: 8 },
+                            { label: 'Minggu 3 (P9 - P12)', start: 9, end: 12 },
+                            { label: 'Mid-Term (P1 - P16)', start: 1, end: 16 }
+                          ].map(p => (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => { setStartMeeting(p.start); setEndMeeting(p.end); }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                startMeeting === p.start && endMeeting === p.end
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-white text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3. SELECTION MODE: UPLOAD NEW FILE */}
+                    {selectionMode === 'upload_new' && (
                       <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-3xl p-8 text-center bg-slate-50/50 hover:bg-blue-50/20 transition-all cursor-pointer relative">
                         <input
                           type="file"
@@ -504,60 +716,83 @@ export default function LmsQuizGenerate() {
                           Drag & drop berkas modul atau klik untuk memilih
                         </h4>
                         <p className="text-xs text-slate-400 mt-1">
-                          Mendukung format PDF, DOCX, PPTX, TXT, dan Markdown (Maksimal 25 MB)
+                          Mendukung berkas modul materi PDF, DOCX, PPTX (Maksimal 25 MB)
                         </p>
                         {uploadedFile && (
-                          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                          <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
                             <CheckCircle2 className="w-4 h-4" />
-                            <span>{uploadedFile.name} (Siap Dibaca)</span>
+                            <span>{uploadedFile.name} ({fileDetails.size})</span>
                           </div>
                         )}
                       </div>
                     )}
+
                   </div>
+
                 </div>
               </div>
 
-              {/* Right Column: Status Pembacaan & Verifikasi */}
+              {/* Right Column: Matched Materials & Extracted Content Overview */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs space-y-5">
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Status Pembacaan Berkas Materi</span>
-                  </h3>
-
-                  <div className="space-y-3">
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs font-medium">
-                      <span className="text-slate-500">Nama Berkas:</span>
-                      <b className="text-slate-800 truncate max-w-[200px]">{fileDetails.name}</b>
-                    </div>
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs font-medium">
-                      <span className="text-slate-500">Format & Ukuran:</span>
-                      <b className="text-slate-800">{fileDetails.type} • {fileDetails.size}</b>
-                    </div>
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs font-medium">
-                      <span className="text-slate-500">Jumlah Halaman:</span>
-                      <b className="text-slate-800">{fileDetails.pages} Halaman Terbaca</b>
-                    </div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Modul Materi yang Ter-cover</span>
+                    </h3>
+                    <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      {matchingMaterials.length} Dokumen Siap
+                    </span>
                   </div>
 
+                  {/* List of matching materials */}
+                  <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+                    {matchingMaterials.length > 0 ? (
+                      matchingMaterials.map(m => (
+                        <div key={m.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start gap-3 hover:border-blue-300 transition">
+                          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 font-black text-[11px] shadow-2xs">
+                            {m.chapter_bab ? m.chapter_bab.replace('Bab ', 'B') : 'PDF'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-slate-900 truncate">
+                              {m.title}
+                            </h4>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                              <span>📄 {m.file_name}</span>
+                              <span>•</span>
+                              <span>{m.file_size || '2.4 MB'}</span>
+                            </div>
+                          </div>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-1" />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs">
+                        Tidak ada modul materi yang cocok dengan rentang ini. Coba ubah rentang Bab.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Estimated Content Summary */}
                   <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/80 space-y-2">
                     <span className="text-[11px] font-black text-purple-900 uppercase tracking-wider">
-                      Komponen Pembelajaran Terdeteksi:
+                      Cakupan Pengetahuan yang Diujikan:
                     </span>
                     <div className="grid grid-cols-2 gap-2 text-xs font-bold text-purple-800">
-                      <div className="flex items-center gap-1.5">✓ Vocabulary (7 Kata)</div>
-                      <div className="flex items-center gap-1.5">✓ Grammar (4 Pola)</div>
-                      <div className="flex items-center gap-1.5">✓ Kanji Radikal (4 Kanji)</div>
-                      <div className="flex items-center gap-1.5">✓ Wacana Reading</div>
+                      <div className="flex items-center gap-1.5">✓ {matchingMaterials.length * 8} Kosakata (Kotoba)</div>
+                      <div className="flex items-center gap-1.5">✓ {matchingMaterials.length * 3} Pola Tata Bahasa</div>
+                      <div className="flex items-center gap-1.5">✓ Huruf Kanji & Cara Baca</div>
+                      <div className="flex items-center gap-1.5">✓ Situasi Kerja & Percakapan</div>
                     </div>
                   </div>
 
+                  {/* Proceed Button */}
                   <button
                     onClick={handleProceedToStep2}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    disabled={matchingMaterials.length === 0 && !uploadedFile}
+                    className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                   >
-                    <span>Lanjut ke Ekstraksi Konten & Konfigurasi</span>
+                    <span>Lanjut ke Konfigurasi Butir Soal</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -567,43 +802,43 @@ export default function LmsQuizGenerate() {
           )}
 
           {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 2: EKSTRAKSI MATERI & KONFIGURASI SOAL                  */}
+          {/* STEP 2: KONFIGURASI 5 PILAR & JUMLAH SOAL                    */}
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 2 && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
-              {/* Left Column: Hasil Parsing / Ekstraksi Materi Pembelajaran */}
+              {/* Left Column: Hasil Ekstraksi Materi Terpilih */}
               <div className="lg:col-span-7 space-y-6">
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
                       <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-purple-600" />
-                        <span>Ekstraksi Konten Pembelajaran (Rule Constraint)</span>
+                        <span>Ekstraksi Konten Materi (Strict Material Constraint)</span>
                       </h2>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Konten di bawah ini adalah data murni dari materi yang diupload Sensei (tanpa halusinasi).
+                        Soal kuis akan disusun 100% dari konten materi di bawah ini tanpa halusinasi.
                       </p>
                     </div>
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      ✓ Materi Terbaca
+                    <span className="px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 border border-blue-200">
+                      {matchingMaterials.length} Bab Terintegrasi
                     </span>
                   </div>
 
                   {/* 1. Kotoba Section */}
                   <div className="space-y-2.5">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center justify-between">
                       <span>🔤 Kosakata / Kotoba Terdeteksi:</span>
-                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-slate-100 text-slate-600">
-                        {extractedContent.vocabulary.length} Kata
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+                        {extractedContent.vocabulary.length} Kosakata
                       </span>
                     </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {extractedContent.vocabulary.map((v, i) => (
-                        <div key={i} className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium flex items-center gap-2">
+                    <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto pr-1">
+                      {extractedContent.vocabulary.slice(0, 24).map((v, i) => (
+                        <div key={i} className="px-3 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium flex items-center gap-1.5">
                           <b className="text-blue-900">{v.kanji}</b>
-                          <span className="text-slate-400">({v.furigana})</span>
-                          <span className="text-slate-600">: {v.meaning}</span>
+                          <span className="text-slate-400 text-[11px]">({v.furigana})</span>
+                          <span className="text-slate-600 text-[11px]">: {v.meaning}</span>
                         </div>
                       ))}
                     </div>
@@ -611,39 +846,39 @@ export default function LmsQuizGenerate() {
 
                   {/* 2. Grammar Section */}
                   <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>✏️ Pola Kalimat / Bunpou:</span>
-                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-slate-100 text-slate-600">
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                      <span>✏️ Pola Kalimat / Bunpou Utama:</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                         {extractedContent.grammar.length} Pola
                       </span>
                     </h3>
-                    <div className="space-y-2">
-                      {extractedContent.grammar.map((g, i) => (
-                        <div key={i} className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-1">
-                          <div className="font-bold text-indigo-900">{g.pattern}</div>
-                          <div className="text-slate-600">{g.meaning}</div>
-                          <div className="text-[11px] text-slate-400 italic font-mono bg-white p-2 rounded-lg border border-slate-100">
-                            Contoh: {g.example}
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {extractedContent.grammar.slice(0, 8).map((g, i) => (
+                        <div key={i} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                          <div className="font-extrabold text-indigo-950 flex items-center justify-between">
+                            <span>{g.pattern}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{g._bab}</span>
                           </div>
+                          <div className="text-slate-600 text-[11px]">{g.meaning}</div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* 3. Can-Do / Learning Objective */}
-                  <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs space-y-1.5">
+                  {/* 3. Can-Do Objectives */}
+                  <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs space-y-1">
                     <div className="font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                       <Award className="w-4 h-4 text-amber-700" />
-                      <span>Target Kompetensi (Can-Do):</span>
+                      <span>Target Kompetensi Kerja (Can-Do):</span>
                     </div>
-                    <div className="text-amber-800 font-medium leading-relaxed">
+                    <div className="text-amber-800 font-medium">
                       {extractedContent.can_do_statement}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Form Konfigurasi Generate Quiz */}
+              {/* Right Column: Form Parameter & Jumlah Butir Soal */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-8 shadow-2xs space-y-5">
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -651,97 +886,113 @@ export default function LmsQuizGenerate() {
                     <span>Konfigurasi Generator Quiz</span>
                   </h3>
 
-                  {/* Jumlah Soal & Level */}
+                  {/* Jumlah Soal & Durasi Timer */}
                   <div className="grid grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Jumlah Soal
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                        <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Jumlah Butir Soal</span>
                       </label>
                       <select
                         value={totalQuestions}
                         onChange={(e) => {
                           const val = Number(e.target.value);
                           setTotalQuestions(val);
-                          // Auto scale composition proportionally
-                          const half = Math.floor(val * 0.3);
+                          const vocabNum = Math.floor(val * 0.3);
+                          const grammarNum = Math.floor(val * 0.35);
+                          const kanjiNum = Math.max(1, Math.floor(val * 0.1));
+                          const readingNum = Math.max(1, Math.floor(val * 0.1));
+                          const sitNum = val - (vocabNum + grammarNum + kanjiNum + readingNum);
                           setComposition({
-                            vocabulary: half,
-                            grammar: half,
-                            kanji: Math.max(1, Math.floor(val * 0.1)),
-                            reading: Math.max(1, Math.floor(val * 0.1)),
-                            situational: val - (half * 2 + Math.max(1, Math.floor(val * 0.1)) * 2)
+                            vocabulary: vocabNum,
+                            grammar: grammarNum,
+                            kanji: kanjiNum,
+                            reading: readingNum,
+                            situational: sitNum
                           });
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
                       >
-                        <option value={10}>10 Soal (Daily Quiz)</option>
+                        <option value={5}>5 Soal (Kuis Singkat)</option>
+                        <option value={10}>10 Soal (Daily Quiz Standar)</option>
                         <option value={15}>15 Soal</option>
-                        <option value={20}>20 Soal (UKOM Standar)</option>
-                        <option value={25}>25 Soal</option>
+                        <option value={20}>20 Soal (Evaluasi Bab)</option>
+                        <option value={25}>25 Soal (UKOM Lengkap)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Durasi Pengerjaan</span>
+                      </label>
+                      <select
+                        value={durationMinutes}
+                        onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
+                      >
+                        <option value={10}>10 Menit</option>
+                        <option value={15}>15 Menit</option>
+                        <option value={20}>20 Menit</option>
+                        <option value={30}>30 Menit</option>
+                        <option value={45}>45 Menit</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* KKM Passing Grade & Kesulitan */}
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                        <Target className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Passing Grade (KKM)</span>
+                      </label>
+                      <select
+                        value={passingGrade}
+                        onChange={(e) => setPassingGrade(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
+                      >
+                        <option value={60}>Skor 60</option>
+                        <option value={70}>Skor 70</option>
+                        <option value={75}>Skor 75 (Standar Creativa)</option>
+                        <option value={80}>Skor 80</option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Target Level
+                        Tingkat Kesulitan
                       </label>
                       <select
-                        value={targetLevel}
-                        onChange={(e) => setTargetLevel(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-hidden"
+                        value={difficulty}
+                        onChange={(e) => setDifficulty(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
                       >
-                        <option value="N5">JLPT N5 (Dasar)</option>
-                        <option value="N4">JLPT N4 (Menengah Bawah)</option>
-                        <option value="N3">JLPT N3 (Menengah)</option>
+                        <option value="easy">Mudah (Pemula)</option>
+                        <option value="medium">Sedang (Standar JLPT/JFT)</option>
+                        <option value="hard">Tantangan (UKOM LPK)</option>
                       </select>
                     </div>
                   </div>
 
-                  {/* Mode Quiz */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Mode Pembuatan
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'daily', label: 'Daily Quiz' },
-                        { id: 'review', label: 'Review Quiz' },
-                        { id: 'remedial', label: 'Remedial' }
-                      ].map(m => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => setQuizMode(m.id)}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold text-center transition cursor-pointer ${
-                            quizMode === m.id
-                              ? 'bg-blue-600 text-white shadow-2xs'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Komposisi 5 Pilar Soal */}
-                  <div className="space-y-3 pt-3 border-t border-slate-100">
+                  {/* 5 Pilar Komposisi Butir Soal */}
+                  <div className="space-y-2.5 pt-3 border-t border-slate-100">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-700">Komposisi Butir Soal:</span>
+                      <span className="font-bold text-slate-700">Distribusi 5 Pilar Soal:</span>
                       <span className={`font-black ${isCompositionValid ? 'text-emerald-600' : 'text-rose-600'}`}>
                         Total: {compositionSum} / {totalQuestions}
                       </span>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {[
                         { key: 'vocabulary', label: '🔤 Vocabulary (文字・語彙)' },
                         { key: 'grammar', label: '✏️ Grammar (文法)' },
                         { key: 'kanji', label: '🈳 Kanji (漢字)' },
                         { key: 'reading', label: '📖 Reading (読解)' },
-                        { key: 'situational', label: '🤝 Situasional & Komunikasi' }
+                        { key: 'situational', label: '🤝 Situasional & Etika Kerja' }
                       ].map(comp => (
-                        <div key={comp.key} className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
+                        <div key={comp.key} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-slate-200/70">
                           <span className="font-semibold text-slate-700">{comp.label}</span>
                           <input
                             type="number"
@@ -752,32 +1003,9 @@ export default function LmsQuizGenerate() {
                               ...composition,
                               [comp.key]: Number(e.target.value)
                             })}
-                            className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-center font-bold text-slate-800"
+                            className="w-14 bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-center font-bold text-slate-800"
                           />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Difficulty Setting */}
-                  <div className="pt-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Tingkat Kesulitan (Difficulty)
-                    </label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {['easy', 'medium', 'hard', 'mixed'].map(d => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setDifficulty(d)}
-                          className={`py-1.5 text-xs font-bold rounded-xl capitalize transition cursor-pointer ${
-                            difficulty === d
-                              ? 'bg-purple-700 text-white shadow-2xs'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}
-                        >
-                          {d}
-                        </button>
                       ))}
                     </div>
                   </div>
@@ -819,7 +1047,7 @@ export default function LmsQuizGenerate() {
 
               <div className="space-y-2">
                 <h2 className="text-xl font-black text-slate-900">
-                  AI Sedang Menyusun Quiz dari Materi...
+                  AI Sedang Menyusun Quiz dari Materi Sensei...
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">
                   {generationJob.currentStepText}
@@ -868,20 +1096,23 @@ export default function LmsQuizGenerate() {
                       Rombel: {generatedQuiz.class_name || selectedClass}
                     </span>
                     <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                      Level: {generatedQuiz.level}
+                      Cakupan: {generatedQuiz.bab}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      ⏱️ {durationMinutes} Menit • KKM {passingGrade}
                     </span>
                   </div>
                   <h2 className="text-xl font-black text-slate-900 mt-2">
                     {generatedQuiz.title}
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Periksa butir soal, kunci jawaban, dan pembahasan di bawah ini. Anda dapat mengedit atau me-regenerate soal sebelum mempublikasikannya untuk siswa.
+                    Periksa butir soal, kunci jawaban, dan pembahasan di bawah ini. Anda dapat mengedit butir soal sebelum menerbitkannya untuk siswa.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
                   <button
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(1)}
                     className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer"
                   >
                     Atur Ulang
@@ -896,24 +1127,7 @@ export default function LmsQuizGenerate() {
                 </div>
               </div>
 
-              {/* AI Validation Summary Card */}
-              <div className="bg-emerald-50/70 rounded-2xl border border-emerald-200/90 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-900 font-medium">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>
-                    <b>AI Academic & Technical Validation Passed:</b> Seluruh butir soal bersumber 100% dari materi pembelajaran Bab 05 tanpa ada grammar/kosakata liar di luar materi.
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 font-bold text-[11px]">
-                  <span>✓ Level N5 Match</span>
-                  <span>•</span>
-                  <span>✓ Distractor Valid</span>
-                  <span>•</span>
-                  <span>✓ 0 Duplikasi</span>
-                </div>
-              </div>
-
-              {/* Question List Accordion Cards */}
+              {/* Questions List */}
               <div className="space-y-4">
                 {generatedQuiz.questions && generatedQuiz.questions.map((q, idx) => (
                   <div key={q.id || idx} className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4 hover:border-blue-300 transition-all">
@@ -930,60 +1144,55 @@ export default function LmsQuizGenerate() {
                         <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
                           Tingkat: {q.difficulty}
                         </span>
+                        {q.material_reference && (
+                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            📖 {q.material_reference}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-slate-400 font-medium text-[11px] hidden sm:inline">
-                          Ref: {q.material_reference}
-                        </span>
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
                             Swal.fire({
                               title: `Edit Soal #${idx + 1}`,
                               html: `
-                                <input id="swal-q-text" class="swal2-input text-xs" placeholder="Teks Soal" value="${q.question}" />
-                                <input id="swal-q-ans" class="swal2-input text-xs" placeholder="Kunci Jawaban (A/B/C/D)" value="${q.correct_key}" />
-                                <textarea id="swal-q-exp" class="swal2-textarea text-xs" placeholder="Penjelasan">${q.explanation || ''}</textarea>
+                                <div style="text-align: left; font-size: 13px;">
+                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Teks Pertanyaan (Jepang):</label>
+                                  <input id="swal-q-text" class="swal2-input text-xs" style="margin: 0 0 12px 0; width: 100%;" value="${q.question}" />
+                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Terjemahan / Petunjuk:</label>
+                                  <input id="swal-q-trans" class="swal2-input text-xs" style="margin: 0 0 12px 0; width: 100%;" value="${q.translation || ''}" />
+                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Kunci Jawaban Benar (A / B / C / D):</label>
+                                  <input id="swal-q-ans" class="swal2-input text-xs" style="margin: 0 0 12px 0; width: 100%;" value="${q.correct_key}" />
+                                  <label style="font-weight: bold; margin-bottom: 4px; display: block;">Pembahasan Jawaban:</label>
+                                  <textarea id="swal-q-exp" class="swal2-textarea text-xs" style="margin: 0; width: 100%;">${q.explanation || ''}</textarea>
+                                </div>
                               `,
                               confirmButtonText: 'Simpan Perubahan',
                               showCancelButton: true
                             }).then(res => {
                               if (res.isConfirmed) {
                                 const newQ = document.getElementById('swal-q-text').value;
-                                const newA = document.getElementById('swal-q-ans').value;
+                                const newT = document.getElementById('swal-q-trans').value;
+                                const newA = document.getElementById('swal-q-ans').value.toUpperCase();
                                 const newE = document.getElementById('swal-q-exp').value;
                                 setGeneratedQuiz(prev => ({
                                   ...prev,
-                                  questions: prev.questions.map((item, i) => i === idx ? { ...item, question: newQ, correct_key: newA, explanation: newE } : item)
+                                  questions: prev.questions.map((item, i) => i === idx ? { ...item, question: newQ, translation: newT, correct_key: newA, explanation: newE } : item)
                                 }));
                                 Swal.fire('Tersimpan', 'Soal berhasil diubah.', 'success');
                               }
                             });
                           }}
                           className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-blue-600 transition"
-                          title="Edit Soal"
+                          title="Edit Butir Soal"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            Swal.fire({
-                              icon: 'info',
-                              title: 'Regenerate Butir Soal 🔄',
-                              text: `Soal #${idx + 1} berhasil diperbarui dengan variasi distractor baru dari materi.`,
-                              timer: 1500,
-                              showConfirmButton: false
-                            });
-                          }}
-                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-purple-600 transition"
-                          title="Regenerate Soal Ini"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
 
-                    {/* Passage if applicable */}
+                    {/* Passage Context if available */}
                     {q.passage && (
                       <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs space-y-1">
                         <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
@@ -1001,34 +1210,36 @@ export default function LmsQuizGenerate() {
                         {q.question}
                       </div>
                       {q.translation && (
-                        <div className="text-xs text-slate-500 font-medium">
-                          {q.translation}
+                        <div className="text-xs text-slate-500 italic">
+                          Arti: {q.translation}
                         </div>
                       )}
                     </div>
 
-                    {/* Options Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                      {q.options && q.options.map((opt) => {
-                        const isCorrect = opt.key === q.correct_key;
+                    {/* Options Grid (A, B, C, D) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+                      {q.options && q.options.map(opt => {
+                        const isCorrect = String(opt.key).toUpperCase() === String(q.correct_key).toUpperCase();
                         return (
                           <div
                             key={opt.key}
-                            className={`p-3 rounded-2xl border flex items-center gap-3 text-xs font-semibold ${
+                            className={`p-3 rounded-2xl border text-xs flex items-center justify-between transition ${
                               isCorrect
-                                ? 'bg-emerald-50/80 border-emerald-400 text-emerald-950 font-bold ring-1 ring-emerald-400'
-                                : 'bg-slate-50 border-slate-200/80 text-slate-700'
+                                ? 'bg-emerald-50/90 border-emerald-400 text-emerald-950 font-bold shadow-2xs'
+                                : 'bg-slate-50 border-slate-200 text-slate-700'
                             }`}
                           >
-                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                              isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                            }`}>
-                              {opt.key}
-                            </span>
-                            <span className="flex-1">{opt.text}</span>
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                                isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                              }`}>
+                                {opt.key}
+                              </span>
+                              <span>{opt.text}</span>
+                            </div>
                             {isCorrect && (
-                              <span className="text-[10px] uppercase font-black tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                                Kunci Benar
+                              <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                Kunci
                               </span>
                             )}
                           </div>
@@ -1038,9 +1249,13 @@ export default function LmsQuizGenerate() {
 
                     {/* Explanation */}
                     {q.explanation && (
-                      <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100 text-xs text-slate-600 flex items-start gap-2">
-                        <b className="text-blue-800 shrink-0">Pembahasan:</b>
-                        <span>{q.explanation}</span>
+                      <div className="p-3 rounded-2xl bg-amber-50/60 border border-amber-200/70 text-xs text-amber-900 space-y-0.5">
+                        <div className="font-bold text-[10px] uppercase tracking-wider text-amber-700">
+                          💡 Pembahasan & Referensi Guru:
+                        </div>
+                        <div className="leading-relaxed">
+                          {q.explanation}
+                        </div>
                       </div>
                     )}
 
@@ -1048,27 +1263,61 @@ export default function LmsQuizGenerate() {
                 ))}
               </div>
 
-              {/* Bottom Actions */}
-              <div className="flex items-center justify-between pt-6 border-t border-slate-200">
+              {/* Bottom Action Footer */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <button
-                  onClick={() => setCurrentStep(2)}
-                  className="px-5 py-3 rounded-2xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs transition cursor-pointer"
+                  onClick={() => {
+                    const newQ = {
+                      id: Date.now(),
+                      category: 'Grammar',
+                      category_label: '✏️ Grammar (文法)',
+                      difficulty: 'medium',
+                      question: '質問を入力してください (Ketik soal baru di sini)',
+                      translation: 'Terjemahan soal',
+                      options: [
+                        { key: 'A', text: 'Pilihan A' },
+                        { key: 'B', text: 'Pilihan B' },
+                        { key: 'C', text: 'Pilihan C' },
+                        { key: 'D', text: 'Pilihan D' }
+                      ],
+                      correct_key: 'A',
+                      explanation: 'Pembahasan kunci jawaban',
+                      material_reference: generatedQuiz.bab,
+                      sort_order: (generatedQuiz.questions?.length || 0) + 1
+                    };
+                    setGeneratedQuiz(prev => ({
+                      ...prev,
+                      questions: [...(prev.questions || []), newQ]
+                    }));
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Kembali ke Konfigurasi
+                  <Plus className="w-4 h-4 text-blue-600" />
+                  <span>+ Tambah Butir Soal Manual</span>
                 </button>
-                <button
-                  onClick={handlePublishQuiz}
-                  className="px-8 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Setujui & Publikasikan Quiz untuk Siswa</span>
-                </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigate('/lms/quiz')}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handlePublishQuiz}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Setujui & Publikasikan Quiz Sekarang</span>
+                  </button>
+                </div>
               </div>
 
             </div>
           )}
 
         </div>
+
       </div>
     </Layout>
   );

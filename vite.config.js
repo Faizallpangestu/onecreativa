@@ -158,6 +158,12 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => process.env.CREATIVA_API_TARGET ? path : path.replace(/^\/api/, '/One-creativa/backend/api')
       },
+      '/backend/api': {
+        target: process.env.CREATIVA_API_TARGET || 'http://localhost',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/backend\/api/, '/One-creativa/backend/api')
+      },
       '/uploads': {
         target: 'http://localhost',
         changeOrigin: true,

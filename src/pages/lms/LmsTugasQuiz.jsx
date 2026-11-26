@@ -6215,12 +6215,24 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
   const [quizzes, setQuizzes] = useState(() => {
     try {
       const saved = localStorage.getItem('lms_master_quizzes_v6');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {
       console.error(e);
     }
     return INITIAL_QUIZZES;
   });
+
+  // ── SENSEI QUICK GENERATOR HERO COCKPIT STATE ──
+  const [quickGenMode, setQuickGenMode] = useState('range_bab'); // 'range_bab' | 'range_meeting'
+  const [quickGenStartBab, setQuickGenStartBab] = useState(1);
+  const [quickGenEndBab, setQuickGenEndBab] = useState(5);
+  const [quickGenStartMeeting, setQuickGenStartMeeting] = useState(1);
+  const [quickGenEndMeeting, setQuickGenEndMeeting] = useState(4);
+  const [quickGenClass, setQuickGenClass] = useState('N5 Pagi');
+  const [quickGenCount, setQuickGenCount] = useState(10);
 
   // ── UKOM DAFTAR SOAL SIMULATOR MODAL STATE ──
   const [activeExamModal, setActiveExamModal] = useState(null); // active quiz/task object
@@ -6258,32 +6270,40 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
   // ── LOAD REAL QUIZZES FROM MYSQL DATABASE (NO DUMMY) ──
   const fetchQuizzesFromApi = async () => {
     try {
-      const res = await fetch('/backend/api/lms_quiz_api.php?action=daily_quizzes');
+      let res = await fetch('/api/lms_quiz_api.php?action=daily_quizzes');
+      if (!res.ok) {
+        res = await fetch('/backend/api/lms_quiz_api.php?action=daily_quizzes');
+      }
       const json = await res.json();
       if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
         const mapped = json.data.map((q) => {
+          const isPub = q.status === 'published';
+          const isReview = q.status === 'sensei_review';
           return {
             id: Number(q.id),
             title: q.title,
-            bab: q.bab || 'Bab 05',
+            bab: q.bab || 'Bab 01 s/d Bab 05',
             level: q.level || 'N5',
             classRoom: q.class_name || 'N5 Pagi',
-            curriculumSource: q.curriculum_source || 'Japan Foundation / Minna no Nihongo',
+            curriculumSource: q.curriculum_source || 'Minna no Nihongo / Japan Foundation',
             category: q.category || 'Vocabulary',
             categoryLabel: q.category_label || '🔤 Vocabulary',
-            isOpen: q.status === 'published',
-            status: q.status === 'published' ? 'Sedang Aktif' : 'Draft',
-            statusCode: q.status === 'published' ? 'running' : 'draft',
+            isOpen: isPub,
+            status: isPub ? 'Sedang Aktif' : (isReview ? 'Perlu Review Sensei' : 'Akses Ditutup'),
+            statusCode: isPub ? 'running' : 'draft',
             durationMinutes: Number(q.duration_minutes) || 20,
             timeRemaining: `${q.duration_minutes || 20}:00`,
             questionType: 'Pilihan Ganda',
             thumbnailType: q.level === 'N4' ? 'osaka_castle' : 'torii_gate',
             badgeColor: q.level === 'N4' ? 'bg-indigo-50 text-indigo-700' : 'bg-purple-50 text-purple-700',
-            submissionsCount: q.student_submissions ? q.student_submissions.length : 0,
+            submissionsCount: Number(q.total_attempts) || (q.student_submissions ? q.student_submissions.length : 0),
             totalStudents: q.class_name === 'N5 Pagi' ? 2 : 1,
             questions: q.questions || [],
+            totalQuestions: Number(q.total_questions) || (q.questions ? q.questions.length : 10),
             materialTitle: q.material_title,
-            materialFile: q.material_file
+            materialFile: q.material_file,
+            totalAttempts: Number(q.total_attempts) || 0,
+            avgScore: q.avg_score ? Number(q.avg_score) : null
           };
         });
         setQuizzes(mapped);
@@ -6371,6 +6391,19 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
       setQuizzes(prev => prev.map(q => {
         if (q.id === itemId) {
           const nextState = !q.isOpen;
+          // Sync with database
+          fetch('/api/lms_quiz_api.php?action=toggle_quiz_access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quiz_id: itemId, is_open: nextState })
+          }).catch(() => {
+            fetch('/backend/api/lms_quiz_api.php?action=toggle_quiz_access', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quiz_id: itemId, is_open: nextState })
+            }).catch(console.error);
+          });
+
           Swal.fire({
             toast: true,
             position: 'top-end',
@@ -6401,7 +6434,10 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
     let loadedQuiz = { ...quiz };
     if (!loadedQuiz.questions || loadedQuiz.questions.length === 0) {
       try {
-        const res = await fetch(`/backend/api/lms_quiz_api.php?action=quiz_detail&id=${quiz.id}`);
+        let res = await fetch(`/api/lms_quiz_api.php?action=quiz_detail&id=${quiz.id}`);
+        if (!res.ok) {
+          res = await fetch(`/backend/api/lms_quiz_api.php?action=quiz_detail&id=${quiz.id}`);
+        }
         const json = await res.json();
         if (json.status === 'success' && json.data.questions && json.data.questions.length > 0) {
           loadedQuiz.questions = json.data.questions.map(q => ({
@@ -6470,17 +6506,24 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
     };
 
     // Auto-sync attempt to MySQL
-    fetch('/backend/api/lms_quiz_api.php?action=submit_attempt', {
+    const attemptPayload = {
+      quiz_id: activeExamModal.id,
+      student_id: currentUser.id || 1,
+      student_name: currentUser.name || 'Muhammad Faizal',
+      answers: studentAnswers,
+      time_spent_seconds: ((activeExamModal.durationMinutes || 20) * 60) - examTimer
+    };
+    fetch('/api/lms_quiz_api.php?action=submit_attempt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        quiz_id: activeExamModal.id,
-        student_id: currentUser.id || 1,
-        student_name: currentUser.name || 'Muhammad Faizal',
-        answers: studentAnswers,
-        time_spent_seconds: ((activeExamModal.durationMinutes || 20) * 60) - examTimer
-      })
-    }).catch(() => {});
+      body: JSON.stringify(attemptPayload)
+    }).catch(() => {
+      fetch('/backend/api/lms_quiz_api.php?action=submit_attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attemptPayload)
+      }).catch(() => {});
+    });
 
     setQuizzes(prev => prev.map(q => {
       if (q.id === activeExamModal.id) {
@@ -6800,6 +6843,17 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
       if (result.isConfirmed) {
         if (type === 'quiz') {
           setQuizzes(prev => prev.filter(q => q.id !== id));
+          fetch('/api/lms_quiz_api.php?action=delete_quiz', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quiz_id: id })
+          }).catch(() => {
+            fetch('/backend/api/lms_quiz_api.php?action=delete_quiz', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quiz_id: id })
+            }).catch(console.error);
+          });
         } else {
           setTasks(prev => prev.filter(t => t.id !== id));
         }
@@ -7813,22 +7867,315 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
         )}
 
         {/* ============================================================ */}
-        {/* 5. LIST QUIZ INTERAKTIF                                      */}
+        {/* 5. LIST QUIZ INTERAKTIF & SENSEI MATERIAL GENERATOR COCKPIT   */}
         {/* ============================================================ */}
         {mainTab === 'quiz' && (
           <div className="max-w-[1550px] mx-auto px-4 md:px-8 mt-5">
+
+            {/* SENSEI COCKPIT: AI MATERIAL QUIZ GENERATOR HERO CARD */}
+            {isSensei && (
+              <div className="mb-6 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 text-white p-6 sm:p-7 shadow-xl border border-indigo-800/40 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-10 left-1/3 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="relative z-10">
+                  {/* Top Header */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-white/10">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-3xs font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider shadow-2xs">
+                          ⚡ FITUR UTAMA SENSEI
+                        </span>
+                        <span className="text-xs font-semibold text-indigo-300">
+                          Generator Kuis Otomatis Berbasis Modul Materi
+                        </span>
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-black text-white mt-1.5 tracking-tight flex items-center gap-2">
+                        <Sparkles className="w-6 h-6 text-amber-400 shrink-0" />
+                        <span>Generate Kuis dari Materi Pembelajaran Sensei</span>
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                        Pilih modul materi dari <b>bab berapa sampai bab berapa</b> atau <b>rentang pertemuan</b>. AI mengekstrak Kotoba, Bunpou, Kanji, dan Dokkai menjadi paket soal UKOM yang tervalidasi dan siap diterbitkan ke kelas.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/lms/quiz/generate?mode=upload_new')}
+                        className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-2 border border-white/15 cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 text-amber-400" />
+                        <span>Upload Modul PDF/DOCX</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Interactive Range & Settings */}
+                  <div className="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
+                    
+                    {/* Left: Mode Switch, Presets & Selectors (7 cols) */}
+                    <div className="lg:col-span-7 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setQuickGenMode('range_bab')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+                              quickGenMode === 'range_bab'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'bg-white/10 text-slate-300 hover:bg-white/15'
+                            }`}
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span>Pilih Rentang Bab</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuickGenMode('range_meeting')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+                              quickGenMode === 'range_meeting'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'bg-white/10 text-slate-300 hover:bg-white/15'
+                            }`}
+                          >
+                            <CalendarIcon className="w-3.5 h-3.5" />
+                            <span>Pilih Rentang Pertemuan</span>
+                          </button>
+                        </div>
+                        
+                        {quickGenMode === 'range_bab' && (
+                          <span className="text-3xs font-bold text-amber-300">
+                            Tersedia Bab 1 s/d Bab 25 (Minna no Nihongo)
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quick Presets for Bab */}
+                      {quickGenMode === 'range_bab' && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Preset Cepat:</span>
+                          {[
+                            { label: 'Bab 1 - 5 (Dasar & Perkenalan)', start: 1, end: 5 },
+                            { label: 'Bab 6 - 10 (Aktivitas Sehari-hari)', start: 6, end: 10 },
+                            { label: 'Bab 1 - 10 (Mid-Semester Exam)', start: 1, end: 10 },
+                            { label: 'Bab 1 - 25 (Lengkap JLPT N5)', start: 1, end: 25 },
+                          ].map(p => (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => {
+                                setQuickGenStartBab(p.start);
+                                setQuickGenEndBab(p.end);
+                              }}
+                              className={`text-3xs px-2.5 py-1 rounded-lg font-bold border transition cursor-pointer ${
+                                quickGenStartBab === p.start && quickGenEndBab === p.end
+                                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-2xs'
+                                  : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Range Dropdowns */}
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        {quickGenMode === 'range_bab' ? (
+                          <>
+                            <div>
+                              <label className="block text-3xs font-black uppercase tracking-wider text-slate-300 mb-1">
+                                Mulai Dari Bab
+                              </label>
+                              <select
+                                value={quickGenStartBab}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setQuickGenStartBab(val);
+                                  if (val > quickGenEndBab) setQuickGenEndBab(val);
+                                }}
+                                className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-blue-400 cursor-pointer"
+                              >
+                                {[...Array(25)].map((_, i) => (
+                                  <option key={i + 1} value={i + 1} className="bg-slate-900 text-white">
+                                    Bab {String(i + 1).padStart(2, '0')} {i === 0 ? '(Perkenalan & Salam)' : i === 1 ? '(Benda & Kepemilikan)' : i === 2 ? '(Tempat & Arah)' : i === 3 ? '(Waktu & Jam)' : i === 4 ? '(Arah Perjalanan)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-3xs font-black uppercase tracking-wider text-slate-300 mb-1">
+                                Sampai Bab
+                              </label>
+                              <select
+                                value={quickGenEndBab}
+                                onChange={(e) => setQuickGenEndBab(Number(e.target.value))}
+                                className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-blue-400 cursor-pointer"
+                              >
+                                {[...Array(25)].map((_, i) => {
+                                  const b = i + 1;
+                                  if (b < quickGenStartBab) return null;
+                                  return (
+                                    <option key={b} value={b} className="bg-slate-900 text-white">
+                                      Bab {String(b).padStart(2, '0')}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="block text-3xs font-black uppercase tracking-wider text-slate-300 mb-1">
+                                Mulai Pertemuan
+                              </label>
+                              <select
+                                value={quickGenStartMeeting}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setQuickGenStartMeeting(val);
+                                  if (val > quickGenEndMeeting) setQuickGenEndMeeting(val);
+                                }}
+                                className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-blue-400 cursor-pointer"
+                              >
+                                {[...Array(16)].map((_, i) => (
+                                  <option key={i + 1} value={i + 1} className="bg-slate-900 text-white">
+                                    Pertemuan ke-{i + 1}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-3xs font-black uppercase tracking-wider text-slate-300 mb-1">
+                                Sampai Pertemuan
+                              </label>
+                              <select
+                                value={quickGenEndMeeting}
+                                onChange={(e) => setQuickGenEndMeeting(Number(e.target.value))}
+                                className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-blue-400 cursor-pointer"
+                              >
+                                {[...Array(16)].map((_, i) => {
+                                  const m = i + 1;
+                                  if (m < quickGenStartMeeting) return null;
+                                  return (
+                                    <option key={m} value={m} className="bg-slate-900 text-white">
+                                      Pertemuan ke-{m}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Class & Questions & Big CTA (5 cols) */}
+                    <div className="lg:col-span-5 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-3xs font-black uppercase tracking-wider text-slate-300 mb-1">
+                            Target Rombel Kelas
+                          </label>
+                          <select
+                            value={quickGenClass}
+                            onChange={(e) => setQuickGenClass(e.target.value)}
+                            className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-blue-400 cursor-pointer"
+                          >
+                            <option value="N5 Pagi">N5 Pagi (Akademik)</option>
+                            <option value="N4 A - PAGI">N4 A - PAGI</option>
+                            <option value="Semua Kelas">Semua Kelas</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-3xs font-black uppercase tracking-wider text-slate-300 mb-1">
+                            Jumlah Butir Soal
+                          </label>
+                          <select
+                            value={quickGenCount}
+                            onChange={(e) => setQuickGenCount(Number(e.target.value))}
+                            className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-blue-400 cursor-pointer"
+                          >
+                            <option value={10}>10 Soal (Daily Quiz)</option>
+                            <option value={15}>15 Soal (Standard)</option>
+                            <option value={20}>20 Soal (Review Lengkap)</option>
+                            <option value={25}>25 Soal (Simulasi Ujian)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Primary CTA */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const startVal = quickGenMode === 'range_bab' ? quickGenStartBab : quickGenStartMeeting;
+                          const endVal = quickGenMode === 'range_bab' ? quickGenEndBab : quickGenEndMeeting;
+                          navigate(`/lms/quiz/generate?mode=${quickGenMode}&start=${startVal}&end=${endVal}&class=${encodeURIComponent(quickGenClass)}&questions=${quickGenCount}`);
+                        }}
+                        className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm shadow-lg hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 border border-blue-400/30"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>Generate Kuis dari Materi {quickGenMode === 'range_bab' ? `Bab ${quickGenStartBab} s/d ${quickGenEndBab}` : `Pertemuan ${quickGenStartMeeting} s/d ${quickGenEndMeeting}`}</span>
+                        <ArrowRight className="w-4 h-4 text-white/80" />
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* QUIZ LIST OR RICH EMPTY STATE */}
             {filteredQuizzes.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center shadow-2xs">
-                <Award className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h3 className="text-sm font-bold text-slate-700">Tidak ada kuis ditemukan</h3>
-                <p className="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian atau filter level JLPT.</p>
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-10 md:p-14 text-center shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4 border border-indigo-100 shadow-2xs">
+                  <Sparkles className="w-8 h-8 text-amber-500" />
+                </div>
+                <h3 className="text-base font-bold text-slate-800">
+                  Belum Ada Kuis untuk Filter Ini
+                </h3>
+                <p className="text-xs md:text-sm text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
+                  {isSensei
+                    ? 'Sensei dapat langsung mengenerate paket soal interaktif baru dari modul materi Bab 1 s/d Bab 5 atau rentang bab lainnya di atas.'
+                    : 'Belum ada kuis yang tersedia untuk rombel kelas dan kategori ini. Silakan pantau kuis harian dari Sensei.'}
+                </p>
+
+                {isSensei && (
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/lms/quiz/generate?mode=range_bab&start=1&end=5&class=N5%20Pagi&questions=10')}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Generate Soal dari Modul Bab 1 - 5</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory('ALL');
+                        setSelectedLevel('ALL');
+                        setStatusFilter('ALL');
+                        setSearchQuery('');
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                    >
+                      Reset Filter Pencarian
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className={viewMode === 'grid' ? 'grid grid-cols-1 xl:grid-cols-2 gap-4' : 'space-y-4'}>
                 {filteredQuizzes.map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="bg-white rounded-2xl border border-slate-200/90 hover:border-purple-300 shadow-2xs hover:shadow-xs transition-all p-5 md:p-6 flex flex-col justify-between"
+                    className="bg-white rounded-3xl border border-slate-200/90 hover:border-blue-400 shadow-2xs hover:shadow-md transition-all p-5 md:p-6 flex flex-col justify-between"
                   >
                     <div>
                       {/* Top Utility Line: Badges + Access Toggle / Status */}
@@ -7840,40 +8187,34 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                               {quiz.classRoom}
                             </span>
                           )}
-                          {quiz.categoryLabel && (
-                            <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                              {quiz.categoryLabel}
-                            </span>
-                          )}
+                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            🇯🇵 {quiz.level || 'N5'}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                            <BookOpen className="w-3 h-3 text-amber-600" />
+                            {quiz.bab || 'Bab 01 s/d Bab 05'}
+                          </span>
                           {quiz.curriculumSource && (
-                            <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hidden sm:inline">
                               🏛️ {quiz.curriculumSource}
                             </span>
                           )}
-                          <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${quiz.badgeColor} border border-slate-200/60`}>
-                            {quiz.bab}
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                            {quiz.level}
-                          </span>
                         </div>
 
                         {/* Top Right: Access Toggle / Status */}
                         {isSensei ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-                              Akses Kuis:
-                            </span>
                             <button
+                              type="button"
                               onClick={(e) => handleToggleAccess('quiz', quiz.id, e)}
-                              className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                              className={`px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
                                 quiz.isOpen
                                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                   : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
                               }`}
                             >
                               {quiz.isOpen ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                              <span>{quiz.isOpen ? 'Dibuka' : 'Ditutup'}</span>
+                              <span>{quiz.isOpen ? 'Akses Terbuka' : 'Akses Ditutup'}</span>
                             </button>
                           </div>
                         ) : (
@@ -7889,7 +8230,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
 
                       {/* Main Title & Cover Image */}
                       <div className="flex items-start gap-4">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-2xs relative overflow-hidden">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-2xs relative overflow-hidden">
                           <img 
                             src={quiz.thumbnailType === 'quiz_sheet' ? quizChecklistImg : quiz.thumbnailType === 'torii_gate' ? toriiGateImg : kyotoStreetImg} 
                             alt="Quiz Cover"
@@ -7905,12 +8246,42 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                             {quiz.title}
                           </h3>
 
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2 font-medium">
-                            <span>📝 {quiz.questions?.length || 10} Butir Soal</span>
+                          {/* Material Reference info */}
+                          {quiz.materialTitle && (
+                            <div className="text-xs text-indigo-700 font-semibold mt-1 flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">Modul: {quiz.materialTitle}</span>
+                            </div>
+                          )}
+
+                          {/* 5-Pillar Tags Preview */}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                            <span className="text-3xs px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              Kotoba (Kosakata)
+                            </span>
+                            <span className="text-3xs px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              Bunpou (Grammar)
+                            </span>
+                            <span className="text-3xs px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              Kanji
+                            </span>
+                            <span className="text-3xs px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              Dokkai (Bacaan)
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2.5 font-medium">
+                            <span className="font-bold text-slate-700">📝 {quiz.totalQuestions || quiz.questions?.length || 10} Butir Soal</span>
                             <span>•</span>
-                            <span>⏱ {quiz.durationMinutes} Menit</span>
+                            <span>⏱ {quiz.durationMinutes || 20} Menit</span>
                             <span>•</span>
-                            <span>👥 {quiz.studentSubmissions?.length || 0} Siswa Selesai</span>
+                            <span>👥 {quiz.submissionsCount || 0} Siswa Selesai</span>
+                            {quiz.avgScore && (
+                              <>
+                                <span>•</span>
+                                <span className="text-emerald-700 font-bold">⭐ Rata-rata: {quiz.avgScore}</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -7921,14 +8292,17 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                       {isSensei ? (
                         <>
                           <button
+                            type="button"
                             onClick={() => handleStartExam(quiz)}
-                            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs px-3 py-2 rounded-xl shadow-2xs transition cursor-pointer"
+                            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-blue-300 font-bold text-xs px-3.5 py-2 rounded-xl shadow-2xs transition cursor-pointer flex items-center gap-1.5"
                             title="Uji Tampilan Soal UKOM"
                           >
-                            Uji Soal
+                            <Play className="w-3.5 h-3.5 text-blue-600 fill-blue-600" />
+                            <span>Simulasi Soal UKOM</span>
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => {
                               setEvaluatingItem(quiz);
                               setSelectedSubmission(null);
@@ -7936,18 +8310,20 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5 active:scale-95"
                           >
                             <Award className="w-3.5 h-3.5" />
-                            <span>Evaluasi ({quiz.studentSubmissions?.length || 0})</span>
+                            <span>Evaluasi ({quiz.submissionsCount || 0})</span>
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => handleOpenEditModal('quiz', quiz)}
                             className="p-2 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition cursor-pointer shadow-2xs"
-                            title="Edit Quiz & Soal Takoboto"
+                            title="Edit Butir Soal"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => handleDeleteItem('quiz', quiz.id, quiz.title)}
                             className="p-2 rounded-xl border border-slate-200 hover:border-rose-400 hover:bg-rose-50 text-slate-600 hover:text-rose-600 transition cursor-pointer shadow-2xs"
                             title="Hapus Quiz"
@@ -7959,6 +8335,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                         <>
                           {quiz.isOpen ? (
                             <button
+                              type="button"
                               onClick={() => handleStartExam(quiz)}
                               className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2 rounded-xl shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
                             >
@@ -7967,6 +8344,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => Swal.fire('Akses Ditutup', 'Kuis ini belum dibuka aksesnya oleh Sensei.', 'info')}
                               className="bg-slate-100 text-slate-400 border border-slate-200 font-bold text-xs px-4 py-2 rounded-xl cursor-not-allowed flex items-center gap-1.5"
                             >
@@ -8972,32 +9350,32 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                   <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition shrink-0 mt-2" />
                 </button>
 
-                {/* B. Generate dari Materi */}
+                {/* B. Generate dari Materi Sensei (Pilih Bab / Pertemuan) */}
                 <button
                   type="button"
                   onClick={() => {
                     setIsQuizMethodModalOpen(false);
-                    navigate('/lms/quiz/generate');
+                    navigate('/lms/quiz/generate?mode=range_bab&start=1&end=5&class=N5%20Pagi&questions=10');
                   }}
-                  className="w-full p-4 rounded-2xl border-2 border-blue-500 bg-blue-50/60 hover:bg-blue-100/70 transition-all text-left flex items-start gap-4 group cursor-pointer relative shadow-2xs"
+                  className="w-full p-4.5 rounded-2xl border-2 border-blue-600 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-blue-50/90 hover:from-blue-100 hover:to-indigo-100 transition-all text-left flex items-start gap-4 group cursor-pointer relative shadow-sm"
                 >
-                  <div className="p-3 rounded-2xl bg-blue-600 text-white shadow-xs shrink-0">
-                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  <div className="p-3 rounded-2xl bg-blue-600 text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <Sparkles className="w-5 h-5 text-amber-300 fill-amber-300" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-sm font-extrabold text-blue-950">
-                        B. Generate dari Materi
+                        B. Generate dari Materi Sensei (Bab & Pertemuan)
                       </h4>
-                      <span className="bg-amber-400 text-slate-900 text-3xs font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
-                        FITUR BARU • AI
+                      <span className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-3xs font-black uppercase px-2 py-0.5 rounded-full tracking-wider shadow-2xs">
+                        FITUR UTAMA • 5 PILAR
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                      Ekstrak materi harian Sensei (PDF/Word/PPT) menjadi 10–20 soal terkurasi (Vocab, Grammar, Kanji, Reading, Situasional).
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                      Pilih modul materi dari <b>Bab berapa sampai bab berapa</b> atau rentang <b>pertemuan</b>. AI mengekstrak Kotoba, Bunpou, Kanji, dan Dokkai menjadi paket kuis tervalidasi tanpa input manual.
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-blue-600 transition shrink-0 mt-2" />
+                  <ChevronRight className="w-4 h-4 text-blue-600 transition shrink-0 mt-3 group-hover:translate-x-1" />
                 </button>
 
                 {/* C. Import Question Bank */}

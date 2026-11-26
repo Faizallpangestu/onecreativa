@@ -508,7 +508,8 @@ export default function LmsQuizGenerate() {
       const chapTitle = assignedChap?.title || `Bab ${chapNum}`;
 
       let qText = '';
-      let transText = '';
+      let transText = null;
+      let isTranslationQuestion = false;
       let optA = '';
       let optB = '';
       let optC = '';
@@ -516,74 +517,133 @@ export default function LmsQuizGenerate() {
       let explanation = '';
 
       if (cat === 'Vocabulary') {
-        if (chapNum === 1 || chapTitle.includes('Hiragana')) {
-          qText = '「あさ」の 正しい 読み方は どれですか。';
-          transText = 'Bagaimana cara membaca kata "あさ" yang tepat?';
-          optA = 'Asa (Pagi)';
-          optB = 'Ame (Hujan)';
-          optC = 'Ashi (Kaki)';
-          optD = 'Aki (Musim Gugur)';
-          explanation = 'Huruf Hiragana あさ dibaca Asa yang berarti pagi hari.';
-        } else if (chapNum === 2 || chapTitle.includes('Katakana')) {
-          qText = '「パソコン」の 意味として 最も 適切なものは どれですか。';
-          transText = 'Apa arti kata Katakana "パソコン" yang paling tepat?';
-          optA = 'Komputer / Laptop pribadi';
-          optB = 'Televisi kantor';
-          optC = 'Papan tulis putih';
-          optD = 'Kotak peralatan kerja';
-          explanation = 'Katakana パソコン merupakan singkatan kata serapan Personal Computer (Komputer/Laptop).';
+        // Rotasi: Soal Cara Baca (Jepang) vs Soal Nanya Artinya (Indonesia)
+        const isMeaningQuestion = (idx % 2 === 1);
+
+        if (isMeaningQuestion) {
+          // KHUSUS NANYA ARTINYA: Jawaban Bahasa Indonesia
+          isTranslationQuestion = true;
+          if (chapNum === 1 || chapTitle.includes('Hiragana')) {
+            qText = '「かいしゃ」の 意味（いみ）は どれですか。';
+            transText = 'Arti dari kata "かいしゃ" adalah:';
+            optA = 'Perusahaan / Tempat Kerja';
+            optB = 'Sekolah';
+            optC = 'Rumah Sakit';
+            optD = 'Stasiun Kereta';
+            explanation = 'Kata かいしゃ (会社) berarti perusahaan atau tempat kerja.';
+          } else if (chapNum === 2 || chapTitle.includes('Katakana')) {
+            qText = '「パソコン」の 意味（いみ）として 最も 適切なものは どれですか。';
+            transText = 'Arti dari kata "パソコン" adalah:';
+            optA = 'Komputer / Laptop pribadi';
+            optB = 'Televisi kantor';
+            optC = 'Papan tulis putih';
+            optD = 'Kotak peralatan kerja';
+            explanation = 'Katakana パソコン merupakan singkatan kata Personal Computer (Laptop/Komputer).';
+          } else {
+            qText = '「じむしょ」の 意味（いみ）として 正しいものは どれですか。';
+            transText = 'Arti dari kata "じむしょ" adalah:';
+            optA = 'Ruang Kantor Administrasi';
+            optB = 'Kamar Mandi / Toilet';
+            optC = 'Gudang Logistik';
+            optD = 'Tempat Parkir';
+            explanation = 'Kata じむしょ (事務所) berarti ruang kantor kerja.';
+          }
         } else {
-          qText = '「じむしょ」の 意味として 正しい 日本語の 説明は どれですか。';
-          transText = 'Apa arti kata "じむしょ" dalam konteks ruang tempat kerja?';
-          optA = 'Kantor / Ruang administrasi kerja';
-          optB = 'Kamar mandi staf';
-          optC = 'Gudang logistik';
-          optD = 'Tempat parkir kendaraan';
-          explanation = 'じむしょ (事務所) berarti ruang kantor tempat staf melakukan pekerjaan administratif.';
+          // BUKAN NANYA ARTINYA: Jawaban BAHASA JEPANG MURNI, tanpa translate
+          isTranslationQuestion = false;
+          if (chapNum === 1 || chapTitle.includes('Hiragana')) {
+            qText = '「あさ」の 正しい 読み方は どれですか。';
+            optA = 'あさ';
+            optB = 'あめ';
+            optC = 'あし';
+            optD = 'あき';
+            explanation = 'Huruf Hiragana 「あさ」 dibaca asa (pagi).';
+          } else if (chapNum === 2 || chapTitle.includes('Katakana')) {
+            qText = '「パソコン」の 正しい 読み方は どれですか。';
+            optA = 'ぱそこん';
+            optB = 'ぱすこん';
+            optC = 'ばそこん';
+            optD = 'ぽそこん';
+            explanation = 'Kata Katakana パソコン dibaca ぱそこん (pasokon).';
+          } else {
+            qText = '「事務所」の 正しい ひらがなの 読み方は どれですか。';
+            optA = 'じむしょ';
+            optB = 'じむじょ';
+            optC = 'しむしょ';
+            optD = 'じゅうしょ';
+            explanation = 'Kanji 事務所 dibaca じむしょ (jimusho).';
+          }
         }
       } else if (cat === 'Grammar') {
+        // TATA BAHASA: Jawaban BAHASA JEPANG MURNI, tanpa translate
+        isTranslationQuestion = false;
         if (chapNum <= 3) {
-          qText = 'わたし（　）フェイザルです。空欄に 入る 最も 適切な 助詞は どれですか。';
-          transText = 'Isilah partikel yang tepat untuk kalimat: わたし（　）フェイザルです。';
-          optA = 'は (wa)';
-          optB = 'を (wo)';
-          optC = 'が (ga)';
-          optD = 'に (ni)';
-          explanation = 'Partikel penanda subjek/topik identitas diri adalah partikel は (dibaca wa).';
-        } else {
-          qText = '仕事は 8時（　）5時（　）です。適切な 組み合わせは どれですか。';
-          transText = 'Tentukan pasangan partikel rentang waktu: 仕事は 8時（　）5時（　）です。';
+          qText = 'わたし（　）フェイザルです。空欄に 入る 助詞は どれですか。';
+          optA = 'は';
+          optB = 'を';
+          optC = 'が';
+          optD = 'に';
+          explanation = 'Partikel penanda topik identitas diri adalah partikel は (wa).';
+        } else if (chapNum === 4 || chapNum === 5) {
+          qText = '仕事は 8時（　）5時（　）です。空欄に 入る 助詞の 組み合わせは どれですか。';
           optA = 'から ・ まで';
           optB = 'で ・ に';
           optC = 'へ ・ を';
           optD = 'と ・ や';
-          explanation = 'Pola rentang waktu mulai hingga selesai menggunakan kombinasi 〜から (dari) 〜まで (sampai).';
+          explanation = 'Pola rentang waktu mulai hingga selesai menggunakan kombinasi 〜から 〜まで.';
+        } else {
+          qText = 'あした 工場へ（　）。空欄に 入る 最も 適切な 動詞は どれですか。';
+          optA = '行きます';
+          optB = '行きました';
+          optC = '行きません';
+          optD = '行って';
+          explanation = 'Keterangan waktu あした (besok) memerlukan kata kerja bentuk non-lampau positif 行きます.';
         }
       } else if (cat === 'Kanji') {
-        qText = '漢字「時」の 正しい 音読みは どれですか。';
-        transText = 'Apa bunyi Onyomi yang benar untuk huruf kanji 「時」?';
-        optA = 'ジ (Ji - Jam/Waktu)';
-        optB = 'ニチ (Nichi)';
-        optC = 'フン (Fun)';
-        optD = 'ゲツ (Getsu)';
-        explanation = 'Kanji 時 (waktu/jam) dibaca ジ (Ji) dalam hitungan waktu seperti 9時 (Ku-ji).';
+        // KANJI: Jawaban BAHASA JEPANG MURNI, tanpa translate
+        isTranslationQuestion = false;
+        if (chapNum <= 3) {
+          qText = '漢字「人」の 正しい 読み方は どれですか。';
+          optA = 'ひと';
+          optB = 'ほん';
+          optC = 'ひ';
+          optD = 'つき';
+          explanation = 'Kunyomi kanji 「人」 adalah ひと (hito).';
+        } else {
+          qText = '漢字「時」の 正しい 音読みは どれですか。';
+          optA = 'ジ';
+          optB = 'ニチ';
+          optC = 'フン';
+          optD = 'ゲツ';
+          explanation = 'Onyomi kanji 「時」 adalah ジ (ji) seperti pada 9時 (kuji).';
+        }
       } else if (cat === 'Reading') {
+        // DOKKAI: Jawaban BAHASA JEPANG MURNI, tanpa translate
+        isTranslationQuestion = false;
         qText = '業務連絡に よると、作業は 何時から 始まりますか。';
-        transText = 'Berdasarkan teks pengumuman di atas, pada jam berapa pekerjaan dimulai?';
-        optA = '8時30分 (Pukul 08:30)';
-        optB = '8時00分 (Pukul 08:00)';
-        optC = '9時00分 (Pukul 09:00)';
-        optD = '9時30分 (Pukul 09:30)';
-        explanation = 'Teks tertulis: 本日の 作業は 8時30分から 開始します。Maka jawaban yang benar adalah 8:30.';
+        optA = '8時30分';
+        optB = '8時00分';
+        optC = '9時00分';
+        optD = '9時30分';
+        explanation = 'Teks tertulis: 本日の 作業は 8時30分から 開始します。Maka jawaban yang tepat adalah 8時30分.';
       } else {
-        // Situational
-        qText = '朝、会社の 事務所に 入ったとき、最初に 言う 適切な 挨拶は どれですか。';
-        transText = 'Ucapan salam pembuka apa yang paling sopan saat baru tiba di kantor pada pagi hari?';
-        optA = 'おはようございます (Ohayou gozaimasu)';
-        optB = 'おやすみなさい (Oyasuminasai)';
-        optC = 'さようなら (Sayounara)';
-        optD = 'いただきます (Itadakimasu)';
-        explanation = 'Salam baku kerja di Jepang saat tiba di tempat tugas pagi hari adalah おはようございます。';
+        // SITUASIONAL: Jawaban BAHASA JEPANG MURNI (Aisatsu / Etika Kerja)
+        isTranslationQuestion = false;
+        if (idx % 2 === 0) {
+          qText = '朝、会社の 事務所に 入ったとき、最初に 言う 挨拶は どれですか。';
+          optA = 'おはようございます';
+          optB = 'おやすみなさい';
+          optC = 'さようなら';
+          optD = 'いただきます';
+          explanation = 'Salam kerja saat tiba di kantor pada pagi hari adalah おはようございます。';
+        } else {
+          qText = '先に 帰るとき、同僚に 言う 日本の ビジネスマナーの 言葉は どれですか。';
+          optA = 'お先に失礼します';
+          optB = 'ごちそうさまでした';
+          optC = 'おかえりなさい';
+          optD = 'いってきます';
+          explanation = 'Ungkapan permisi pulang mendahului rekan kerja yang masih bertugas adalah お先に失礼します。';
+        }
       }
 
       generatedQuestions.push({
@@ -594,6 +654,7 @@ export default function LmsQuizGenerate() {
         material_reference: `${chapTitle} (${activeClass.name})`,
         question: qText,
         translation: transText,
+        is_translation_question: isTranslationQuestion,
         passage: cat === 'Reading' ? '【業務連絡】：\\n本日の 作業は 8時30分から 開始します。全員、保護具と 手帳を 確認して、朝礼に 参加してください。' : null,
         options: [
           { key: 'A', text: optA },
@@ -605,7 +666,6 @@ export default function LmsQuizGenerate() {
         explanation: explanation
       });
     });
-
     const quizResult = {
       quiz_id: Date.now(),
       title: `Quiz ${targetLevel} – Bab ${startBab} s/d ${endBab} (${activeClass.name})`,
@@ -1647,9 +1707,11 @@ export default function LmsQuizGenerate() {
                         <div className="text-sm md:text-base font-black text-slate-900 leading-snug">
                           {q.question}
                         </div>
-                        <div className="text-xs text-slate-500 italic">
-                          {q.translation}
-                        </div>
+                        {q.is_translation_question && q.translation && (
+                          <div className="text-xs text-blue-600 font-semibold italic">
+                            {q.translation}
+                          </div>
+                        )}
                       </div>
 
                       {/* Options List */}

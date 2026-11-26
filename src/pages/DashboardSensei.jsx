@@ -239,7 +239,7 @@ export default function DashboardSensei() {
 
             {/* Card 3: Tugas Perlu Dinilai */}
             <div 
-              onClick={() => navigate('/lms/tugas-quiz')}
+              onClick={() => navigate('/lms/tugas')}
               className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 flex items-center gap-4 hover:shadow-md hover:border-rose-200 transition-all cursor-pointer"
             >
               <div className="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-rose-500/20">
@@ -382,7 +382,7 @@ export default function DashboardSensei() {
                     Tugas Menunggu Penilaian
                   </h2>
                   <button 
-                    onClick={() => navigate('/lms/tugas-quiz')}
+                    onClick={() => navigate('/lms/tugas')}
                     className="text-xs font-semibold text-blue-600 hover:text-blue-700"
                   >
                     Lihat Semua &gt;

@@ -37,6 +37,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import quiz3dCharacter from '../../assets/quiz_3d_character.jpg';
 import { moduleApi } from '../../utils/moduleApi';
 import {
   getChaptersForClass,
@@ -756,56 +757,77 @@ export default function LmsQuizGenerate() {
     <Layout>
       <div className="min-h-screen bg-[#F8FAFC] pb-16 font-sans">
         
-        {/* ── HEADER HERO BANNER ── */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white border-b border-slate-800">
-          <div className="max-w-[1550px] mx-auto px-4 md:px-8 py-8 md:py-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
+        {/* ── HEADER HERO BANNER (SLIM, NEAT & DENGAN 3D KARAKTER KUIS) ── */}
+        <div className="bg-gradient-to-r from-[#070b16] via-[#0d162d] to-[#122244] text-white border-b border-slate-800/80 relative overflow-hidden">
+          
+          {/* Subtle Ambient Glow Effect */}
+          <div className="absolute -right-10 -top-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute right-72 -bottom-24 w-60 h-60 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="max-w-[1550px] mx-auto px-4 md:px-8 pt-4 pb-3.5">
+            
+            {/* Top Row: Info (Left) + Actions + 3D Character (Right) */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              
+              {/* Left Info Column */}
+              <div className="max-w-2xl py-1">
+                <div className="flex items-center gap-2 mb-1">
                   <button 
                     onClick={() => navigate('/lms/quiz')}
-                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition cursor-pointer"
+                    className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition cursor-pointer"
                     title="Kembali ke Daftar Quiz"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                    Tersinkronisasi Real dengan Materi Pembelajaran
+                  <span className="text-[11px] font-bold text-slate-400">
+                    LMS Creativa • AI Quiz Cockpit Mode Sensei
                   </span>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
-                  Generate Quiz dari Materi Kelas Aktif
+
+                <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  <span>Generate Quiz dari Materi Kelas Aktif</span>
                 </h1>
-                <p className="text-xs md:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
-                  Pilih kelas yang sedang berjalan, tentukan tingkat kesulitan, lalu pilih rentang Bab materi pembelajaran nyata. AI menyusun soal yang tepat bersumber dari modul Sensei.
+                <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+                  Pilih rombel yang sedang berjalan, tentukan tingkat kesulitan, lalu pilih rentang Bab materi nyata. AI menyusun butir soal berstandar UKOM & JLPT.
                 </p>
+
+                {/* Quick Navigation Buttons */}
+                <div className="flex items-center gap-2.5 mt-3 flex-wrap">
+                  <button
+                    onClick={() => navigate('/lms/materi')}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Lihat Materi Kelas ({activeClass.name})</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/lms/quiz')}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Award className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Daftar Kuis</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Navigation Actions */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => navigate('/lms/materi')}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FolderOpen className="w-4 h-4 text-emerald-400" />
-                  <span>Lihat Materi Kelas ({activeClass.name})</span>
-                </button>
-                <button
-                  onClick={() => navigate('/lms/quiz')}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Award className="w-4 h-4 text-amber-400" />
-                  <span>Daftar Kuis</span>
-                </button>
+              {/* Right Column: 3D Character (Tinggi pas, atas bawah tidak terpotong) */}
+              <div className="hidden sm:flex items-center justify-end shrink-0 relative lg:pr-4">
+                <div className="relative flex items-center justify-center h-36 md:h-40">
+                  <img
+                    src={quiz3dCharacter}
+                    alt="3D Quiz Character"
+                    className="h-full w-auto object-contain drop-shadow-[0_12px_24px_rgba(37,99,235,0.35)] transition-transform duration-300 hover:scale-105"
+                  />
+                </div>
               </div>
+
             </div>
 
-            {/* Stepper Wizard Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-8 pt-6 border-t border-slate-800/80">
+            {/* Stepper Wizard Bar (Compact, Ramping & Rapi) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-800/80">
               {[
-                { step: 1, label: '1. Target Kelas & Bab Materi', desc: 'Rombel, Level, Kesulitan & Bab Nyata' },
-                { step: 2, label: '2. Konfigurasi 5 Pilar & Durasi', desc: 'Distribusi Butir Soal & Timer' },
+                { step: 1, label: '1. Target Kelas & Bab', desc: 'Rombel, Level, Kesulitan & Bab' },
+                { step: 2, label: '2. 5 Pilar & Durasi', desc: 'Distribusi Soal & Timer' },
                 { step: 3, label: '3. Generate & Validasi AI', desc: 'AI Merangkai Butir Soal' },
                 { step: 4, label: '4. Review Sensei & Publish', desc: 'Koreksi & Rilis ke Siswa' }
               ].map(item => (
@@ -814,19 +836,19 @@ export default function LmsQuizGenerate() {
                   onClick={() => {
                     if (item.step < currentStep) setCurrentStep(item.step);
                   }}
-                  className={`p-3.5 rounded-2xl border transition ${
+                  className={`px-3 py-2 rounded-xl border transition ${
                     currentStep === item.step
-                      ? 'bg-blue-600/30 border-blue-400 text-white shadow-sm ring-1 ring-blue-400/50'
+                      ? 'bg-blue-600/30 border-blue-400 text-white shadow-2xs ring-1 ring-blue-400/40'
                       : item.step < currentStep
                       ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300 cursor-pointer'
                       : 'bg-white/5 border-white/10 text-slate-400 opacity-60'
                   }`}
                 >
-                  <div className="text-xs font-black flex items-center justify-between">
+                  <div className="text-[11px] font-black flex items-center justify-between">
                     <span>{item.label}</span>
-                    {item.step < currentStep && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                    {item.step < currentStep && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
                   </div>
-                  <div className="text-[10px] text-slate-300 mt-0.5">{item.desc}</div>
+                  <div className="text-[10px] text-slate-300/80 mt-0.5">{item.desc}</div>
                 </div>
               ))}
             </div>

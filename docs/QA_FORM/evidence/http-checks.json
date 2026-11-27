@@ -1,0 +1,11 @@
+{
+  "verified_at": "2026-11-27",
+  "initial_status": "Blocked - local MySQL/MariaDB absent",
+  "final_status": "Pass",
+  "command": "node tools/release-browser-check.cjs --http-only",
+  "final_exit_code": 0,
+  "checks_passed": 102,
+  "evidence": "docs/audit/release-http-verification.json; docs/QA_FORM/evidence/browser-verification-2026-11-27.json",
+  "resolution": "Started XAMPP MariaDB 10.4.32 and created local one-creativa from backend/migrations/ONE_CREATIVA_HOSTINGER_BERSIH_2026.sql, plus metode_pembayaran column required by current code. Fixed relationships.php alias, billing.php status guard and billing.php student SQL expression before rerun.",
+  "note": "The earlier blocked run was retained in the QA history; this file records the final state."
+}

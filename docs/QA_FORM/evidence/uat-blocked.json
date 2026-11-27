@@ -1,0 +1,14 @@
+{
+  "verified_at": "2026-11-27",
+  "status": "Blocked",
+  "scope": "Role-based manual UAT for all personas in docs/QA_FORM/TEST_CASE_MATRIX.md and docs/audit/QA_PHASE_5_16.md:34",
+  "result": "No staging URL, QA accounts, or seeded relationship data were supplied. Without real logins for Super/Admin, HR, Finance, GA, Admin LMS/LPK, Sensei assigned/unassigned, two students in different classes, Mitra and participant roles, UI/UAT cases cannot be executed.",
+  "checks_executed": 0,
+  "not_claimed": "No UAT case is marked Pass. Synthetic PHP tests do not substitute for role-based UI acceptance.",
+  "required_input": [
+    "staging base URL",
+    "QA account identifiers per persona (no passwords in evidence)",
+    "linked data: employee/department/position, manager relation, class/assignment/enrollment, two students in different classes, invoice owner links, invoice and proof fixtures"
+  ],
+  "next_action": "After staging access is supplied, execute docs/QA_FORM/TEST_CASE_MATRIX.md and fill the handover form with Actual, Status and evidence per case."
+}

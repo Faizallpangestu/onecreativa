@@ -1,0 +1,112 @@
+{
+  "verified_at": "2026-11-27T02:57:24.781Z",
+  "php": "php",
+  "scope": "Local backend integration tests using isolated synthetic databases only",
+  "total": 13,
+  "passed": 2,
+  "failed": 11,
+  "results": [
+    {
+      "file": "accounting_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 2826,
+      "stdout": "Warning: Undefined array key 1100 in D:\\Project\\creativa\\onecreativa\\backend\\tests\\accounting_test.php on line 41\n\nFatal error: Uncaught AccountingException: ID tidak valid. in D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php:4\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php(17): ac_fail('ID tidak valid.')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_journal.php(151): ac_id(NULL)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php(98): {closure}()\n#3 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_journal.php(72): ac_atomic(Object(mysqli), Object(Closure))\n#4 D:\\Project\\creativa\\onecreativa\\backend\\tests\\accounting_test.php(41): ac_master_mutate(Object(mysqli), Array, Array)\n#5 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php on line 4",
+      "stderr": "PHP Warning:  Undefined array key 1100 in D:\\Project\\creativa\\onecreativa\\backend\\tests\\accounting_test.php on line 41\nPHP Fatal error:  Uncaught AccountingException: ID tidak valid. in D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php:4\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php(17): ac_fail('ID tidak valid.')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_journal.php(151): ac_id(NULL)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php(98): {closure}()\n#3 D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_journal.php(72): ac_atomic(Object(mysqli), Object(Closure))\n#4 D:\\Project\\creativa\\onecreativa\\backend\\tests\\accounting_test.php(41): ac_master_mutate(Object(mysqli), Array, Array)\n#5 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\accounting_core.php on line 4"
+    },
+    {
+      "file": "billing_invoice_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 160,
+      "stdout": "Fatal error: Uncaught RuntimeException: Billing tests require a local development/test database configuration. in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php:11\nStack trace:\n#0 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php on line 11",
+      "stderr": "PHP Fatal error:  Uncaught RuntimeException: Billing tests require a local development/test database configuration. in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php:11\nStack trace:\n#0 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php on line 11"
+    },
+    {
+      "file": "budget_workflow_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 816,
+      "stdout": "Fatal error: Uncaught RuntimeException: FAILED: Admin cannot impersonate Finance to create in D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php:19\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php(23): verify(false, 'Admin cannot im...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php(61): denied(Object(Closure), 403, 'Admin cannot im...')\n#2 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php on line 19",
+      "stderr": "PHP Fatal error:  Uncaught RuntimeException: FAILED: Admin cannot impersonate Finance to create in D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php:19\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php(23): verify(false, 'Admin cannot im...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php(61): denied(Object(Closure), 403, 'Admin cannot im...')\n#2 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\budget_workflow_test.php on line 19"
+    },
+    {
+      "file": "employee_directory_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 3577,
+      "stdout": "Fatal error: Uncaught RuntimeException: Fixture unauth status 500 body: {\"status\":\"error\",\"message\":\"Sesi login gagal dimulai.\",\"request_id\":\"86ce3e2b486cdccd\"} in D:\\Project\\creativa\\onecreativa\\backend\\tests\\employee_directory_test.php:39\nStack trace:\n#0 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\employee_directory_test.php on line 39",
+      "stderr": "PHP Fatal error:  Uncaught RuntimeException: Fixture unauth status 500 body: {\"status\":\"error\",\"message\":\"Sesi login gagal dimulai.\",\"request_id\":\"86ce3e2b486cdccd\"} in D:\\Project\\creativa\\onecreativa\\backend\\tests\\employee_directory_test.php:39\nStack trace:\n#0 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\employee_directory_test.php on line 39"
+    },
+    {
+      "file": "invoice_mail_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 148,
+      "stdout": "Fatal error: Uncaught RuntimeException: Billing tests require a local development/test database configuration. in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php:11\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\invoice_mail_test.php(4): require()\n#1 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php on line 11",
+      "stderr": "PHP Fatal error:  Uncaught RuntimeException: Billing tests require a local development/test database configuration. in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php:11\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\invoice_mail_test.php(4): require()\n#1 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php on line 11"
+    },
+    {
+      "file": "receipt_status_test.php",
+      "status": "Pass",
+      "exit_code": 0,
+      "duration_ms": 201,
+      "stdout": "PASS: No persisted attempt is Not Attempted\nPASS: Persisted Pending remains Pending\nPASS: Persisted Failed remains Failed\nPASS: Persisted SMTP Accepted remains SMTP Accepted\nPASS: Uncertainty does not overwrite the persisted failure status\nPASS: Unavailable history does not invent Pending or absence\nPASS: bp_complete reports unavailable history honestly after an exception\nPASS: Email history failure preserves verified payment and receipt availability\nPASS: Billing Verified and Accounting Pending stay separate\nPASS: Known pending billing payment remains Pending\nPASS: Missing mapping requires reconciliation\nPASS: Conflicting or out-of-scope mapping exposes no payment identity\nPASS: Conflicting or out-of-scope mapping exposes no payment identity\nPASS: Conflicting or out-of-scope mapping exposes no payment identity\nPASS: Conflicting or out-of-scope mapping exposes no payment identity\nPASS: Conflicting or out-of-scope mapping exposes no payment identity\nPASS: Conflicting or out-of-scope mapping exposes no payment identity\nPASS: Accounting Accepted is preserved independently\nPASS: Accounting Rejected is preserved independently\nPASS: 19 focused read-only receipt/student status checks. No database connection, SMTP or PDF worker."
+    },
+    {
+      "file": "receipt_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 150,
+      "stdout": "Fatal error: Uncaught RuntimeException: Billing tests require a local development/test database configuration. in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php:11\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\invoice_mail_test.php(4): require()\n#1 D:\\Project\\creativa\\onecreativa\\backend\\tests\\receipt_test.php(4): require('D:\\\\Project\\\\crea...')\n#2 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php on line 11",
+      "stderr": "PHP Fatal error:  Uncaught RuntimeException: Billing tests require a local development/test database configuration. in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php:11\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\invoice_mail_test.php(4): require()\n#1 D:\\Project\\creativa\\onecreativa\\backend\\tests\\receipt_test.php(4): require('D:\\\\Project\\\\crea...')\n#2 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\billing_invoice_test.php on line 11"
+    },
+    {
+      "file": "relationships_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 4428,
+      "stdout": "Fatal error: Uncaught RuntimeException: NOT REJECTED: Overlapping duplicate assignment rejected in D:\\Project\\creativa\\onecreativa\\backend\\tests\\relationships_test.php:17\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\relationships_test.php(29): release_reject(Object(Closure), 409, 'Overlapping dup...')\n#1 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\relationships_test.php on line 17",
+      "stderr": "PHP Fatal error:  Uncaught RuntimeException: NOT REJECTED: Overlapping duplicate assignment rejected in D:\\Project\\creativa\\onecreativa\\backend\\tests\\relationships_test.php:17\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\tests\\relationships_test.php(29): release_reject(Object(Closure), 409, 'Overlapping dup...')\n#1 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\tests\\relationships_test.php on line 17"
+    },
+    {
+      "file": "salary_base_settings_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 1637,
+      "stdout": "Fatal error: Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(320): salary_query(Object(mysqli), 'SELECT e.id AS ...')\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_base_settings_test.php(20): salary_base_settings(Object(mysqli), '2026-10')\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12",
+      "stderr": "PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(320): salary_query(Object(mysqli), 'SELECT e.id AS ...')\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_base_settings_test.php(20): salary_base_settings(Object(mysqli), '2026-10')\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12"
+    },
+    {
+      "file": "salary_deductions_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 1616,
+      "stdout": "Fatal error: Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(476): salary_query(Object(mysqli), 'SELECT e.id AS ...', 'is', Array)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_deductions_test.php(16): salary_mutate(Object(mysqli), Array, Array)\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12",
+      "stderr": "PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(476): salary_query(Object(mysqli), 'SELECT e.id AS ...', 'is', Array)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_deductions_test.php(16): salary_mutate(Object(mysqli), Array, Array)\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12"
+    },
+    {
+      "file": "salary_mail_test.php",
+      "status": "Pass",
+      "exit_code": 0,
+      "duration_ms": 3989,
+      "stdout": "PASS: SMTP TLS, authentication, recipient, UTF-8 message, printable attachment and delivery status verified on local receiver. No external email sent."
+    },
+    {
+      "file": "salary_slip_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 1714,
+      "stdout": "Fatal error: Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(476): salary_query(Object(mysqli), 'SELECT e.id AS ...', 'is', Array)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_slip_test.php(16): salary_mutate(Object(mysqli), Array, Array)\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12",
+      "stderr": "PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(476): salary_query(Object(mysqli), 'SELECT e.id AS ...', 'is', Array)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_slip_test.php(16): salary_mutate(Object(mysqli), Array, Array)\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12"
+    },
+    {
+      "file": "salary_workflow_test.php",
+      "status": "Fail",
+      "exit_code": 255,
+      "duration_ms": 1666,
+      "stdout": "Fatal error: Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(426): salary_query(Object(mysqli), 'SELECT e.id AS ...', 's', Array)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_workflow_test.php(18): salary_preview(Object(mysqli), '2026-10')\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12",
+      "stderr": "PHP Fatal error:  Uncaught mysqli_sql_exception: Unknown column 'e.marital_status' in 'field list' in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php:12\nStack trace:\n#0 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(12): mysqli->prepare('SELECT e.id AS ...')\n#1 D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php(426): salary_query(Object(mysqli), 'SELECT e.id AS ...', 's', Array)\n#2 D:\\Project\\creativa\\onecreativa\\backend\\tests\\salary_workflow_test.php(18): salary_preview(Object(mysqli), '2026-10')\n#3 {main}\n  thrown in D:\\Project\\creativa\\onecreativa\\backend\\services\\salary_workflow.php on line 12"
+    }
+  ]
+}

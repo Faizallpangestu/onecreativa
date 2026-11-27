@@ -1,0 +1,90 @@
+{
+  "verified_at": "2026-11-27",
+  "environment": "Local Windows; MariaDB 10.4.32 (XAMPP) running; PHP 8.2.12; Node v26.1.0; Chrome headless with CDP; Vite dev server spawned by the runners",
+  "database": "Local one-creativa created from backend/migrations/ONE_CREATIVA_HOSTINGER_BERSIH_2026.sql, plus metode_pembayaran column added for current code",
+  "results": [
+    {
+      "name": "Release HTTP checks",
+      "command": "node tools/release-browser-check.cjs --http-only",
+      "exit_code": 0,
+      "status": "Pass",
+      "checks": 102,
+      "evidence": "docs/audit/release-http-verification.json; logs under backend/storage/qa/"
+    },
+    {
+      "name": "Release browser desktop + mobile",
+      "command": "node tools/release-browser-check.cjs",
+      "exit_code": 0,
+      "status": "Pass",
+      "checks": 29,
+      "evidence": "docs/audit/release-browser-verification.json; docs/audit/release-mobile.png"
+    },
+    {
+      "name": "Access rights browser",
+      "command": "node tools/access-rights-browser-check.cjs",
+      "exit_code": 0,
+      "status": "Pass",
+      "checks": 11,
+      "evidence": "docs/audit/access-rights-verification.json"
+    },
+    {
+      "name": "Employee UI state",
+      "command": "node tools/employee-ui-test.mjs",
+      "exit_code": 0,
+      "status": "Pass",
+      "checks": 12
+    },
+    {
+      "name": "Student invoice browser (mock API)",
+      "command": "node tools/student-invoice-browser-test.mjs",
+      "exit_code": 0,
+      "status": "Pass",
+      "checks": 15
+    },
+    {
+      "name": "Invoice email browser (mock API)",
+      "command": "node tools/invoice-email-browser-test.mjs",
+      "exit_code": 1,
+      "status": "Fail",
+      "detail": "Assertion at tools/invoice-email-browser-test.mjs:93 expected student@example.test in page text; current fixture UI no longer renders that recipient string.",
+      "checks_before_failure": 0
+    },
+    {
+      "name": "Receipt browser (mock API)",
+      "command": "node tools/receipt-browser-test.mjs",
+      "exit_code": 1,
+      "status": "Fail",
+      "detail": "Button 'Verify' not found at tools/receipt-browser-test.mjs:95 after switching to Daftar Pembayaran; one PASS scenario completed before failure.",
+      "checks_before_failure": 1
+    },
+    {
+      "name": "Lighthouse",
+      "command": "node tools/lighthouse-build-check.cjs",
+      "exit_code": 1,
+      "status": "Fail",
+      "detail": "Installed locally with npm install --no-save and executed with CREATIVA_LIGHTHOUSE_PATH. Mobile 78/96/100/100 and desktop 98/96/100/100 (performance/accessibility/best-practices/SEO); exit 1 because scores below 100.",
+      "evidence": "docs/audit/lighthouse-summary.json"
+    },
+    {
+      "name": "Print form to PDF",
+      "command": "npx marked@12 + Chrome headless --print-to-pdf",
+      "exit_code": 0,
+      "status": "Pass",
+      "detail": "docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.pdf generated, 223050 bytes, valid %PDF- header, 5 A4 landscape pages."
+    }
+  ],
+  "totals": {
+    "passing_runners": 6,
+    "passing_checks": 169,
+    "failing_runners": 3,
+    "blocked_runners": 0
+  },
+  "notes": [
+    "React mock-API fixtures do not replace backend E2E; release browser runner uses real PHP API and real Chrome/CDP.",
+    "Student task page /lms/tugas still uses localStorage demo data (Gojuon fixtures) instead of the server task payload; recorded as a product defect.",
+    "PHP_BIN and CHROME_BIN overrides were added to release-browser-check.cjs and access-rights-browser-check.cjs so the runners work on this machine.",
+    "Several stale UI expectations in release-browser-check.cjs were updated to the current labels/buttons; verification of created task, submission and grade now uses the real API payload.",
+    "All runners were rerun after the environment was stable; the only changes between the first and final browser runs were the local Lighthouse install and regenerated build artifacts.",
+    "Lint count changed from 350 to 639 problems after npm install --no-save lighthouse chrome-launcher; recorded as an environment caveat in build-gates.json."
+  ]
+}

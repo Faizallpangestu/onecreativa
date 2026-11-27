@@ -1,25 +1,53 @@
 {
-  "verified_at": "2026-10-15T02:52:57.580Z",
+  "verified_at": "2026-11-27T02:17:51.371Z",
   "scope": "Public login; local production build, gzip/static headers; standard Lighthouse mobile and desktop throttling; unauthenticated. Hosting and internal pages require separate verification.",
-  "lighthouseVersion": "13.4.1",
+  "lighthouseVersion": "13.6.0",
   "results": [
     {
       "device": "mobile",
       "scores": {
-        "performance": 100,
-        "accessibility": 100,
+        "performance": 78,
+        "accessibility": 96,
         "best-practices": 100,
         "seo": 100
       },
       "warnings": [],
       "metrics": {
-        "first-contentful-paint": "0.9 s",
-        "largest-contentful-paint": "1.0 s",
-        "total-blocking-time": "0 ms",
+        "first-contentful-paint": "0.6 s",
+        "largest-contentful-paint": "6.1 s",
+        "total-blocking-time": "20 ms",
         "cumulative-layout-shift": "0",
-        "speed-index": "0.9 s"
+        "speed-index": "0.6 s"
       },
       "failed": [
+        {
+          "id": "largest-contentful-paint",
+          "title": "Largest Contentful Paint",
+          "score": 0.12,
+          "value": "6.1 s"
+        },
+        {
+          "id": "max-potential-fid",
+          "title": "Max Potential First Input Delay",
+          "score": 0.99,
+          "value": "70 ms"
+        },
+        {
+          "id": "interactive",
+          "title": "Time to Interactive",
+          "score": 0.63,
+          "value": "6.1 s"
+        },
+        {
+          "id": "color-contrast",
+          "title": "Background and foreground colors do not have a sufficient contrast ratio.",
+          "score": 0
+        },
+        {
+          "id": "label-content-name-mismatch",
+          "title": "Elements with visible text labels do not have matching accessible names.",
+          "score": 0
+        },
         {
           "id": "unminified-css",
           "title": "Minify CSS",
@@ -30,13 +58,19 @@
           "id": "unused-css-rules",
           "title": "Reduce unused CSS",
           "score": 0.5,
-          "value": "Est savings of 18 KiB"
+          "value": "Est savings of 23 KiB"
         },
         {
           "id": "cache-insight",
           "title": "Use efficient cache lifetimes",
           "score": 0.5,
           "value": "Est savings of 0 KiB"
+        },
+        {
+          "id": "image-delivery-insight",
+          "title": "Improve image delivery",
+          "score": 0,
+          "value": "Est savings of 834 KiB"
         },
         {
           "id": "network-dependency-tree-insight",
@@ -48,25 +82,35 @@
     {
       "device": "desktop",
       "scores": {
-        "performance": 100,
-        "accessibility": 100,
+        "performance": 98,
+        "accessibility": 96,
         "best-practices": 100,
         "seo": 100
       },
       "warnings": [],
       "metrics": {
-        "first-contentful-paint": "0.3 s",
-        "largest-contentful-paint": "0.3 s",
-        "total-blocking-time": "20 ms",
+        "first-contentful-paint": "0.2 s",
+        "largest-contentful-paint": "1.1 s",
+        "total-blocking-time": "0 ms",
         "cumulative-layout-shift": "0",
-        "speed-index": "0.4 s"
+        "speed-index": "0.2 s"
       },
       "failed": [
         {
-          "id": "max-potential-fid",
-          "title": "Max Potential First Input Delay",
-          "score": 0.97,
-          "value": "90 ms"
+          "id": "largest-contentful-paint",
+          "title": "Largest Contentful Paint",
+          "score": 0.91,
+          "value": "1.1 s"
+        },
+        {
+          "id": "color-contrast",
+          "title": "Background and foreground colors do not have a sufficient contrast ratio.",
+          "score": 0
+        },
+        {
+          "id": "label-content-name-mismatch",
+          "title": "Elements with visible text labels do not have matching accessible names.",
+          "score": 0
         },
         {
           "id": "unminified-css",
@@ -77,8 +121,8 @@
         {
           "id": "unused-css-rules",
           "title": "Reduce unused CSS",
-          "score": 0,
-          "value": "Est savings of 18 KiB"
+          "score": 0.5,
+          "value": "Est savings of 23 KiB"
         },
         {
           "id": "cache-insight",
@@ -87,9 +131,10 @@
           "value": "Est savings of 0 KiB"
         },
         {
-          "id": "lcp-discovery-insight",
-          "title": "LCP request discovery",
-          "score": 0
+          "id": "image-delivery-insight",
+          "title": "Improve image delivery",
+          "score": 0,
+          "value": "Est savings of 834 KiB"
         },
         {
           "id": "network-dependency-tree-insight",

@@ -1,0 +1,1 @@
+var e=`/assets/lms_agenda_hero_3d-Baed4c7V.jpg`;export{e as t};

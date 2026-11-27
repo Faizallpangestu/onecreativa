@@ -1,0 +1,1 @@
+var e=`/assets/kyoto_street-DTwByqeR.jpg`;export{e as t};

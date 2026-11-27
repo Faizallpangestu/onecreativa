@@ -1,0 +1,1 @@
+var e=`/assets/anime_girl_cheer-Bik9fAQI.jpg`;export{e as t};

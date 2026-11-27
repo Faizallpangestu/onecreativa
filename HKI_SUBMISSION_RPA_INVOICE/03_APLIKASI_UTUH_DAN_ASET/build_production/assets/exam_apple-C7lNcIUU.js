@@ -1,0 +1,1 @@
+var e=`/assets/exam_apple-C1_mFLMj.jpg`;export{e as t};

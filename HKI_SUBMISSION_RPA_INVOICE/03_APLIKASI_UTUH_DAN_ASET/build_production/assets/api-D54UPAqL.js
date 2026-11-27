@@ -1,0 +1,1 @@
+import{n as e}from"./createLucideIcon-K5TuGUX3.js";import{t}from"./sessionHeaders-ag4rGjyn.js";var n=`/api`,r=`/api/upload_photo.php?view=photo&file=`,i=e.create({baseURL:n,timeout:15e3,headers:{"Content-Type":`application/json`,Accept:`application/json`}});t(i);export{i as n,r as t};

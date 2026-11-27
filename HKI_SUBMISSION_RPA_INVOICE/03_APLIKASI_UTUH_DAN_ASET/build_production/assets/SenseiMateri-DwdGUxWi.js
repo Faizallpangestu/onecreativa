@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-czVYZzGU.js";import t from"./LmsMateri-CzmfOH9l.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as default};

@@ -6,7 +6,6 @@ import {
   Filter,
   Search,
   Plus,
-  Sparkles,
   ExternalLink,
   Globe,
   CheckCircle2,
@@ -203,7 +202,7 @@ export default function LmsQuestionBank() {
                   onClick={() => navigate('/lms/quiz/generate')}
                   className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-xs md:text-sm px-4 py-2.5 rounded-xl shadow-md transition active:scale-95 cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 text-slate-900" />
+                  <Layers className="w-4 h-4 text-slate-900" />
                   <span>+ Generate dari Materi</span>
                 </button>
               </div>

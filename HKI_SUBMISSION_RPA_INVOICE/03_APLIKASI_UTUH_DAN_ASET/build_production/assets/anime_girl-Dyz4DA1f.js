@@ -1,0 +1,1 @@
+var e=`/assets/anime_girl-C2MaxvFc.jpg`;export{e as t};

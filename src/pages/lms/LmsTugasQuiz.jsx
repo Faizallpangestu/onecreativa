@@ -65,6 +65,7 @@ import {
   getAvatarFromEmail
 } from '../../services/lmsStudentData';
 import bannerImg from '../../assets/fuji_pagoda_banner.jpg';
+import quizHeroBannerImg from '../../assets/quiz_hero_banner.jpg';
 import animeGirlImg from '../../assets/anime_girl.jpg';
 import quizChecklistImg from '../../assets/quiz_exam_checklist.jpg';
 import toriiGateImg from '../../assets/torii_gate_sunset.jpg';
@@ -7292,19 +7293,54 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
     return result;
   }, [quizzes, selectedClassFilter, selectedLevels, selectedCategories, statusFilter, searchQuery, sortBy, isSensei]);
 
-  // Statistics calculation for KPI cards (matching mockup: 24, 18, 3, 2, 46)
+  // Dynamic statistics calculation for KPI cards (100% real-time and synchronized with quizzes)
   const stats = useMemo(() => {
-    const totalItems = Math.max(24, quizzes.length);
-    const activeItems = Math.max(18, quizzes.filter(x => x.isOpen && x.status !== 'Draft').length);
-    const draftItems = Math.max(3, quizzes.filter(x => x.status === 'Draft' || !x.isOpen).length);
-    const scheduledItems = 2;
-    const completedItems = Math.max(46, quizzes.reduce((acc, curr) => {
+    // Target scope based on selected class filter if active
+    const target = (selectedClassFilter && selectedClassFilter !== 'Semua Kelas' && selectedClassFilter !== 'all')
+      ? quizzes.filter(q => !q.classRoom || q.classRoom === 'Semua Kelas' || isClassMatching(q.classRoom, selectedClassFilter))
+      : quizzes;
+
+    // 1. Total Kuis
+    const totalItems = target.length;
+
+    // 2. Kuis Aktif (Kuis yang sedang dibuka untuk dikerjakan siswa)
+    const activeItems = target.filter(x => {
+      const st = (x.status || '').toLowerCase();
+      return (x.isOpen === true && st !== 'draft' && st !== 'akses ditutup' && st !== 'tutup') 
+        || st === 'sedang aktif' 
+        || st === 'published';
+    }).length;
+
+    // 3. Draft (Kuis yang belum dirilis atau masih dalam tahap penyusunan/review)
+    const draftItems = target.filter(x => {
+      const st = (x.status || '').toLowerCase();
+      return st === 'draft' 
+        || st === 'perlu review sensei' 
+        || x.isDraft === true
+        || (!x.isOpen && st !== 'sedang aktif' && st !== 'published' && st !== 'selesai');
+    }).length;
+
+    // 4. Terjadwal (Kuis yang sudah dijadwalkan tanggal mulainya di masa depan)
+    const now = new Date();
+    const scheduledItems = target.filter(x => {
+      const st = (x.status || '').toLowerCase();
+      if (st === 'terjadwal' || st === 'scheduled') return true;
+      if (x.startDate && new Date(x.startDate) > now) return true;
+      return false;
+    }).length;
+
+    // 5. Selesai (Total akumulasi submission siswa yang telah mengerjakan/submit kuis)
+    const completedItems = target.reduce((acc, curr) => {
       const subs = curr.submissions || curr.studentSubmissions || [];
-      return acc + (curr.totalAttempts || subs.length);
-    }, 0));
+      const subCount = subs.filter(s => {
+        const sStatus = (s.status || '').toLowerCase();
+        return sStatus === 'dinilai' || sStatus === 'selesai' || sStatus === 'sudah dikumpulkan' || s.isCompleted === true;
+      }).length || subs.length;
+      return acc + (Number(curr.totalAttempts) || Number(curr.completedCount) || subCount);
+    }, 0);
 
     return { totalItems, activeItems, draftItems, scheduledItems, completedItems };
-  }, [quizzes]);
+  }, [quizzes, selectedClassFilter]);
 
   return (
     <Layout>
@@ -7315,13 +7351,14 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
         {/* 1. HERO HEADER BANNER (MOCKUP EXACT DESIGN)                   */}
         {/* ============================================================ */}
         <div className="relative bg-white border-b border-slate-200/90 px-4 md:px-8 py-5 overflow-hidden">
-          {/* Subtle Pagoda Silhouette in Background */}
+          {/* Subtle Banner Artwork in Background */}
           <div 
-            className="absolute top-0 right-0 w-[550px] h-full opacity-15 pointer-events-none bg-right bg-cover"
+            className="absolute top-0 right-0 w-[550px] md:w-[750px] h-full pointer-events-none bg-right bg-cover transition-all duration-300"
             style={{ 
-              backgroundImage: `url(${bannerImg})`,
-              maskImage: 'linear-gradient(to left, rgba(0,0,0,0.9) 25%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.9) 25%, transparent 100%)'
+              backgroundImage: `url(${mainTab === 'quiz' ? quizHeroBannerImg : bannerImg})`,
+              opacity: mainTab === 'quiz' ? 0.40 : 0.15,
+              maskImage: 'linear-gradient(to left, rgba(0,0,0,1) 35%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,1) 35%, transparent 100%)'
             }}
           />
 
@@ -7396,24 +7433,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                         </div>
                         <div>
                           <div className="text-xs font-black text-blue-900">Generate dari Materi</div>
-                          <div className="text-[11px] text-blue-700/80 font-medium">Buat soal otomatis dari materi</div>
-                        </div>
-                      </button>
-
-                      {/* Option 3: Import Question Bank */}
-                      <button
-                        onClick={() => {
-                          setIsCreateDropdownOpen(false);
-                          navigate('/lms/quiz/question-bank');
-                        }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-start gap-3 transition cursor-pointer group"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition">
-                          <BookOpen className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-600">Import Question Bank</div>
-                          <div className="text-[11px] text-slate-400">Gunakan soal yang sudah ada</div>
+                          <div className="text-[11px] text-blue-700/80 font-medium">Buat butir soal otomatis dari modul kelas</div>
                         </div>
                       </button>
                     </div>
@@ -7453,11 +7473,11 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
             </button>
 
             <button
-              onClick={() => navigate('/lms/quiz/question-bank')}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer flex items-center gap-1.5"
+              onClick={() => navigate('/lms/quiz/generate')}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 transition cursor-pointer flex items-center gap-1.5"
             >
-              <Layers className="w-3.5 h-3.5 text-slate-400" />
-              <span>Question Bank</span>
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
+              <span>Generate dari Materi</span>
             </button>
 
             <button
@@ -7495,9 +7515,9 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
               <div className="min-w-0">
                 <div className="text-[11px] font-bold text-slate-500">Total Quiz</div>
                 <div className="text-xl font-black text-slate-800 tracking-tight">{stats.totalItems}</div>
-                <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-0.5">
+                <div className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5 mt-0.5">
                   <TrendingUp className="w-3 h-3" />
-                  <span>+12% dari bulan lalu</span>
+                  <span>{selectedClassFilter && selectedClassFilter !== 'Semua Kelas' ? `Kelas ${selectedClassFilter}` : 'Semua Rombel'}</span>
                 </div>
               </div>
             </div>
@@ -7510,6 +7530,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
               <div className="min-w-0">
                 <div className="text-[11px] font-bold text-slate-500">Quiz Aktif</div>
                 <div className="text-xl font-black text-slate-800 tracking-tight">{stats.activeItems}</div>
+                <div className="text-[10px] font-bold text-emerald-600 mt-0.5">Sesi Dibuka</div>
               </div>
             </div>
 
@@ -7521,6 +7542,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
               <div className="min-w-0">
                 <div className="text-[11px] font-bold text-slate-500">Draft</div>
                 <div className="text-xl font-black text-slate-800 tracking-tight">{stats.draftItems}</div>
+                <div className="text-[10px] font-bold text-purple-600 mt-0.5">Belum Dipublikasi</div>
               </div>
             </div>
 
@@ -7532,6 +7554,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
               <div className="min-w-0">
                 <div className="text-[11px] font-bold text-slate-500">Terjadwal</div>
                 <div className="text-xl font-black text-slate-800 tracking-tight">{stats.scheduledItems}</div>
+                <div className="text-[10px] font-bold text-indigo-600 mt-0.5">Sesi Mendatang</div>
               </div>
             </div>
 
@@ -7544,8 +7567,8 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                 <div className="text-[11px] font-bold text-slate-500">Selesai</div>
                 <div className="text-xl font-black text-slate-800 tracking-tight">{stats.completedItems}</div>
                 <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-0.5">
-                  <TrendingUp className="w-3 h-3" />
-                  <span>+18%</span>
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Jawaban Masuk</span>
                 </div>
               </div>
             </div>
@@ -9057,7 +9080,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                   className="w-full p-4.5 rounded-2xl border-2 border-blue-600 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-blue-50/90 hover:from-blue-100 hover:to-indigo-100 transition-all text-left flex items-start gap-4 group cursor-pointer relative shadow-sm"
                 >
                   <div className="p-3 rounded-2xl bg-blue-600 text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-                    <Sparkles className="w-5 h-5 text-amber-300 fill-amber-300" />
+                    <Layers className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -9069,33 +9092,10 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Pilih modul materi dari <b>Bab berapa sampai bab berapa</b> atau rentang <b>pertemuan</b>. AI mengekstrak Kotoba, Bunpou, Kanji, dan Dokkai menjadi paket kuis tervalidasi tanpa input manual.
+                      Pilih modul materi dari <b>Bab berapa sampai bab berapa</b> atau rentang <b>pertemuan</b>. Sistem mengekstrak Kotoba, Bunpou, Kanji, dan Dokkai menjadi paket kuis tervalidasi tanpa input manual.
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-blue-600 transition shrink-0 mt-3 group-hover:translate-x-1" />
-                </button>
-
-                {/* C. Import Question Bank */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsQuizMethodModalOpen(false);
-                    navigate('/lms/quiz/question-bank');
-                  }}
-                  className="w-full p-4 rounded-2xl border border-slate-200/90 hover:border-indigo-400 hover:bg-indigo-50/40 transition-all text-left flex items-start gap-4 group cursor-pointer"
-                >
-                  <div className="p-3 rounded-2xl bg-indigo-50 group-hover:bg-indigo-600 group-hover:text-white text-indigo-700 transition shrink-0">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition">
-                      C. Import Question Bank
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                      Pilih butir soal terverifikasi kurikulum Japan Foundation & Irodori dari katalog master bank soal.
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 transition shrink-0 mt-2" />
                 </button>
               </div>
 

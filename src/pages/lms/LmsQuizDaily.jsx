@@ -11,7 +11,7 @@ import {
   Play,
   Eye,
   RefreshCw,
-  Sparkles,
+  Layers,
   ArrowRight,
   Filter,
   Check,
@@ -133,14 +133,14 @@ export default function LmsQuizDaily() {
   const filteredQuizzes = useMemo(() => {
     return dailyQuizzes.filter((q) => {
       const matchClass = selectedClass === 'ALL' || q.class_name === selectedClass || q.class_name === 'Semua Kelas';
-      const matchSearch = !searchQuery || 
-        q.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchSearch = !searchQuery ||
+        q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (q.material_title && q.material_title.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (q.bab && q.bab.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+
       const isCompleted = !!q.student_attempt;
-      const matchStatus = statusFilter === 'ALL' || 
-        (statusFilter === 'COMPLETED' && isCompleted) || 
+      const matchStatus = statusFilter === 'ALL' ||
+        (statusFilter === 'COMPLETED' && isCompleted) ||
         (statusFilter === 'NOT_ATTEMPTED' && !isCompleted);
 
       return matchClass && matchSearch && matchStatus;
@@ -181,7 +181,7 @@ export default function LmsQuizDaily() {
       const unanswered = quizQuestions.filter((q) => !selectedAnswers[q.id]).length;
       const confirm = await Swal.fire({
         title: unanswered > 0 ? `Ada ${unanswered} Soal Belum Dijawab!` : 'Kumpulkan Lembar Jawaban?',
-        text: unanswered > 0 
+        text: unanswered > 0
           ? 'Apakah Anda yakin ingin menyelesaikan quiz sekarang? Soal kosong akan dinilai salah.'
           : 'Semua soal telah terjawab. Nilai dan analisis kelemahan akan langsung dihitung.',
         icon: unanswered > 0 ? 'warning' : 'question',
@@ -241,7 +241,7 @@ export default function LmsQuizDaily() {
   return (
     <Layout>
       <div className="min-h-screen bg-slate-50/70 pb-20">
-        
+
         {/* ── HEADER BANNER ── */}
         <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-600 text-white shadow-md">
           <div className="max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -249,7 +249,7 @@ export default function LmsQuizDaily() {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="bg-white/20 backdrop-blur-xs text-blue-100 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <BookOpen className="w-3.5 h-3.5 text-amber-300" />
                     LMS Creativa Daily Learning System
                   </span>
                   <span className="bg-emerald-500/90 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">
@@ -260,7 +260,7 @@ export default function LmsQuizDaily() {
                   Daily Quiz Siswa & Rombel
                 </h1>
                 <p className="text-blue-100 text-sm mt-1 max-w-2xl">
-                  Evaluasi pemahaman harian berbasis materi pembelajaran hari ini. Dilengkapi auto-grading, 
+                  Evaluasi pemahaman harian berbasis materi pembelajaran hari ini. Dilengkapi auto-grading,
                   analisis 5 pilar bahasa Jepang, dan deteksi kelemahan otomatis menuju Kaiwa AI.
                 </p>
               </div>
@@ -278,20 +278,12 @@ export default function LmsQuizDaily() {
                   <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                 </a>
 
-                <button
-                  onClick={() => navigate('/lms/quiz/question-bank')}
-                  className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-4 py-2.5 rounded-xl text-xs font-bold backdrop-blur-xs transition border border-white/20 cursor-pointer"
-                >
-                  <BookOpen className="w-4 h-4 text-amber-300" />
-                  <span>Bank Soal Master</span>
-                </button>
-
                 {isSenseiOrAdmin && (
                   <button
                     onClick={() => navigate('/lms/quiz/generate')}
                     className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-xs md:text-sm px-4 py-2.5 rounded-xl shadow-md transition active:scale-95 cursor-pointer"
                   >
-                    <Sparkles className="w-4 h-4 text-slate-900" />
+                    <Layers className="w-4 h-4 text-slate-900" />
                     <span>+ Generate Quiz dari Materi</span>
                   </button>
                 )}
@@ -303,7 +295,7 @@ export default function LmsQuizDaily() {
         {/* ── FILTER & STATS BAR ── */}
         <div className="max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 mt-6">
           <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            
+
             {/* Filter Pills */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
@@ -370,7 +362,7 @@ export default function LmsQuizDaily() {
                   onClick={() => navigate('/lms/quiz/generate')}
                   className="mt-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Layers className="w-3.5 h-3.5" />
                   Generate Quiz Baru Sekarang
                 </button>
               )}
@@ -540,7 +532,7 @@ export default function LmsQuizDaily() {
         {activeQuiz && quizQuestions.length > 0 && (
           <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
             <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              
+
               {/* Modal Topbar */}
               <div className="bg-gradient-to-r from-blue-700 to-indigo-700 px-6 py-4 text-white flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -566,7 +558,7 @@ export default function LmsQuizDaily() {
 
               {/* Modal Body: Left Palette + Right Question */}
               <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
-                
+
                 {/* Left: Question Palette (3 cols) */}
                 <div className="lg:col-span-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
                   <div>
@@ -648,7 +640,7 @@ export default function LmsQuizDaily() {
 
                     return (
                       <div className="space-y-4">
-                        
+
                         {/* Header Question bar */}
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                           <div className="flex items-center gap-2">
@@ -667,11 +659,10 @@ export default function LmsQuizDaily() {
                                 [q.id]: !prev[q.id]
                               }));
                             }}
-                            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition cursor-pointer ${
-                              isFlagged
-                                ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                            }`}
+                            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition cursor-pointer ${isFlagged
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                              }`}
                           >
                             <Flag className="w-3.5 h-3.5" />
                             <span>{isFlagged ? 'Ditandai Ragu-ragu' : 'Tandai Ragu-ragu'}</span>
@@ -736,18 +727,16 @@ export default function LmsQuizDaily() {
                                     [q.id]: opt.key
                                   }));
                                 }}
-                                className={`w-full text-left p-3.5 rounded-2xl border transition flex items-center gap-3 cursor-pointer ${
-                                  isChosen
-                                    ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold shadow-xs'
-                                    : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800'
-                                }`}
+                                className={`w-full text-left p-3.5 rounded-2xl border transition flex items-center gap-3 cursor-pointer ${isChosen
+                                  ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold shadow-xs'
+                                  : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800'
+                                  }`}
                               >
                                 <span
-                                  className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-extrabold shrink-0 ${
-                                    isChosen
-                                      ? 'bg-blue-600 text-white'
-                                      : 'bg-slate-100 text-slate-600'
-                                  }`}
+                                  className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-extrabold shrink-0 ${isChosen
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-100 text-slate-600'
+                                    }`}
                                 >
                                   {opt.key}
                                 </span>
@@ -794,7 +783,7 @@ export default function LmsQuizDaily() {
         {resultModalData && (
           <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
             <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200 p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-200 space-y-6">
-              
+
               {/* Score Header */}
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-blue-50 border-2 border-blue-200 mb-3 shadow-inner">
@@ -849,9 +838,8 @@ export default function LmsQuizDaily() {
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                             <div
-                              className={`h-2 rounded-full transition-all duration-500 ${
-                                isLow ? 'bg-rose-500' : 'bg-emerald-500'
-                              }`}
+                              className={`h-2 rounded-full transition-all duration-500 ${isLow ? 'bg-rose-500' : 'bg-emerald-500'
+                                }`}
                               style={{ width: `${pct}%` }}
                             ></div>
                           </div>
@@ -872,7 +860,7 @@ export default function LmsQuizDaily() {
                         Peringatan Deteksi Kelemahan Otomatis!
                       </h4>
                       <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                        Terdeteksi nilai di bawah 70% pada pilar <strong>{resultModalData.weakness_detected}</strong>. 
+                        Terdeteksi nilai di bawah 70% pada pilar <strong>{resultModalData.weakness_detected}</strong>.
                         Siswa disarankan untuk segera memperkuat percakapan pola kalimat di Kaiwa AI.
                       </p>
                     </div>

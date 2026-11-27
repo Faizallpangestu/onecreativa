@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-czVYZzGU.js";import{t}from"./LearningWorkspace-De97iDol.js";var n=e();function r(){return(0,n.jsx)(t,{mode:`card`})}export{r as default};

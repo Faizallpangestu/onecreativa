@@ -1,0 +1,1 @@
+var e=`/assets/login_bg_fuji-WxioExE-.jpg`;export{e as t};

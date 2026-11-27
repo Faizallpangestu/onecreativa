@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-czVYZzGU.js";import{n as t}from"./ModuleFrame-DomlVXB3.js";import{t as n}from"./AgendaEducationSchedule-WVXQ_qaE.js";var r=e();function i(){return(0,r.jsx)(t,{title:`Agenda & Jadwal`,description:`Rencana Penjadwalan Program Intensif Pendidikan LPK Creativa.`,children:(0,r.jsx)(n,{})})}export{i as default};

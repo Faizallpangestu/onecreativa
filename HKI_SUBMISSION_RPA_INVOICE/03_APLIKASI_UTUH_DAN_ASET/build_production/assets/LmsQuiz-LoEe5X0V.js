@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-czVYZzGU.js";import t from"./LmsTugasQuiz-D2i7j6P3.js";var n=e();function r(){return(0,n.jsx)(t,{initialTab:`quiz`,forcedMode:`quiz`})}export{r as default};

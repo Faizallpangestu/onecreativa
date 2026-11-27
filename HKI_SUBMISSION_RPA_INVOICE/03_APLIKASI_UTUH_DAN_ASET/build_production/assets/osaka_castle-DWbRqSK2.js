@@ -1,0 +1,1 @@
+var e=`/assets/osaka_castle-D_uTtvR7.jpg`;export{e as t};

@@ -373,7 +373,7 @@ function App(props) {
               <Route path="/lms/quiz" element={<ProtectedRoute><LmsQuiz /></ProtectedRoute>} />
               <Route path="/lms/quiz/generate" element={<ProtectedRoute><LmsQuizGenerate /></ProtectedRoute>} />
               <Route path="/lms/quiz/daily" element={<ProtectedRoute><LmsQuizDaily /></ProtectedRoute>} />
-              <Route path="/lms/quiz/question-bank" element={<ProtectedRoute><LmsQuestionBank /></ProtectedRoute>} />
+              <Route path="/lms/quiz/question-bank" element={<Navigate to="/lms/quiz/generate" replace />} />
               <Route path="/lms/nilai" element={<ProtectedRoute><LmsNilai /></ProtectedRoute>} />
               <Route path="/lms/nilai-siswa" element={<ProtectedRoute><LmsNilai /></ProtectedRoute>} />
               <Route path="/lms/belajar-mandiri" element={<ProtectedRoute><LmsBelajar /></ProtectedRoute>} />

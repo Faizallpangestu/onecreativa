@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import {
-  Sparkles,
   BookOpen,
   FileText,
   Upload,
@@ -37,7 +36,8 @@ import {
   FileCheck
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import quiz3dCharacter from '../../assets/quiz_3d_character.jpg';
+import quizHeroBannerImg from '../../assets/quiz_hero_banner.jpg';
+import ukomHeroBannerImg from '../../assets/ukom_hero_banner.jpg';
 import { moduleApi } from '../../utils/moduleApi';
 import {
   getChaptersForClass,
@@ -125,6 +125,10 @@ const FALLBACK_CLASSES = [
 export default function LmsQuizGenerate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Dual Mode: 'ukom' (Paket Uji Kompetensi) vs 'quiz' (Kuis Harian Siswa)
+  const initialTarget = (searchParams.get('target') === 'ukom' || searchParams.get('type') === 'ukom') ? 'ukom' : 'quiz';
+  const [publishTarget, setPublishTarget] = useState(initialTarget);
 
   // Stepper: 1 = Target Kelas & Materi, 2 = Ekstraksi & Konfigurasi, 3 = Generate AI, 4 = Review & Publish
   const [currentStep, setCurrentStep] = useState(1);
@@ -326,16 +330,29 @@ export default function LmsQuizGenerate() {
   });
 
   // 5 Pilar Composition & Settings
-  const [totalQuestions, setTotalQuestions] = useState(10);
-  const [durationMinutes, setDurationMinutes] = useState(15);
+  const [totalQuestions, setTotalQuestions] = useState(initialTarget === 'ukom' ? 40 : 10);
+  const [durationMinutes, setDurationMinutes] = useState(initialTarget === 'ukom' ? 90 : 15);
   const [passingGrade, setPassingGrade] = useState(75);
-  const [composition, setComposition] = useState({
-    vocabulary: 4,
-    grammar: 2,
-    kanji: 2,
-    reading: 1,
-    situational: 1
-  });
+  const [composition, setComposition] = useState(
+    initialTarget === 'ukom'
+      ? { vocabulary: 15, grammar: 13, kanji: 5, reading: 4, situational: 3 }
+      : { vocabulary: 4, grammar: 2, kanji: 2, reading: 1, situational: 1 }
+  );
+
+  const handleSwitchTarget = (target) => {
+    setPublishTarget(target);
+    if (target === 'ukom') {
+      setTotalQuestions(40);
+      setDurationMinutes(90);
+      setPassingGrade(75);
+      setComposition({ vocabulary: 15, grammar: 13, kanji: 5, reading: 4, situational: 3 });
+    } else {
+      setTotalQuestions(10);
+      setDurationMinutes(15);
+      setPassingGrade(75);
+      setComposition({ vocabulary: 4, grammar: 2, kanji: 2, reading: 1, situational: 1 });
+    }
+  };
 
   const compositionSum = useMemo(() => {
     return Object.values(composition).reduce((a, b) => a + Number(b || 0), 0);
@@ -355,7 +372,7 @@ export default function LmsQuizGenerate() {
     stages: [
       { id: 1, name: 'Memindai Modul & Bab Terpilih', status: 'pending' },
       { id: 2, name: 'Ekstraksi Kotoba, Bunpou & Kanji', status: 'pending' },
-      { id: 3, name: 'AI Generator Merangkai Soal & Distractor', status: 'pending' },
+      { id: 3, name: 'Penyusunan Butir Soal & Distractor', status: 'pending' },
       { id: 4, name: 'Validasi Standar UKOM & Format Pilihan Ganda', status: 'pending' }
     ]
   });
@@ -485,7 +502,7 @@ export default function LmsQuizGenerate() {
     updateStage(1, 40, `Mengekstrak Kotoba & Pola Kalimat Bab ${startBab} s/d ${endBab}...`);
     await new Promise(r => setTimeout(r, 700));
 
-    updateStage(2, 65, `AI merangkai butir soal pilihan ganda berstandar tingkat ${difficulty.toUpperCase()}...`);
+    updateStage(2, 65, `Menyusun butir soal pilihan ganda berstandar tingkat ${difficulty.toUpperCase()}...`);
     await new Promise(r => setTimeout(r, 800));
 
     updateStage(3, 85, `Memvalidasi kunci jawaban, distractor, dan level ${targetLevel}...`);
@@ -647,6 +664,15 @@ export default function LmsQuizGenerate() {
         }
       }
 
+      // Distribute correct key across A, B, C, D
+      const rawOptions = [optA, optB, optC, optD];
+      const correctIdx = idx % 4; // 0=A, 1=B, 2=C, 3=D
+      const displayOptions = [...rawOptions];
+      // swap optA (the correct one) into correctIdx
+      displayOptions[0] = rawOptions[correctIdx];
+      displayOptions[correctIdx] = rawOptions[0];
+      const assignedKey = ['A', 'B', 'C', 'D'][correctIdx];
+
       generatedQuestions.push({
         id: qIndex,
         category: cat,
@@ -656,21 +682,29 @@ export default function LmsQuizGenerate() {
         question: qText,
         translation: transText,
         is_translation_question: isTranslationQuestion,
-        passage: cat === 'Reading' ? '【業務連絡】：\\n本日の 作業は 8時30分から 開始します。全員、保護具と 手帳を 確認して、朝礼に 参加してください。' : null,
+        passage: cat === 'Reading' ? '【業務連絡】：\n本日の 作業は 8時30分から 開始します。全員、保護具と 手帳を 確認して、朝礼に 参加してください。' : null,
         options: [
-          { key: 'A', text: optA },
-          { key: 'B', text: optB },
-          { key: 'C', text: optC },
-          { key: 'D', text: optD }
+          { key: 'A', text: displayOptions[0] },
+          { key: 'B', text: displayOptions[1] },
+          { key: 'C', text: displayOptions[2] },
+          { key: 'D', text: displayOptions[3] }
         ],
-        correct_key: 'A',
+        correct_key: assignedKey,
         explanation: explanation
       });
     });
+
+    const examTitle = publishTarget === 'ukom'
+      ? `Ujian Kompetensi ${targetLevel} – Bab ${startBab} s/d ${endBab} (${activeClass.name})`
+      : `Quiz ${targetLevel} – Bab ${startBab} s/d ${endBab} (${activeClass.name})`;
+
     const quizResult = {
       quiz_id: Date.now(),
-      title: `Quiz ${targetLevel} – Bab ${startBab} s/d ${endBab} (${activeClass.name})`,
-      sub_title: `Evaluasi Materi ${selectedChaptersList.map(c => c.labelName || c.title).slice(0, 3).join(', ')}`,
+      target_type: publishTarget,
+      title: examTitle,
+      sub_title: publishTarget === 'ukom'
+        ? `Standarisasi Ujian Kompetensi Resmi (${targetLevel}) Rombel ${activeClass.name}`
+        : `Evaluasi Materi ${selectedChaptersList.map(c => c.labelName || c.title).slice(0, 3).join(', ')}`,
       class_id: activeClass.id,
       class_name: activeClass.name,
       level: targetLevel,
@@ -687,69 +721,141 @@ export default function LmsQuizGenerate() {
     setCurrentStep(4);
   };
 
-  // Publish Quiz to Main LMS Quizzes
+  // Publish Quiz to Main LMS Quizzes or UKOM Packets
   const handlePublishQuiz = () => {
     if (!generatedQuiz) return;
 
     try {
-      const existingStr = localStorage.getItem('lms_master_quizzes_v6');
-      let existingList = [];
-      if (existingStr) {
-        try { existingList = JSON.parse(existingStr); } catch (e) { existingList = []; }
-      }
+      if (publishTarget === 'ukom') {
+        // Save to lms_exam_packets
+        const existingStr = localStorage.getItem('lms_exam_packets');
+        let existingList = [];
+        if (existingStr) {
+          try { existingList = JSON.parse(existingStr); } catch (e) { existingList = []; }
+        }
 
-      const newQuizEntry = {
-        id: generatedQuiz.quiz_id,
-        title: generatedQuiz.title,
-        bab: `Bab ${startBab} s/d ${endBab}`,
-        level: targetLevel,
-        classRoom: activeClass.name,
-        curriculumSource: `Materi Sensei - ${activeClass.name}`,
-        category: 'Vocabulary',
-        categoryLabel: '✨ Generated dari Materi',
-        isOpen: true,
-        status: 'Sedang Aktif',
-        statusCode: 'running',
-        timeRemaining: `${durationMinutes}:00`,
-        durationMinutes: Number(durationMinutes),
-        questionType: 'Pilihan Ganda',
-        thumbnailType: targetLevel === 'N5' ? 'torii_gate' : 'kyoto_street',
-        badgeColor: 'bg-emerald-50 text-emerald-700',
-        submissionsCount: 0,
-        totalStudents: activeClass.enrolled_students_count || 2,
-        questions: generatedQuiz.questions.map(q => ({
-          id: q.id,
-          category: q.category,
-          passage: q.passage,
+        const formattedQuestions = generatedQuiz.questions.map((q, idx) => ({
+          id: idx + 1,
+          category: q.category_label || q.category,
           question: q.question,
-          translation: q.translation,
-          wordJp: '',
-          furigana: '',
+          translation: q.translation || '',
+          passage: q.passage || null,
           options: q.options.map(o => ({ key: o.key, text: o.text })),
-          correctKey: q.correct_key,
-          explanation: q.explanation
-        }))
-      };
+          correct: q.correct_key,
+          explanation: q.explanation || ''
+        }));
 
-      const updated = [newQuizEntry, ...existingList];
-      localStorage.setItem('lms_master_quizzes_v6', JSON.stringify(updated));
+        const newUkomPacket = {
+          id: 'UKOM-GEN-' + Date.now().toString().slice(-4),
+          title: generatedQuiz.title.startsWith('Quiz')
+            ? generatedQuiz.title.replace(/^Quiz/i, 'Ujian Kompetensi')
+            : generatedQuiz.title,
+          description: `Paket evaluasi komprehensif 5 pilar kompetensi ${targetLevel} untuk rombel ${activeClass.name} yang digenerate otomatis dari modul pembelajaran kelas aktif.`,
+          rombel: activeClass.name,
+          rombelBadge: activeClass.name,
+          level: targetLevel,
+          date: selectedDate ? new Date(selectedDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '28 Nov 2026',
+          time: '08:00 - 09:30 WIB',
+          durationMinutes: Number(durationMinutes) || 90,
+          totalSoal: Number(totalQuestions) || formattedQuestions.length,
+          kkm: Number(passingGrade) || 75,
+          status: 'ongoing',
+          totalStudents: activeClass.enrolled_students_count || 20,
+          completedStudents: 0,
+          passedStudents: 0,
+          avgScore: 0,
+          isRegisteredForStudent: true,
+          studentScore: null,
+          questions: formattedQuestions
+        };
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Quiz Berhasil Diterbitkan! 🎉',
-        html: `
-          <p class="text-sm text-slate-700">Quiz <b>${generatedQuiz.title}</b> telah aktif dan siap dikerjakan oleh siswa di rombel <b>${activeClass.name}</b>.</p>
-          <div style="font-size: 13px; color: #475569; margin-top: 8px;">
-            ⏱️ Durasi: <b>${durationMinutes} Menit</b> • 🎯 Passing Grade: <b>${passingGrade}</b> • 🇯🇵 Level: <b>${targetLevel}</b>
-          </div>
-        `,
-        confirmButtonText: 'Buka Halaman Quiz',
-        confirmButtonColor: '#2563eb'
-      }).then(() => {
-        navigate('/lms/quiz');
-      });
+        const updated = [newUkomPacket, ...existingList];
+        localStorage.setItem('lms_exam_packets', JSON.stringify(updated));
+        window.dispatchEvent(new Event('storage'));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Paket UKOM Berhasil Diterbitkan! 🎓',
+          html: `
+            <p class="text-sm text-slate-700">Paket <b>${newUkomPacket.title}</b> telah resmi terdaftar di <b>Portal Ujian Kompetensi (UKOM)</b> untuk kelas <b>${activeClass.name}</b>.</p>
+            <div style="font-size: 13px; color: #475569; margin-top: 10px; padding: 12px; background: #f8fafc; border-radius: 14px; border: 1px solid #e2e8f0; text-align: left;">
+              <div>📝 <b>Jumlah Soal:</b> ${newUkomPacket.totalSoal} Butir (5 Pilar Kompetensi)</div>
+              <div>⏱️ <b>Durasi Ujian:</b> ${newUkomPacket.durationMinutes} Menit</div>
+              <div>🎯 <b>Standar KKM:</b> ${newUkomPacket.kkm} / 100</div>
+              <div>👥 <b>Rombel Sasaran:</b> ${newUkomPacket.rombel}</div>
+            </div>
+          `,
+          confirmButtonText: 'Buka Portal UKOM',
+          confirmButtonColor: '#2563eb',
+          customClass: { popup: 'rounded-3xl' }
+        }).then(() => {
+          navigate('/lms/ukom');
+        });
+
+      } else {
+        // Save to lms_master_quizzes_v6
+        const existingStr = localStorage.getItem('lms_master_quizzes_v6');
+        let existingList = [];
+        if (existingStr) {
+          try { existingList = JSON.parse(existingStr); } catch (e) { existingList = []; }
+        }
+
+        const newQuizEntry = {
+          id: generatedQuiz.quiz_id,
+          title: generatedQuiz.title,
+          bab: `Bab ${startBab} s/d ${endBab}`,
+          level: targetLevel,
+          classRoom: activeClass.name,
+          curriculumSource: `Materi Sensei - ${activeClass.name}`,
+          category: 'Vocabulary',
+          categoryLabel: 'Generated dari Materi',
+          isOpen: true,
+          status: 'Sedang Aktif',
+          statusCode: 'running',
+          timeRemaining: `${durationMinutes}:00`,
+          durationMinutes: Number(durationMinutes),
+          questionType: 'Pilihan Ganda',
+          thumbnailType: targetLevel === 'N5' ? 'torii_gate' : 'kyoto_street',
+          badgeColor: 'bg-emerald-50 text-emerald-700',
+          submissionsCount: 0,
+          totalStudents: activeClass.enrolled_students_count || 2,
+          questions: generatedQuiz.questions.map(q => ({
+            id: q.id,
+            category: q.category,
+            passage: q.passage,
+            question: q.question,
+            translation: q.translation,
+            wordJp: '',
+            furigana: '',
+            options: q.options.map(o => ({ key: o.key, text: o.text })),
+            correctKey: q.correct_key,
+            explanation: q.explanation
+          }))
+        };
+
+        const updated = [newQuizEntry, ...existingList];
+        localStorage.setItem('lms_master_quizzes_v6', JSON.stringify(updated));
+        window.dispatchEvent(new Event('storage'));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Quiz Berhasil Diterbitkan! 🎉',
+          html: `
+            <p class="text-sm text-slate-700">Quiz <b>${generatedQuiz.title}</b> telah aktif dan siap dikerjakan oleh siswa di rombel <b>${activeClass.name}</b>.</p>
+            <div style="font-size: 13px; color: #475569; margin-top: 8px;">
+              ⏱️ Durasi: <b>${durationMinutes} Menit</b> • 🎯 Passing Grade: <b>${passingGrade}</b> • 🇯🇵 Level: <b>${targetLevel}</b>
+            </div>
+          `,
+          confirmButtonText: 'Buka Halaman Quiz',
+          confirmButtonColor: '#2563eb',
+          customClass: { popup: 'rounded-3xl' }
+        }).then(() => {
+          navigate('/lms/quiz');
+        });
+      }
     } catch (e) {
-      Swal.fire('Gagal Publikasi', 'Terjadi kesalahan saat mempublikasikan kuis.', 'error');
+      console.error(e);
+      Swal.fire('Gagal Publikasi', 'Terjadi kesalahan saat mempublikasikan kuis/ujian.', 'error');
     }
   };
 
@@ -757,107 +863,123 @@ export default function LmsQuizGenerate() {
     <Layout>
       <div className="min-h-screen bg-[#F8FAFC] pb-16 font-sans">
         
-        {/* ── HEADER HERO BANNER (SLIM, NEAT & DENGAN 3D KARAKTER KUIS) ── */}
-        <div className="bg-gradient-to-r from-[#070b16] via-[#0d162d] to-[#122244] text-white border-b border-slate-800/80 relative overflow-hidden">
+        {/* ── HEADER HERO BANNER (DYNAMIC QUIZ VS UKOM HERO BANNER) ── */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-slate-950 via-[#0a1226] to-[#0f1f42] text-white border-b border-blue-900/40 shadow-sm">
           
-          {/* Subtle Ambient Glow Effect */}
-          <div className="absolute -right-10 -top-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute right-72 -bottom-24 w-60 h-60 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+          {/* Hero Banner Artwork - Anchored Right with Smooth Gradient Mask to Left */}
+          <div 
+            className="absolute right-0 top-0 w-full sm:w-[540px] md:w-[680px] lg:w-[820px] xl:w-[920px] h-full pointer-events-none opacity-90 md:opacity-95"
+            style={{
+              backgroundImage: `url(${publishTarget === 'ukom' ? ukomHeroBannerImg : quizHeroBannerImg})`,
+              backgroundPosition: 'right center',
+              backgroundRepeat: 'no-repeat',
+              backgroundSize: 'cover',
+              maskImage: 'linear-gradient(to left, rgba(0,0,0,1) 60%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,1) 60%, transparent 100%)'
+            }}
+          />
 
-          <div className="max-w-[1550px] mx-auto px-4 md:px-8 pt-4 pb-3.5">
+          {/* Dark Overlay Gradient on Left Side to Ensure 100% Crisp Text Legibility */}
+          <div className="absolute inset-y-0 left-0 w-full sm:w-[68%] lg:w-[52%] bg-gradient-to-r from-slate-950 via-slate-950/95 to-transparent z-1 pointer-events-none" />
+
+          <div className="relative z-10 max-w-[1550px] mx-auto px-4 md:px-8 py-5 md:py-6">
             
-            {/* Top Row: Info (Left) + Actions + 3D Character (Right) */}
+            {/* Top Row: Info (Left) + Actions + Spotlight to Hero Artwork (Right) */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               
-              {/* Left Info Column */}
-              <div className="max-w-2xl py-1">
-                <div className="flex items-center gap-2 mb-1">
+              {/* Left Info Column - Clean, Contained & Perfectly Legible */}
+              <div className="max-w-md lg:max-w-lg z-10">
+                <div className="mb-2">
                   <button 
-                    onClick={() => navigate('/lms/quiz')}
-                    className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition cursor-pointer"
-                    title="Kembali ke Daftar Quiz"
+                    onClick={() => navigate(publishTarget === 'ukom' ? '/lms/ukom' : '/lms/quiz')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
+                    title={publishTarget === 'ukom' ? 'Kembali ke Portal UKOM' : 'Kembali ke Daftar Quiz'}
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>{publishTarget === 'ukom' ? 'Kembali ke Portal UKOM' : 'Kembali ke Quiz'}</span>
                   </button>
-                  <span className="text-[11px] font-bold text-slate-400">
-                    LMS Creativa • AI Quiz Cockpit Mode Sensei
-                  </span>
                 </div>
 
-                <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  <span>Generate Quiz dari Materi Kelas Aktif</span>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+                  {publishTarget === 'ukom'
+                    ? 'Generate Paket Uji Kompetensi (UKOM) dari Materi'
+                    : 'Generate Quiz dari Materi Kelas Aktif'}
                 </h1>
-                <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-                  Pilih rombel yang sedang berjalan, tentukan tingkat kesulitan, lalu pilih rentang Bab materi nyata. AI menyusun butir soal berstandar UKOM & JLPT.
+                <p className="text-xs sm:text-sm text-blue-100/90 mt-2 leading-relaxed font-normal">
+                  {publishTarget === 'ukom'
+                    ? 'Susun paket simulasi Ujian Kompetensi (UKOM) resmi 40 butir soal berstandar JLPT/JFT langsung dari materi kurikulum kelas aktif.'
+                    : 'Pilih rombel kelas, tentukan tingkat kesulitan, lalu pilih rentang Bab materi nyata. Sistem menyusun butir soal berstandar UKOM & JLPT secara otomatis.'}
                 </p>
 
                 {/* Quick Navigation Buttons */}
-                <div className="flex items-center gap-2.5 mt-3 flex-wrap">
+                <div className="flex items-center gap-2.5 mt-4 flex-wrap">
                   <button
                     onClick={() => navigate('/lms/materi')}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer shadow-sm"
                   >
                     <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Lihat Materi Kelas ({activeClass.name})</span>
+                    <span>Lihat Materi ({activeClass.name})</span>
                   </button>
                   <button
-                    onClick={() => navigate('/lms/quiz')}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    onClick={() => navigate(publishTarget === 'ukom' ? '/lms/ukom' : '/lms/quiz')}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer shadow-sm"
                   >
                     <Award className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Daftar Kuis</span>
+                    <span>{publishTarget === 'ukom' ? 'Portal UKOM' : 'Daftar Kuis'}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Right Column: 3D Character (Tinggi pas, atas bawah tidak terpotong) */}
-              <div className="hidden sm:flex items-center justify-end shrink-0 relative lg:pr-4">
-                <div className="relative flex items-center justify-center h-36 md:h-44 py-0.5">
-                  <img
-                    src={quiz3dCharacter}
-                    alt="3D Quiz Character"
-                    className="h-full w-auto object-contain drop-shadow-[0_12px_24px_rgba(37,99,235,0.35)] transition-transform duration-300 hover:scale-105"
-                  />
-                </div>
-              </div>
+              {/* Right Spacer Area: Gives wide open stage to the 3D Laptop & Student Artwork */}
+              <div className="hidden lg:block w-[380px] xl:w-[480px] pointer-events-none" />
 
-            </div>
-
-            {/* Stepper Wizard Bar (Compact, Ramping & Rapi) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-800/80">
-              {[
-                { step: 1, label: '1. Target Kelas & Bab', desc: 'Rombel, Level, Kesulitan & Bab' },
-                { step: 2, label: '2. 5 Pilar & Durasi', desc: 'Distribusi Soal & Timer' },
-                { step: 3, label: '3. Generate & Validasi AI', desc: 'AI Merangkai Butir Soal' },
-                { step: 4, label: '4. Review Sensei & Publish', desc: 'Koreksi & Rilis ke Siswa' }
-              ].map(item => (
-                <div
-                  key={item.step}
-                  onClick={() => {
-                    if (item.step < currentStep) setCurrentStep(item.step);
-                  }}
-                  className={`px-3 py-2 rounded-xl border transition ${
-                    currentStep === item.step
-                      ? 'bg-blue-600/30 border-blue-400 text-white shadow-2xs ring-1 ring-blue-400/40'
-                      : item.step < currentStep
-                      ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300 cursor-pointer'
-                      : 'bg-white/5 border-white/10 text-slate-400 opacity-60'
-                  }`}
-                >
-                  <div className="text-[11px] font-black flex items-center justify-between">
-                    <span>{item.label}</span>
-                    {item.step < currentStep && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                  </div>
-                  <div className="text-[10px] text-slate-300/80 mt-0.5">{item.desc}</div>
-                </div>
-              ))}
             </div>
 
           </div>
         </div>
 
         {/* ── MAIN CONTENT CONTAINER ── */}
-        <div className="max-w-[1550px] mx-auto px-4 md:px-8 mt-7">
+        <div className="max-w-[1550px] mx-auto px-4 md:px-8 mt-5">
+
+          {/* Stepper Wizard Bar (Clean, Dedicated Card Container) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-2.5 shadow-xs mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { step: 1, label: '1. Target Kelas & Bab', desc: 'Rombel, Level, Kesulitan & Bab' },
+                { step: 2, label: '2. 5 Pilar & Durasi', desc: 'Distribusi Soal & Timer' },
+                { step: 3, label: '3. Generate & Validasi Soal', desc: 'Merangkai Butir Soal' },
+                { step: 4, label: '4. Review Sensei & Publish', desc: 'Koreksi & Rilis ke Siswa' }
+              ].map(item => (
+                <button
+                  key={item.step}
+                  type="button"
+                  onClick={() => {
+                    if (item.step < currentStep) setCurrentStep(item.step);
+                  }}
+                  disabled={item.step > currentStep}
+                  className={`px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentStep === item.step
+                      ? 'bg-blue-50/80 border-blue-400 text-blue-900 shadow-xs ring-2 ring-blue-500/20'
+                      : item.step < currentStep
+                      ? 'bg-emerald-50/60 border-emerald-300 text-emerald-800 hover:bg-emerald-100/60'
+                      : 'bg-slate-50 border-slate-200/70 text-slate-400 cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <div className="text-xs font-bold flex items-center justify-between">
+                    <span className={currentStep === item.step ? 'text-blue-700' : item.step < currentStep ? 'text-emerald-700' : 'text-slate-500'}>
+                      {item.label}
+                    </span>
+                    {item.step < currentStep ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : currentStep === item.step ? (
+                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                    ) : null}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">{item.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* ════════════════════════════════════════════════════════════ */}
           {/* STEP 1: TARGET KELAS, LEVEL, KESULITAN & MATERI NYATA        */}
@@ -877,13 +999,78 @@ export default function LmsQuizGenerate() {
                         <span>Target Kelas & Tingkat Kemampuan Siswa</span>
                       </h2>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Pilih rombel kelas yang sedang berjalan, level bahasa, dan tingkat kesulitan kuis.
+                        Pilih destinasi paket, rombel kelas yang sedang berjalan, level bahasa, dan tingkat kesulitan.
                       </p>
                     </div>
                     <span className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       Data Real Terhubung
                     </span>
+                  </div>
+
+                  {/* DESTINASI PUBLIKASI TOGGLE (UKOM vs QUIZ) */}
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 space-y-2">
+                    <label className="block text-xs font-black text-slate-800 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <FolderOpen className="w-4 h-4 text-blue-600" />
+                        <span>Destinasi Publikasi:</span>
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {publishTarget === 'ukom' ? 'Masuk Portal UKOM (40 Soal / 90 Mnt)' : 'Masuk Kuis Harian (10 Soal / 15 Mnt)'}
+                      </span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchTarget('ukom')}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
+                          publishTarget === 'ukom'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/20'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${
+                          publishTarget === 'ukom' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                          <GraduationCap className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black leading-tight flex items-center gap-1.5">
+                            <span>Paket Ujian Kompetensi (UKOM)</span>
+                            {publishTarget === 'ukom' && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                          <div className={`text-[11px] mt-0.5 ${publishTarget === 'ukom' ? 'text-blue-100' : 'text-slate-500'}`}>
+                            Standar Ujian Resmi • 40 Soal • 90 Menit • KKM 75
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchTarget('quiz')}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
+                          publishTarget === 'quiz'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/20'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${
+                          publishTarget === 'quiz' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black leading-tight flex items-center gap-1.5">
+                            <span>Kuis Harian Siswa (Quiz)</span>
+                            {publishTarget === 'quiz' && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                          <div className={`text-[11px] mt-0.5 ${publishTarget === 'quiz' ? 'text-blue-100' : 'text-slate-500'}`}>
+                            Latihan Evaluasi Harian • 10 Soal • 15 Menit
+                          </div>
+                        </div>
+                      </button>
+                    </div>
                   </div>
 
                   {/* 4 Control Inputs Grid */}
@@ -1444,6 +1631,53 @@ export default function LmsQuizGenerate() {
                   </button>
                 </div>
 
+                {/* Preset Buttons for Quick Config */}
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-xs font-bold text-slate-500">Preset Cepat:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotalQuestions(40);
+                      setDurationMinutes(90);
+                      setPassingGrade(75);
+                      setComposition({ vocabulary: 15, grammar: 13, kanji: 5, reading: 4, situational: 3 });
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      totalQuestions === 40 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>🎓 Standar UKOM (40 Soal / 90 Mnt)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotalQuestions(10);
+                      setDurationMinutes(15);
+                      setPassingGrade(75);
+                      setComposition({ vocabulary: 4, grammar: 2, kanji: 2, reading: 1, situational: 1 });
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      totalQuestions === 10 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>📝 Kuis Harian (10 Soal / 15 Mnt)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotalQuestions(20);
+                      setDurationMinutes(30);
+                      setPassingGrade(75);
+                      setComposition({ vocabulary: 7, grammar: 6, kanji: 3, reading: 2, situational: 2 });
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      totalQuestions === 20 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>⚡ Uji Tengah Bab (20 Soal / 30 Mnt)</span>
+                  </button>
+                </div>
+
                 {/* 3 Main Settings: Total Questions, Duration, Passing Grade */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
@@ -1454,12 +1688,14 @@ export default function LmsQuizGenerate() {
                     <input
                       type="number"
                       min="5"
-                      max="50"
+                      max="100"
                       value={totalQuestions}
                       onChange={(e) => setTotalQuestions(Number(e.target.value))}
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-blue-500/20"
                     />
-                    <span className="text-[10px] text-slate-400 mt-1 block">Standar kuis harian: 10 soal</span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      {publishTarget === 'ukom' ? 'Standar UKOM: 40 butir soal' : 'Standar kuis harian: 10 soal'}
+                    </span>
                   </div>
 
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
@@ -1471,14 +1707,16 @@ export default function LmsQuizGenerate() {
                       <input
                         type="number"
                         min="5"
-                        max="90"
+                        max="180"
                         value={durationMinutes}
                         onChange={(e) => setDurationMinutes(Number(e.target.value))}
                         className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-black text-slate-900 focus:ring-2 focus:ring-amber-500/20"
                       />
                       <span className="text-xs font-bold text-slate-600 shrink-0">Menit</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 mt-1 block">Rekomendasi: 1.5 mnt / soal</span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      {publishTarget === 'ukom' ? 'Standar UKOM: 90 menit' : 'Rekomendasi: 1.5 mnt / soal'}
+                    </span>
                   </div>
 
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
@@ -1588,8 +1826,8 @@ export default function LmsQuizGenerate() {
                         : 'bg-slate-400 opacity-60 cursor-not-allowed'
                     }`}
                   >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Mulai Generate Butir Soal AI</span>
+                    <FileCheck className="w-4 h-4" />
+                    <span>Mulai Generate Butir Soal</span>
                   </button>
                 </div>
 
@@ -1599,7 +1837,7 @@ export default function LmsQuizGenerate() {
           )}
 
           {/* ════════════════════════════════════════════════════════════ */}
-          {/* STEP 3: GENERATE & VALIDASI AI PIPELINE                      */}
+          {/* STEP 3: GENERATE & VALIDASI SOAL                             */}
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 3 && (
             <div className="max-w-2xl mx-auto py-12 text-center space-y-6">
@@ -1610,13 +1848,13 @@ export default function LmsQuizGenerate() {
                 <div className="relative w-20 h-20 mx-auto">
                   <div className="absolute inset-0 rounded-full bg-blue-600/20 animate-ping" />
                   <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
-                    <Sparkles className="w-10 h-10 animate-spin" style={{ animationDuration: '4s' }} />
+                    <Layers className="w-10 h-10 animate-pulse" />
                   </div>
                 </div>
 
                 <div>
                   <h2 className="text-xl font-black text-slate-900">
-                    AI Sedang Menyusun Butir Soal Kuis
+                    Sistem Sedang Menyusun Butir Soal
                   </h2>
                   <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                     Mengekstrak materi nyata dari <b>{activeClass.name}</b> (Bab {startBab} s/d {endBab}) berstandar tingkat {difficulty.toUpperCase()}.
@@ -1867,7 +2105,11 @@ export default function LmsQuizGenerate() {
                       className="w-full py-3.5 px-4 rounded-2xl font-black text-xs text-white bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Send className="w-4 h-4" />
-                      <span>Publikasikan Quiz ke Siswa</span>
+                      <span>
+                        {publishTarget === 'ukom'
+                          ? 'Publikasikan Paket UKOM ke Portal Ujian 🎓'
+                          : 'Publikasikan Quiz ke Siswa 🎉'}
+                      </span>
                     </button>
                     <button
                       type="button"

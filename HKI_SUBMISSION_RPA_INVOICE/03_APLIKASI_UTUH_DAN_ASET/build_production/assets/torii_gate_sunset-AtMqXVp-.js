@@ -1,0 +1,1 @@
+var e=`/assets/torii_gate_sunset-DTuvH8vc.jpg`;export{e as t};

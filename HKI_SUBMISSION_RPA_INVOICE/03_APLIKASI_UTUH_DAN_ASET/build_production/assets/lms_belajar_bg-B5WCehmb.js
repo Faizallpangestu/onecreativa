@@ -1,0 +1,1 @@
+var e=`/assets/lms_belajar_bg-1wEloY6f.png`;export{e as t};

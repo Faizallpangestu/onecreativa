@@ -1,0 +1,1 @@
+import{n as e}from"./createLucideIcon-K5TuGUX3.js";import{t}from"./loginSession-ZKJhORWU.js";var n=Promise.resolve();function r(){return t(),n=e.post(`/api/logout.php`).catch(()=>{}),n}function i(){return n}export{i as n,r as t};

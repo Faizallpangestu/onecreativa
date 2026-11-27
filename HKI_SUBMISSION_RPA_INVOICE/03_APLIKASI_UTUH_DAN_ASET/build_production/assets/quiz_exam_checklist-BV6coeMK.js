@@ -1,0 +1,1 @@
+var e=`/assets/quiz_exam_checklist-Dct5PbOV.jpg`;export{e as t};

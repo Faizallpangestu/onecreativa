@@ -1,0 +1,1 @@
+var e=`/assets/banner_students_intensif-k8sA7VJM.jpg`;export{e as t};

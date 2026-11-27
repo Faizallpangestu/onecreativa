@@ -1,0 +1,1 @@
+import{i as e,t}from"./jsx-runtime-czVYZzGU.js";var n=t();function r(){return(0,n.jsx)(e,{to:`/salary`,replace:!0})}export{r as default};

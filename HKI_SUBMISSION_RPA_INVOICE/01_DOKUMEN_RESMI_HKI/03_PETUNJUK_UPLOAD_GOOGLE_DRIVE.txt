@@ -1,0 +1,19 @@
+================================================================================
+PETUNJUK UPLOAD CONTOH CIPTAAN KE GOOGLE DRIVE SESUAI FORM DJKI
+================================================================================
+Form DJKI mengharuskan:
+"* WAJIB melampirkan URL google drive (Open Access) berisi Aplikasi / Program Komputer pada permohonan Hak Cipta Program Komputer"
+
+Langkah-langkah yang perlu Anda lakukan:
+1. Buka Google Drive Anda (https://drive.google.com).
+2. Buat folder baru, beri nama: "HKI - RPA Invoice Automation Creativa".
+3. Upload file ZIP ini: "RPA_INVOICE_AUTOMATION_HKI.zip" ke dalam folder tersebut.
+4. Klik kanan pada file yang sudah ter-upload di Google Drive -> Pilih "Bagikan" (Share) -> "Salin link" (Copy link).
+5. PENTING: Pada bagian "Akses umum" (General Access), ubah dari "Dibatasi" (Restricted) menjadi:
+   "Siapa saja yang memiliki link" (Anyone with the link) -> peran "Pelihat" (Viewer).
+6. Salin link tersebut, contoh format link:
+   https://drive.google.com/file/d/1a2b3c4d5e6f.../view?usp=sharing
+7. Tempelkan (Paste) link tersebut ke kolom formulir DJKI:
+   "URL/Link Contoh Ciptaan (diatas 5MB)"
+8. Simpan dan lanjutkan proses permohonan hingga pembayaran PNBP DJKI selesai.
+================================================================================

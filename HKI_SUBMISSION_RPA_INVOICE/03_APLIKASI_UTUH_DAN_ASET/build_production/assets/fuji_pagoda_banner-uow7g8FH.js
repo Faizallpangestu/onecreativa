@@ -1,0 +1,1 @@
+var e=`/assets/fuji_pagoda_banner-D8Z-u9L0.jpg`;export{e as t};

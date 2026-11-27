@@ -1,0 +1,28 @@
+================================================================================
+DOKUMEN PENDAFTARAN HAK CIPTA PROGRAM KOMPUTER (DJKI KEMENKUMHAM RI)
+================================================================================
+
+1. DATA PERMOHONAN HAK CIPTA
+--------------------------------------------------------------------------------
+Judul Ciptaan     : Sistem Otomasi Penerbitan Invoice, Kwitansi Digital, dan Rekonsiliasi Pembayaran Berbasis Robotic Process Automation (RPA) dan Payment Gateway
+Jenis Ciptaan     : Program Komputer
+Sektor / Bidang   : FinTech & Sistem Informasi Administrasi Keuangan Lembaga Pendidikan
+Tanggal Pengumuman: 2026-11-15
+Tempat Pengumuman : Karawang, Jawa Barat, Indonesia
+Pemegang Hak Cipta: LPK Creativa Bridging International / PT Creativa Bridging International
+
+2. URAIAN SINGKAT CIPTAAN (TEKS RESMI UNTUK KOLOM FORM DJKI):
+--------------------------------------------------------------------------------
+Program Komputer "Sistem Otomasi Penerbitan Invoice, Kwitansi Digital, dan Rekonsiliasi Pembayaran Berbasis Robotic Process Automation (RPA) dan Payment Gateway" merupakan perangkat lunak terintegrasi yang dirancang untuk mengotomatisasi siklus penagihan dan administrasi keuangan secara menyeluruh (End-to-End Zero-Touch Automation).
+
+Sistem ini dibangun dengan arsitektur modular yang menggabungkan:
+1. Robotic Process Automation (RPA) Orchestration: Memanfaatkan alur otomasi n8n dan headless browser worker berbasis Playwright untuk mendeteksi pendaftaran secara waktu nyata (real-time), melakukan validasi data kandidat, menerbitkan nomor tagihan unik berstandar resmi (TGCJYYMMXXXX), merender dokumen Invoice dan Kwitansi beresolusi tinggi (PDF A4), serta mendistribusikannya secara otomatis ke kanal WhatsApp Gateway dan Email SMTP.
+2. Modul Rekonsiliasi Pembayaran Digital (Payment Gateway): Mengintegrasikan sistem pembayaran digital (QRIS dan Virtual Account perbankan) dengan mekanisme webhook idempoten yang dilengkapi verifikasi signature kriptografis SHA-512. Saat pembayaran terkonfirmasi, sistem secara otomatis menerbitkan Kwitansi Resmi (Receipt) dengan konversi nominal terbilang otomatis Bahasa Indonesia, QR Code validasi keaslian dokumen, memperbarui status tagihan, dan membukukan transaksi ke jurnal umum keuangan.
+3. Sistem Notifikasi dan Pengingat Jatuh Tempo (Installment Reminder): Mesin penjadwal (cron scheduler) yang memantau termin cicilan pembiayaan secara periodik dan mengirimkan pengingat tagihan otomatis (H-3 sebelum jatuh tempo) guna mencegah keterlambatan pembayaran.
+4. Dasbor Pengawasan dan Manajemen Keuangan: Antarmuka berbasis web (Single Page Application) yang menyediakan pemantauan status antrean RPA, log pengiriman dokumen, riwayat pembayaran, serta kontrol manual bagi tim keuangan.
+
+Keunggulan dan Kebaruan Teknologi:
+- Mengeliminasi proses manual pembuatan faktur tagihan dan kwitansi (reduksi waktu proses dari 15-30 menit menjadi < 5 detik).
+- Proteksi idempotensi multi-layer yang mencegah duplikasi nomor tagihan dan risiko double-credit pembayaran.
+- Arsitektur loosely-coupled berbasis REST API dan Webhook Event-Driven Architecture yang andal serta aman.
+================================================================================

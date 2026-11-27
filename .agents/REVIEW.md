@@ -48,3 +48,10 @@ Gate: **NO-GO**. Local browser/UI acceptance is green on six runners (169 passin
 9. Google Sheets upload not executed (no account/credentials supplied); local PDF print is verified.
 
 Every change made during this run (including the three product-source edits that were intentionally not reverted) is recorded in `docs/QA_FORM/RINGKASAN_PERUBAHAN.md`. No commit, push, deployment or production write was performed.
+
+## Revision 2 ACC (2026-11-27)
+
+- Approval quotation: "commit dan push di branch security dan lanjutkan kr acc rev2".
+- Scope: SEC-FR-01..09 / T-S01..T-S10 in `docs/SECURITY_TEST.md` section H.
+- Status: Approved; T-S01 In Progress.
+- Still requiring separate ACC: live credential rotation, production writes, deployed-file deletion, deploy/push beyond the requested commit, live probing.

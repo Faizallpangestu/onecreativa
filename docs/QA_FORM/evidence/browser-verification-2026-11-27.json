@@ -70,7 +70,7 @@
       "command": "npx marked@12 + Chrome headless --print-to-pdf",
       "exit_code": 0,
       "status": "Pass",
-      "detail": "docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.pdf generated, 223050 bytes, valid %PDF- header, 5 A4 landscape pages."
+      "detail": "docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.pdf regenerated from the self-contained handover form, valid %PDF- header, 8 A4 landscape pages."
     }
   ],
   "totals": {

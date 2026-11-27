@@ -91,7 +91,7 @@ Catatan: ketiga perubahan di atas awalnya dilakukan agar runner bisa melanjutkan
 | --- | --- | --- |
 | 40 | `node_modules` (diabaikan git) | `npm install --no-save --no-audit --no-fund lighthouse chrome-launcher` untuk BLK-002. Tidak mengubah `package.json`/`package-lock.json`, tetapi menyebabkan drift versi dependensi lokal: lint naik dari 350 menjadi 639 problems. |
 | 41 | `docs/audit/lighthouse-mobile.json`, `lighthouse-desktop.json`, `lighthouse-*.html`, `lighthouse-summary.json` | Dihasilkan oleh `node tools/lighthouse-build-check.cjs` dengan `CREATIVA_LIGHTHOUSE_PATH`. |
-| 42 | `docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.pdf` | Form Markdown dicetak via `npx marked@12` + Chrome `--headless --print-to-pdf`; 5 halaman A4 landscape, 223050 byte, header `%PDF-`. File HTML sementara `.qa-form.html` sudah dihapus. |
+| 42 | `docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.pdf` | Form Markdown dicetak via `npx marked@12` + Chrome `--headless --print-to-pdf`; setelah form digabungkan menjadi 8 halaman A4 landscape, header `%PDF-`. File HTML sementara `.qa-form.html` sudah dihapus. |
 | 43 | `docs/QA_FORM/RUNBOOK.md` | Ditambah bagian cara start MySQL via WMI, seed DB lokal, install Lighthouse, dan cetak PDF. |
 | 44 | `docs/QA_FORM/evidence/build-gates.json` | Diperbarui: lint 639 problems, Lighthouse Fail dengan skor aktual, catatan dependency drift. |
 | 45 | `docs/QA_FORM/evidence/browser-verification-2026-11-27.json` | Diperbarui: Lighthouse dari Blocked menjadi Fail, entri PDF Pass, totals 6 passing / 3 failing / 0 blocked runner. |
@@ -102,3 +102,10 @@ Catatan: ketiga perubahan di atas awalnya dilakukan agar runner bisa melanjutkan
 | 50 | `.agents/REVIEW.md` | Baris lint, Lighthouse, rekap, print PDF, outcome, dan remaining issues diperbarui. |
 | 51 | `One-creativa-dist-production.zip` | Regenerated oleh `npm run build`, lalu dikembalikan dari git index agar tidak berubah di working tree. |
 | 52 | `tools/qa-run-php-tests.cjs:8` | Path output evidence diperbaiki dari `docs/qa/evidence` ke `docs/QA_FORM/evidence`; folder lama `docs/qa` dihapus setelah regenerasi. |
+| 53 | `docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.md` | Digabungkan menjadi dokumen mandiri: bagian B2 sekarang memuat seluruh 72 test case (sebelumnya hanya ringkasan 8 baris), bagian C memuat C1 temuan open, C2 FIX/BLK resolved, dan C3 syarat gate. Bagian D/E/F disesuaikan. |
+| 54 | `tools/qa-generate-xlsx.cjs:13-15,88-89` | Generator kini membaca tabel kasus dari form `.md` itu sendiri (bukan `TEST_CASE_MATRIX.md`) dan menambah sheet `Defect Selesai`. Keputusan gate tetap berupa teks di bagian C3 form dan sheet `Catatan Penerima`. |
+| 55 | `docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.pdf` | Dicetak ulang dari form mandiri: 8 halaman A4 landscape. |
+| 56 | `docs/QA_FORM/README.md`, `.agents/REVIEW.md` | Referensi halaman PDF dan status dokumen mandiri diperbarui. |
+| 57 | `docs/QA_FORM/QA_SERAH_TERIMA_2026-11-27_cbb4c90.xlsx` | Regenerasi sempat tertunda karena file terbuka di Excel (PID 5708). Setelah ditutup, file berhasil ditimpa: 10 sheet, 72 kasus, 8 defect, 6 temuan selesai. |
+| 58 | `docs/QA_FORM/TEST_CASE_MATRIX.md`, `README.md` | File matriks tetap dipertahankan sebagai cadangan, tetapi isinya kini disederhanakan; salinan lengkap 72 case berada di bagian B2 form. README diperbarui sesuai itu. |
+| 59 | `tools/qa-fill-results.cjs` dan form `.md` | Script mengisi kolom Hasil/Bukti/Tester untuk 72 case: 26 `Pass (lokal)` dengan bukti runner, 1 `Fail` (REL-01/DEF-002), 45 `Blocked` karena staging/akun QA belum ada. Script juga mengembalikan baris GATE ke isi commit agar tidak ikut terisi. |

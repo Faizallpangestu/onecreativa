@@ -22,18 +22,18 @@ Approved scope: revision 1 of `.agents/1-PRD-UTUH.md`, ACC quotation "kerjakan s
 | Receipt browser | `node tools/receipt-browser-test.mjs` | 1; button not found at line 95 - DEF-004 |
 | UAT | manual review of available inputs | 0/72 cases; no staging URL or QA accounts - BLK-003 |
 | Case matrix | ID count | 72 unique IDs; coverage map matches `QA_PHASE_5_16.md` |
-| Form rekap | cross-check of B1/B2/B3/C/E against evidence | consistent: 8 Pass, 5 Fail, 1 Blocked gates; 72 Not Run; 11 personas; 8 findings |
+| Form rekap | cross-check of B1/B2/B3/C/E against evidence | consistent: 8 Pass, 5 Fail, 1 Blocked gates; cases 26 Pass (lokal), 1 Fail, 45 Blocked, 0 Not Run; 11 personas; 8 findings |
 | Secret scan | `Select-String` over `docs/QA_FORM` for credential/secret patterns | no matches |
 | Excel generation | `npm run qa:xlsx` | 0; workbook written and reread with 9 sheets, 72 case rows, gate NO-GO |
 | Path consolidation | `Move-Item docs/qa → docs/QA_FORM` + grep | folder moved; no stale references |
 | Whitespace | `git diff --check` | 0 |
-| Print to PDF | `npx marked@12` + Chrome headless `--print-to-pdf` | 0; valid 5-page A4 landscape PDF, 223050 bytes, `%PDF-` header |
+| Print to PDF | `npx marked@12` + Chrome headless `--print-to-pdf` | 0; valid 8-page A4 landscape PDF, `%PDF-` header; source form now includes all 72 cases with results and the full defect log |
 
 Artifact hygiene: `npm run build` regenerated `One-creativa-dist-production.zip`; it was restored from the git index immediately afterwards and is unchanged in the working tree. Local MariaDB was started for the browser runs; no production database was touched.
 
 ## Outcome
 
-Gate: **NO-GO**. Local browser/UI acceptance is green on six runners (169 passing checks plus a verified 5-page PDF) after environment and code fixes, but handover cannot be accepted while staging UAT is absent and the open defects remain. Deliverables under `docs/QA_FORM/`: matrix, runbook, evidence, defect/gate log, Markdown template and filled form, PDF, and generated Excel workbook (Google Sheets compatible via File → Import → Upload).
+Gate: **NO-GO**. Local browser/UI acceptance is green on six runners (169 passing checks plus a verified 8-page PDF) after environment and code fixes, but handover cannot be accepted while staging UAT is absent and the open defects remain. The filled handover form is now self-contained: it includes all 72 test cases, full defect/fix/blocker log, evidence index and sign-off. PDF and Excel versions are generated from it.
 
 ## Remaining issues
 

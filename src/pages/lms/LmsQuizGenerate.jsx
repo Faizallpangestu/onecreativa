@@ -141,7 +141,6 @@ export default function LmsQuizGenerate() {
   const [targetLevel, setTargetLevel] = useState('N5');
   const [difficulty, setDifficulty] = useState('medium'); // 'easy' | 'medium' | 'hard'
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [quizMode, setQuizMode] = useState('daily'); // 'daily', 'review', 'remedial', 'exam'
 
   // Selection Mode: 'range_bab' | 'range_meeting' | 'upload_new'
   const [selectionMode, setSelectionMode] = useState('range_bab');
@@ -210,7 +209,7 @@ export default function LmsQuizGenerate() {
       });
 
     return () => { isMounted = false; };
-  }, []);
+  }, [searchParams]);
 
   // Update chapters whenever activeClass changes
   const handleSelectClass = (classIdOrName) => {
@@ -379,7 +378,6 @@ export default function LmsQuizGenerate() {
 
   // ── STEP 4: REVIEW & PUBLISH STATE ──
   const [generatedQuiz, setGeneratedQuiz] = useState(null);
-  const [activeEditingQuestion, setActiveEditingQuestion] = useState(null);
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
 
   // Transition from Step 1 to Step 2: Extract real contents from selected chapters
@@ -731,7 +729,7 @@ export default function LmsQuizGenerate() {
         const existingStr = localStorage.getItem('lms_exam_packets');
         let existingList = [];
         if (existingStr) {
-          try { existingList = JSON.parse(existingStr); } catch (e) { existingList = []; }
+          try { existingList = JSON.parse(existingStr); } catch { existingList = []; }
         }
 
         const formattedQuestions = generatedQuiz.questions.map((q, idx) => ({
@@ -797,7 +795,7 @@ export default function LmsQuizGenerate() {
         const existingStr = localStorage.getItem('lms_master_quizzes_v6');
         let existingList = [];
         if (existingStr) {
-          try { existingList = JSON.parse(existingStr); } catch (e) { existingList = []; }
+          try { existingList = JSON.parse(existingStr); } catch { existingList = []; }
         }
 
         const newQuizEntry = {
@@ -862,12 +860,12 @@ export default function LmsQuizGenerate() {
   return (
     <Layout>
       <div className="min-h-screen bg-[#F8FAFC] pb-16 font-sans">
-        
+
         {/* ── HEADER HERO BANNER (DYNAMIC QUIZ VS UKOM HERO BANNER) ── */}
         <div className="relative overflow-hidden bg-gradient-to-r from-slate-950 via-[#0a1226] to-[#0f1f42] text-white border-b border-blue-900/40 shadow-sm">
-          
+
           {/* Hero Banner Artwork - Anchored Right with Smooth Gradient Mask to Left */}
-          <div 
+          <div
             className="absolute right-0 top-0 w-full sm:w-[540px] md:w-[680px] lg:w-[820px] xl:w-[920px] h-full pointer-events-none opacity-90 md:opacity-95"
             style={{
               backgroundImage: `url(${publishTarget === 'ukom' ? ukomHeroBannerImg : quizHeroBannerImg})`,
@@ -883,14 +881,14 @@ export default function LmsQuizGenerate() {
           <div className="absolute inset-y-0 left-0 w-full sm:w-[68%] lg:w-[52%] bg-gradient-to-r from-slate-950 via-slate-950/95 to-transparent z-1 pointer-events-none" />
 
           <div className="relative z-10 max-w-[1550px] mx-auto px-4 md:px-8 py-5 md:py-6">
-            
+
             {/* Top Row: Info (Left) + Actions + Spotlight to Hero Artwork (Right) */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              
+
               {/* Left Info Column - Clean, Contained & Perfectly Legible */}
               <div className="max-w-md lg:max-w-lg z-10">
                 <div className="mb-2">
-                  <button 
+                  <button
                     onClick={() => navigate(publishTarget === 'ukom' ? '/lms/ukom' : '/lms/quiz')}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
                     title={publishTarget === 'ukom' ? 'Kembali ke Portal UKOM' : 'Kembali ke Daftar Quiz'}
@@ -957,13 +955,12 @@ export default function LmsQuizGenerate() {
                     if (item.step < currentStep) setCurrentStep(item.step);
                   }}
                   disabled={item.step > currentStep}
-                  className={`px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    currentStep === item.step
-                      ? 'bg-blue-50/80 border-blue-400 text-blue-900 shadow-xs ring-2 ring-blue-500/20'
-                      : item.step < currentStep
+                  className={`px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${currentStep === item.step
+                    ? 'bg-blue-50/80 border-blue-400 text-blue-900 shadow-xs ring-2 ring-blue-500/20'
+                    : item.step < currentStep
                       ? 'bg-emerald-50/60 border-emerald-300 text-emerald-800 hover:bg-emerald-100/60'
                       : 'bg-slate-50 border-slate-200/70 text-slate-400 cursor-not-allowed opacity-60'
-                  }`}
+                    }`}
                 >
                   <div className="text-xs font-bold flex items-center justify-between">
                     <span className={currentStep === item.step ? 'text-blue-700' : item.step < currentStep ? 'text-emerald-700' : 'text-slate-500'}>
@@ -986,10 +983,10 @@ export default function LmsQuizGenerate() {
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              
+
               {/* Left Column (7 cols): Target Class & Range Configuration */}
               <div className="lg:col-span-7 space-y-5">
-                
+
                 {/* CARD 1: ROMBEL KELAS & TARGET PEMBELAJARAN */}
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 md:p-7 shadow-2xs space-y-5">
                   <div className="flex items-center justify-between">
@@ -1024,15 +1021,13 @@ export default function LmsQuizGenerate() {
                       <button
                         type="button"
                         onClick={() => handleSwitchTarget('ukom')}
-                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
-                          publishTarget === 'ukom'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/20'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                        }`}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${publishTarget === 'ukom'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/20'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
                       >
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${
-                          publishTarget === 'ukom' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'
-                        }`}>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${publishTarget === 'ukom' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'
+                          }`}>
                           <GraduationCap className="w-5 h-5" />
                         </div>
                         <div>
@@ -1049,15 +1044,13 @@ export default function LmsQuizGenerate() {
                       <button
                         type="button"
                         onClick={() => handleSwitchTarget('quiz')}
-                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
-                          publishTarget === 'quiz'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/20'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                        }`}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${publishTarget === 'quiz'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/20'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
                       >
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${
-                          publishTarget === 'quiz' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-                        }`}>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${publishTarget === 'quiz' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                          }`}>
                           <FileText className="w-5 h-5" />
                         </div>
                         <div>
@@ -1075,7 +1068,7 @@ export default function LmsQuizGenerate() {
 
                   {/* 4 Control Inputs Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
+
                     {/* 1. Pilih Rombel Kelas */}
                     <div>
                       <label className="block text-xs font-black text-slate-800 mb-1.5 flex items-center gap-1.5">
@@ -1136,34 +1129,33 @@ export default function LmsQuizGenerate() {
                       </label>
                       <div className="grid grid-cols-3 gap-2.5">
                         {[
-                          { 
-                            id: 'easy', 
-                            label: 'Mudah', 
+                          {
+                            id: 'easy',
+                            label: 'Mudah',
                             badge: '🟢 Dasar / Pemula',
-                            desc: 'Furigana lengkap, kosakata dasar, 1 pola kalimat' 
+                            desc: 'Furigana lengkap, kosakata dasar, 1 pola kalimat'
                           },
-                          { 
-                            id: 'medium', 
-                            label: 'Sedang', 
+                          {
+                            id: 'medium',
+                            label: 'Sedang',
                             badge: '🟡 Standar UKOM',
-                            desc: 'Format resmi JLPT, partikel jamak, kanji kurikulum' 
+                            desc: 'Format resmi JLPT, partikel jamak, kanji kurikulum'
                           },
-                          { 
-                            id: 'hard', 
-                            label: 'Sulit', 
+                          {
+                            id: 'hard',
+                            label: 'Sulit',
                             badge: '🔴 Kasus Lapangan (HOTS)',
-                            desc: 'Studi kasus kerja di Jepang, ekspresi Keigo & respon cepat' 
+                            desc: 'Studi kasus kerja di Jepang, ekspresi Keigo & respon cepat'
                           }
                         ].map(d => (
                           <button
                             key={d.id}
                             type="button"
                             onClick={() => setDifficulty(d.id)}
-                            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
-                              difficulty === d.id
-                                ? 'bg-blue-50/90 border-blue-600 text-blue-950 shadow-xs ring-2 ring-blue-200'
-                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                            }`}
+                            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${difficulty === d.id
+                              ? 'bg-blue-50/90 border-blue-600 text-blue-950 shadow-xs ring-2 ring-blue-200'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                              }`}
                           >
                             <div className="text-xs font-black flex items-center justify-between">
                               <span>{d.label}</span>
@@ -1229,11 +1221,10 @@ export default function LmsQuizGenerate() {
                             key={tab.id}
                             type="button"
                             onClick={() => setSelectionMode(tab.id)}
-                            className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
-                              isSel
-                                ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                            }`}
+                            className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${isSel
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                              }`}
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <Icon className={`w-4 h-4 ${isSel ? 'text-white' : 'text-blue-600'}`} />
@@ -1317,44 +1308,40 @@ export default function LmsQuizGenerate() {
                               <button
                                 type="button"
                                 onClick={() => { setStartBab(1); setEndBab(3); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                  startBab === 1 && endBab === 3
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${startBab === 1 && endBab === 3
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}
                               >
                                 Bab 1 s/d 3 (Hiragana & Kosakata)
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setStartBab(1); setEndBab(5); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                  startBab === 1 && endBab === 5
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${startBab === 1 && endBab === 5
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}
                               >
                                 Bab 1 s/d 5 (Dasar & Waktu)
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setStartBab(6); setEndBab(10); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                  startBab === 6 && endBab === 10
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${startBab === 6 && endBab === 10
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}
                               >
                                 Bab 6 s/d 10 (Kata Kerja & Partikel)
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setStartBab(1); setEndBab(classChapters.length); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                  startBab === 1 && endBab === classChapters.length
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${startBab === 1 && endBab === classChapters.length
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}
                               >
                                 Semua Bab (1 s/d {classChapters.length})
                               </button>
@@ -1364,22 +1351,20 @@ export default function LmsQuizGenerate() {
                               <button
                                 type="button"
                                 onClick={() => { setStartBab(1); setEndBab(Math.min(2, classChapters.length)); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                  startBab === 1 && endBab === Math.min(2, classChapters.length)
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${startBab === 1 && endBab === Math.min(2, classChapters.length)
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}
                               >
                                 Bab 1 s/d {Math.min(2, classChapters.length)}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => { setStartBab(1); setEndBab(classChapters.length); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                  startBab === 1 && endBab === classChapters.length
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${startBab === 1 && endBab === classChapters.length
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}
                               >
                                 Semua Bab (1 s/d {classChapters.length})
                               </button>
@@ -1496,7 +1481,7 @@ export default function LmsQuizGenerate() {
 
               {/* Right Column (5 cols): Modul Materi yang Ter-cover Real-time */}
               <div className="lg:col-span-5 space-y-4">
-                
+
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4 sticky top-6">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
@@ -1607,9 +1592,9 @@ export default function LmsQuizGenerate() {
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 2 && (
             <div className="max-w-4xl mx-auto space-y-6">
-              
+
               <div className="bg-white rounded-3xl border border-slate-200/90 p-7 shadow-2xs space-y-6">
-                
+
                 {/* Header Section */}
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                   <div>
@@ -1642,9 +1627,8 @@ export default function LmsQuizGenerate() {
                       setPassingGrade(75);
                       setComposition({ vocabulary: 15, grammar: 13, kanji: 5, reading: 4, situational: 3 });
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      totalQuestions === 40 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${totalQuestions === 40 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
                   >
                     <span>🎓 Standar UKOM (40 Soal / 90 Mnt)</span>
                   </button>
@@ -1656,9 +1640,8 @@ export default function LmsQuizGenerate() {
                       setPassingGrade(75);
                       setComposition({ vocabulary: 4, grammar: 2, kanji: 2, reading: 1, situational: 1 });
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      totalQuestions === 10 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${totalQuestions === 10 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
                   >
                     <span>📝 Kuis Harian (10 Soal / 15 Mnt)</span>
                   </button>
@@ -1670,9 +1653,8 @@ export default function LmsQuizGenerate() {
                       setPassingGrade(75);
                       setComposition({ vocabulary: 7, grammar: 6, kanji: 3, reading: 2, situational: 2 });
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      totalQuestions === 20 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${totalQuestions === 20 ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
                   >
                     <span>⚡ Uji Tengah Bab (20 Soal / 30 Mnt)</span>
                   </button>
@@ -1745,9 +1727,8 @@ export default function LmsQuizGenerate() {
                     <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
                       Distribusi 5 Pilar Soal UKOM & JLPT:
                     </span>
-                    <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${
-                      isCompositionValid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}>
+                    <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${isCompositionValid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
                       Total Alokasi: {compositionSum} / {totalQuestions} Soal
                     </span>
                   </div>
@@ -1820,11 +1801,10 @@ export default function LmsQuizGenerate() {
                     type="button"
                     disabled={!isCompositionValid}
                     onClick={handleStartGeneration}
-                    className={`px-6 py-3 rounded-2xl font-black text-xs text-white shadow-md transition flex items-center gap-2 ${
-                      isCompositionValid
-                        ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                        : 'bg-slate-400 opacity-60 cursor-not-allowed'
-                    }`}
+                    className={`px-6 py-3 rounded-2xl font-black text-xs text-white shadow-md transition flex items-center gap-2 ${isCompositionValid
+                      ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                      : 'bg-slate-400 opacity-60 cursor-not-allowed'
+                      }`}
                   >
                     <FileCheck className="w-4 h-4" />
                     <span>Mulai Generate Butir Soal</span>
@@ -1841,9 +1821,9 @@ export default function LmsQuizGenerate() {
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 3 && (
             <div className="max-w-2xl mx-auto py-12 text-center space-y-6">
-              
+
               <div className="bg-white rounded-3xl border border-slate-200/90 p-8 md:p-10 shadow-lg space-y-6">
-                
+
                 {/* Animated Pulsing Icon */}
                 <div className="relative w-20 h-20 mx-auto">
                   <div className="absolute inset-0 rounded-full bg-blue-600/20 animate-ping" />
@@ -1880,13 +1860,12 @@ export default function LmsQuizGenerate() {
                   {generationJob.stages.map(st => (
                     <div
                       key={st.id}
-                      className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition ${
-                        st.status === 'done'
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                          : st.status === 'running'
+                      className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition ${st.status === 'done'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : st.status === 'running'
                           ? 'bg-blue-50 border-blue-300 text-blue-900 ring-1 ring-blue-300'
                           : 'bg-slate-50 border-slate-200 text-slate-400'
-                      }`}
+                        }`}
                     >
                       <span>{st.name}</span>
                       {st.status === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
@@ -1906,10 +1885,10 @@ export default function LmsQuizGenerate() {
           {/* ════════════════════════════════════════════════════════════ */}
           {currentStep === 4 && generatedQuiz && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              
+
               {/* Left Column (8 cols): Question Cards & Details */}
               <div className="lg:col-span-8 space-y-4">
-                
+
                 {/* Header Card */}
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1981,16 +1960,14 @@ export default function LmsQuizGenerate() {
                           return (
                             <div
                               key={opt.key}
-                              className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center justify-between ${
-                                isCorrect
-                                  ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950 ring-1 ring-emerald-400'
-                                  : 'bg-slate-50 border-slate-200 text-slate-700'
-                              }`}
+                              className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center justify-between ${isCorrect
+                                ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950 ring-1 ring-emerald-400'
+                                : 'bg-slate-50 border-slate-200 text-slate-700'
+                                }`}
                             >
                               <div className="flex items-center gap-3">
-                                <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${
-                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
-                                }`}>
+                                <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                                  }`}>
                                   {opt.key}
                                 </span>
                                 <span>{opt.text}</span>
@@ -2045,7 +2022,7 @@ export default function LmsQuizGenerate() {
 
               {/* Right Column (4 cols): Question Grid Selector & Publish CTA */}
               <div className="lg:col-span-4 space-y-4">
-                
+
                 <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5 sticky top-6">
                   <div>
                     <h3 className="text-sm font-black text-slate-900">
@@ -2065,11 +2042,10 @@ export default function LmsQuizGenerate() {
                           key={q.id}
                           type="button"
                           onClick={() => setActivePreviewIndex(idx)}
-                          className={`h-10 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center border ${
-                            isCur
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                          }`}
+                          className={`h-10 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center border ${isCur
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                            }`}
                         >
                           {q.id}
                         </button>

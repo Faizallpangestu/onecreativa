@@ -37,10 +37,8 @@ import {
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { moduleApi } from '../../utils/moduleApi';
-import bannerImg from '../../assets/fuji_pagoda_banner.jpg';
 import examAppleImg from '../../assets/exam_apple.jpg';
 import examStudentStudyImg from '../../assets/exam_student_study.jpg';
-import quizExamChecklistImg from '../../assets/quiz_exam_checklist.jpg';
 import ukomHeroBannerImg from '../../assets/ukom_hero_banner.jpg';
 import { getStoredStudents, isClassMatching } from '../../services/lmsStudentData';
 
@@ -179,7 +177,7 @@ export default function LmsUkom() {
   const [displayMode, setDisplayMode] = useState('grid'); // 'grid' (cards) | 'table' (Bootstrap-style table)
 
   // Role switcher: detects admin / sensei from localStorage or default to admin
-  const [activeRole, setActiveRole] = useState(() => {
+  const [activeRole] = useState(() => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const r = (user.role || user.role_name || '').toLowerCase();
@@ -250,7 +248,7 @@ export default function LmsUkom() {
   const [flagged, setFlagged] = useState({});
   const [timeLeft, setTimeLeft] = useState(90 * 60);
   const [examSubmitted, setExamSubmitted] = useState(false);
-  const [examScoreResult, setExamScoreResult] = useState(null);
+  const [_examScoreResult, setExamScoreResult] = useState(null);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // ── EXAM PACKETS REPOSITORY (STANDAR LMS CREATIVA - PERSISTENT LOCALSTORAGE) ──
@@ -841,44 +839,34 @@ export default function LmsUkom() {
     }
   ], []);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ── CBT TIMER COUNTDOWN EFFECT ──
-  // ─────────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (viewMode !== 'cbt_exam' || examSubmitted) return;
+// ─────────────────────────────────────────────────────────────────────────────
+    // ── CBT CURRENT QUESTION COMPUTED ──
+    // ─────────────────────────────────────────────────────────────────────────────
+    const activeQuestionsList = useMemo(() => {
+      if (activeExam?.questions && Array.isArray(activeExam.questions) && activeExam.questions.length > 0) {
+        return activeExam.questions.map((q, idx) => ({
+          id: idx + 1,
+          category: q.category || 'Moji & Goi',
+          question: q.question,
+          translation: q.translation || '',
+          options: q.options || [],
+          correct: q.correct || q.correct_key || q.correctKey || 'A',
+          explanation: q.explanation || ''
+        }));
+      }
+      return questionsData;
+    }, [activeExam, questionsData]);
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleAutoSubmitTimeUp();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [viewMode, examSubmitted]);
+    const totalExamQuestions = activeQuestionsList.length;
+    const currentQData = activeQuestionsList.find(q => q.id === currentQuestion) || activeQuestionsList[0] || questionsData[0];
+    const answeredCount = Object.keys(answers).length;
+    const progressPercent = totalExamQuestions > 0 ? Math.round((answeredCount / totalExamQuestions) * 100) : 0;
 
   const formatTimer = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const handleAutoSubmitTimeUp = () => {
-    Swal.fire({
-      title: '⏰ Waktu Ujian Telah Habis!',
-      text: 'Sistem otomatis mengumpulkan lembar jawaban Anda.',
-      icon: 'info',
-      confirmButtonText: 'Lihat Hasil Nilai',
-      confirmButtonColor: '#2563eb',
-      customClass: { popup: 'rounded-3xl' }
-    }).then(() => {
-      calculateAndFinishExam();
-    });
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1001,6 +989,35 @@ export default function LmsUkom() {
       setViewMode('portal');
     });
   };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ── CBT TIMER COUNTDOWN EFFECT ──
+  // ─────────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (viewMode !== 'cbt_exam' || examSubmitted) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [viewMode, examSubmitted]);
+
+  useEffect(() => {
+    if (viewMode === 'cbt_exam' && !examSubmitted && timeLeft === 0) {
+      Swal.fire({
+        title: '⏰ Waktu Ujian Telah Habis!',
+        text: 'Sistem otomatis mengumpulkan lembar jawaban Anda.',
+        icon: 'info',
+        confirmButtonText: 'Lihat Hasil Nilai',
+        confirmButtonColor: '#2563eb',
+        customClass: { popup: 'rounded-3xl' }
+      }).then(() => {
+        calculateAndFinishExam();
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, examSubmitted, timeLeft]);
 
   const handleConfirmSubmit = () => {
     const answeredCount = Object.keys(answers).length;
@@ -1182,28 +1199,7 @@ export default function LmsUkom() {
       });
     };
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // ── CBT CURRENT QUESTION COMPUTED ──
-    // ─────────────────────────────────────────────────────────────────────────────
-    const activeQuestionsList = useMemo(() => {
-      if (activeExam?.questions && Array.isArray(activeExam.questions) && activeExam.questions.length > 0) {
-        return activeExam.questions.map((q, idx) => ({
-          id: idx + 1,
-          category: q.category || 'Moji & Goi',
-          question: q.question,
-          translation: q.translation || '',
-          options: q.options || [],
-          correct: q.correct || q.correct_key || q.correctKey || 'A',
-          explanation: q.explanation || ''
-        }));
-      }
-      return questionsData;
-    }, [activeExam, questionsData]);
 
-    const totalExamQuestions = activeQuestionsList.length;
-    const currentQData = activeQuestionsList.find(q => q.id === currentQuestion) || activeQuestionsList[0] || questionsData[0];
-    const answeredCount = Object.keys(answers).length;
-    const progressPercent = totalExamQuestions > 0 ? Math.round((answeredCount / totalExamQuestions) * 100) : 0;
 
     // ─────────────────────────────────────────────────────────────────────────────
     // ── RENDER COMPONENT ──

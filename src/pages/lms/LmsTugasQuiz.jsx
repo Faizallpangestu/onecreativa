@@ -59,19 +59,12 @@ import {
   ChevronUp
 } from 'lucide-react';
 import {
-  getStoredStudents,
-  ensureRealStudentsLoaded,
-  isClassMatching,
-  getAvatarFromEmail
+  isClassMatching
 } from '../../services/lmsStudentData';
 import bannerImg from '../../assets/fuji_pagoda_banner.jpg';
 import quizHeroBannerImg from '../../assets/quiz_hero_banner.jpg';
-import animeGirlImg from '../../assets/anime_girl.jpg';
-import quizChecklistImg from '../../assets/quiz_exam_checklist.jpg';
 import toriiGateImg from '../../assets/torii_gate_sunset.jpg';
-import kyotoStreetImg from '../../assets/kyoto_street.jpg';
 import osakaCastleImg from '../../assets/osaka_castle.jpg';
-import examAppleImg from '../../assets/exam_apple.jpg';
 import Swal from 'sweetalert2';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6193,16 +6186,13 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
     if (activeForcedMode && activeForcedMode !== mainTab) {
       setMainTab(activeForcedMode);
     }
-  }, [activeForcedMode]);
+  }, [activeForcedMode, mainTab]);
 
   // Class Rombel Filter: 'Semua Kelas' | 'N5 Pagi' | 'N4 A - PAGI'
   const [selectedClassFilter, setSelectedClassFilter] = useState('Semua Kelas');
 
-  // 5 Pillars Curriculum Filter: 'ALL' | 'Vocabulary' | 'Grammar' | 'Reading' | 'Listening' | 'Situasional'
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-
   // JLPT Level Filter: 'ALL' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
-  const [selectedLevel, setSelectedLevel] = useState('ALL');
+  const [selectedLevel] = useState('ALL');
 
   // Redesign States matching mockup:
   const [selectedLevels, setSelectedLevels] = useState(['N5']); // Default matching mockup
@@ -6242,15 +6232,6 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
     }
     return INITIAL_QUIZZES;
   });
-
-  // ── SENSEI QUICK GENERATOR HERO COCKPIT STATE ──
-  const [quickGenMode, setQuickGenMode] = useState('range_bab'); // 'range_bab' | 'range_meeting'
-  const [quickGenStartBab, setQuickGenStartBab] = useState(1);
-  const [quickGenEndBab, setQuickGenEndBab] = useState(5);
-  const [quickGenStartMeeting, setQuickGenStartMeeting] = useState(1);
-  const [quickGenEndMeeting, setQuickGenEndMeeting] = useState(4);
-  const [quickGenClass, setQuickGenClass] = useState('N5 Pagi');
-  const [quickGenCount, setQuickGenCount] = useState(10);
 
   // ── UKOM DAFTAR SOAL SIMULATOR MODAL STATE ──
   const [activeExamModal, setActiveExamModal] = useState(null); // active quiz/task object
@@ -6439,7 +6420,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
   };
 
   // ── SENSEI ACTIONS: BUKA / TUTUP AKSES ──
-  const handleToggleAccess = (type, itemId, e) => {
+  const _handleToggleAccess = (type, itemId, e) => {
     e?.stopPropagation();
     if (type === 'task') {
       setTasks(prev => prev.map(t => {
@@ -7179,7 +7160,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Filtered Tugas
-  const filteredTasks = useMemo(() => {
+  const _filteredTasks = useMemo(() => {
     return tasks.filter(t => {
       // Class Rombel Filter
       if (selectedClassFilter !== 'Semua Kelas' && t.classRoom && !isClassMatching(t.classRoom, selectedClassFilter)) {
@@ -9389,6 +9370,7 @@ export default function LmsTugasQuiz({ initialTab, forcedMode } = {}) {
                                       deadlineDate: nextDateStr
                                     }));
                                   } catch (err) {
+                                    void err;
                                     setBuilderForm(prev => ({ ...prev, deadlineDuration: dur }));
                                   }
                                 }}

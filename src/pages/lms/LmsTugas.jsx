@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import bannerImg from '../../assets/fuji_pagoda_banner.jpg';
@@ -8,10 +8,8 @@ import {
   getStoredTasks,
   addStoredTask,
   updateStoredTask,
-  deleteStoredTask,
   getTaskSubmissionsForTask,
   saveStudentGrade,
-  getStoredStudents,
   ensureRealStudentsLoaded,
   isClassMatching
 } from '../../services/lmsStudentData';
@@ -132,7 +130,7 @@ export default function LmsTugas() {
         setStudentsList(getTaskSubmissionsForTask(matchingTask.id, matchingTask.classRoom));
       } else {
         const placeholder = {
-          id: `task-${Date.now()}`,
+          id: `task-${String(cls).toLowerCase().replace(/[^a-z0-9]/g, '-')}-${taskList.length + 1}`,
           title: `Tugas Pembelajaran ${cls}`,
           subtitle: `Tugas aktif untuk siswa terdaftar di ${cls}`,
           classRoom: cls,

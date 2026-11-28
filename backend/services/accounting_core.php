@@ -93,7 +93,17 @@ function ac_audit(mysqli $db,array $actor,string $entity,string $id,string $acti
     $selfHash = hash('sha256', $prevHash.$logId.$entity.$id.$action.$actorId.$ts);
     $db->query("UPDATE accounting_audit_logs SET hash_self='$selfHash' WHERE id=$logId");
 }
-function ac_atomic(mysqli $db, callable $call) { $db->begin_transaction(); try { $result=$call(); $db->commit(); return $result; } catch(Throwable $error) { $db->rollback(); throw $error; } }
+function ac_atomic(mysqli $db, callable $call) {
+    $db->begin_transaction();
+    try { $result=$call(); $db->commit(); return $result; }
+    catch (Throwable $error) {
+        $db->rollback();
+        if ($error instanceof mysqli_sql_exception && $error->getCode() === 1205) {
+            ac_fail('Data sedang diproses oleh permintaan lain. Periksa hasil sebelum mencoba kembali.', 409);
+        }
+        throw $error;
+    }
+}
 function ac_key($value): string { $key=ac_text($value,'Idempotency key',100); if (!preg_match('/^[a-zA-Z0-9_-]{8,100}$/D',str_replace('-','_',$key))) ac_fail('Idempotency key tidak valid.'); return $key; }
 function ac_retry(mysqli $db,array $actor,string $key,string $operation,array $payload):?array {
     // Caller owns the transaction. Serialize per actor before any document locks.

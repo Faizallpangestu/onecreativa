@@ -53,7 +53,7 @@ async function main() {
     await db.query('SET FOREIGN_KEY_CHECKS=1');
     if (!(await db.query("SHOW COLUMNS FROM users LIKE 'deleted_at'"))[0].length) await db.query('ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL');
     await db.query("INSERT INTO roles(id,name,label) VALUES(1,'super_admin','Admin'),(2,'peserta_intensif','Siswa'),(3,'lpk','LPK')");
-    const hash = execFileSync('C:/Muhammadfaizal/php/php.exe', ['-r', "echo password_hash('synthetic-test-only',PASSWORD_DEFAULT);"], { encoding: 'utf8' });
+    const hash = execFileSync(process.env.PHP_BIN || 'C:/Muhammadfaizal/php/php.exe', ['-r', "echo password_hash('synthetic-test-only',PASSWORD_DEFAULT);"], { encoding: 'utf8' });
     for (const [id, role, email] of [[101,1,'admin@example.test'],[201,2,'history@example.test'],[202,2,'clean@example.test'],[203,2,'orphan@example.test'],[301,3,'lpk@example.test']]) await db.execute('INSERT INTO users(id,email,password_hash,role_id,is_active) VALUES(?,?,?,?,1)', [id,email,hash,role]);
     await db.query("INSERT INTO employees(id,user_id,employee_code,full_name,position,join_date) VALUES(10,101,'ADMIN-TEST','Synthetic Admin','ADMIN','2026-01-01'),(20,201,'HISTORY-TEST','History Learner','PESERTA_INTENSIF','2026-01-01'),(30,202,'CLEAN-TEST','Clean Learner','PESERTA_INTENSIF','2026-01-01')");
     await db.query("INSERT INTO peserta_intensif(id,user_id,nama_lengkap,email,no_wa,level,batch) VALUES(50,201,'History Learner','history@example.test','','N5','Test Batch'),(60,202,'Clean Learner','clean@example.test','','N5','Test Batch')");
@@ -61,9 +61,9 @@ async function main() {
     const apiPort = await port(), uiPort = await port(), chromePort = await port();
     const env = { ...process.env, CREATIVA_PRIVATE_UPLOAD_DIR: path.join(dir,'uploads'), CREATIVA_RELEASE_TEST_DB: name, CREATIVA_API_TARGET: 'http://127.0.0.1:' + apiPort };
     const start = (exe, args) => { const log = fs.openSync(path.join(dir,'process-' + processes.length + '.log'), 'a'); const p = spawn(exe,args,{cwd:root,env,windowsHide:true,stdio:['ignore',log,log]}); processes.push(p); fs.closeSync(log); };
-    start('C:/Muhammadfaizal/php/php.exe',['-d','session.save_path=' + path.join(dir,'sessions'),'-S','127.0.0.1:' + apiPort,'backend/tests/release_test_router.php']);
+    start(process.env.PHP_BIN || 'C:/Muhammadfaizal/php/php.exe',['-d','session.save_path=' + path.join(dir,'sessions'),'-S','127.0.0.1:' + apiPort,'backend/tests/release_test_router.php']);
     start(process.execPath,['node_modules/vite/bin/vite.js',...(process.argv.includes('--preview')?['preview']:[]),'--host','127.0.0.1','--port',String(uiPort),'--strictPort']);
-    start('C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--disable-gpu','--disable-extensions','--disable-component-extensions-with-background-pages','--no-first-run','--no-default-browser-check','--remote-debugging-address=127.0.0.1','--remote-debugging-port=' + chromePort,'--user-data-dir=' + path.join(dir,'chrome'),'about:blank']);
+    start(process.env.CHROME_BIN || 'C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--disable-gpu','--disable-extensions','--disable-component-extensions-with-background-pages','--no-first-run','--no-default-browser-check','--remote-debugging-address=127.0.0.1','--remote-debugging-port=' + chromePort,'--user-data-dir=' + path.join(dir,'chrome'),'about:blank']);
     const origin = 'http://127.0.0.1:' + uiPort;
     await Promise.all([ready(origin),ready('http://127.0.0.1:' + apiPort + '/api/session.php'),ready('http://127.0.0.1:' + chromePort + '/json/version')]);
     const ws = new WebSocket((await fetch('http://127.0.0.1:' + chromePort + '/json/version').then(r=>r.json())).webSocketDebuggerUrl);

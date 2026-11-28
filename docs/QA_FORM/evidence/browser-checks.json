@@ -1,0 +1,11 @@
+{
+  "verified_at": "2026-11-27",
+  "initial_status": "Blocked - local database absent",
+  "final_status": "Pass",
+  "command": "node tools/release-browser-check.cjs",
+  "final_exit_code": 0,
+  "checks_passed": 29,
+  "evidence": "docs/audit/release-browser-verification.json; docs/audit/release-mobile.png; docs/QA_FORM/evidence/browser-verification-2026-11-27.json",
+  "resolution": "Local database seeded, PHP_BIN/CHROME_BIN overrides added, stale UI labels and batch fixture updated, and three backend blockers fixed. Browser process logs remain under backend/storage/qa/.",
+  "known_ui_gap": "Student task page /lms/tugas uses localStorage demo data; task, submission and grade verification therefore uses the real API payload. Recorded as DEF-005."
+}

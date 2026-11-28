@@ -250,12 +250,13 @@ if ($method === 'GET') {
             $selSource = in_array('source', $pCols, true) ? "p.source" : "'manual' AS source";
             $selPhone = in_array('no_wa', $pCols, true) ? "p.no_wa AS phone" : (in_array('phone', $pCols, true) ? "p.phone" : "'' AS phone");
             $selEmail = in_array('email', $pCols, true) ? "p.email" : "'' AS email";
-            $selName = in_array('nama_lengkap', $pCols, true) ? "p.nama_lengkap AS nama" : (in_array('nama', $pCols, true) ? "p.nama" : "'Siswa' AS nama");
+            $nameExpr = in_array('nama_lengkap', $pCols, true) ? "p.nama_lengkap" : (in_array('nama', $pCols, true) ? "p.nama" : "'Siswa'");
+            $selName = $nameExpr . " AS nama";
 
             $sql = "
                 SELECT p.id, $selName, $selPhone, $selEmail, $selNis, $selProg, $selKota, $selStatus, $selSource,
-                       COALESCE((SELECT COUNT(*) FROM billing_invoices bi WHERE bi.customer = $selName), 0) AS jmlInv,
-                       COALESCE((SELECT SUM(bi.total) FROM billing_invoices bi WHERE bi.customer = $selName), 0) AS total
+                       COALESCE((SELECT COUNT(*) FROM billing_invoices bi WHERE bi.customer = $nameExpr), 0) AS jmlInv,
+                       COALESCE((SELECT SUM(bi.total) FROM billing_invoices bi WHERE bi.customer = $nameExpr), 0) AS total
                 FROM peserta_intensif p
             ";
 
@@ -386,6 +387,7 @@ if ($method === 'POST') {
         $id=ac_text($body['id']??'','Nomor invoice',50);$date=ac_date($body['tanggal']??'');$due=ac_date($body['jatuhTempo']??'');if($due<$date)ac_fail('Jatuh tempo harus setelah tanggal invoice.');
         $name=ac_text($body['customer']??'','Customer',255);$email=ac_text($body['email']??'','Email',255,false);if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))ac_fail('Email tidak valid.');$phone=ac_text($body['phone']??'','Telepon',50,false);$description=ac_text($body['keterangan']??'','Keterangan',10000,false);
         $amount=ac_decimal(ac_cents(is_int($body['total']??null)?(string)$body['total']:($body['total']??'')));if($amount==='0.00')ac_fail('Nominal invoice harus positif.');
+        if (array_key_exists('status', $body) && $body['status'] !== 'Unpaid') ac_fail('Invoice baru harus berstatus Unpaid.');
         $statusInput = $body['status'] ?? 'Unpaid';
         $statusVal = in_array($statusInput, ['Unpaid', 'Paid', 'Partially Paid', 'Overdue', 'Belum Lunas', 'Lunas', 'Sebagian']) ? $statusInput : 'Unpaid';
         $metaPayload = [];

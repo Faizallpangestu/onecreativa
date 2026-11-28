@@ -115,6 +115,7 @@
         }
       },
       "id": "node-p2-email",
+      "disabled": true,
       "name": "4b. Kirim Email Receipt + PDF",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
@@ -133,7 +134,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const payload = $('2. Normalisasi Payload Receipt').first().json;\nconst items = $input.all().map((i) => i.json || {});\nconst hasAnySuccess = items.some((x) => !x.error && x.status !== false);\n\nreturn [{\n  json: {\n    action: 'mark_receipt_delivery',\n    invoice_id: payload.invoice_id,\n    stage: 'phase2_receipt',\n    kanal: 'Keduanya',\n    penerima: payload.whatsapp_phone || payload.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    details: {\n      receipt_number: payload.receipt_number,\n      payment_id: payload.payment_id,\n      channelResponses: items\n    }\n  }\n}];"
+        "jsCode": "const payload = $('2. Normalisasi Payload Receipt').first().json;\nconst items = $input.all().map((i) => i.json || {});\nconst hasAnySuccess = items.some((x) => !x.error && x.status !== false);\n\nreturn [{\n  json: {\n    action: 'mark_receipt_delivery',\n    invoice_id: payload.invoice_id,\n    stage: 'phase2_receipt',\n    kanal: 'WhatsApp',\n    penerima: payload.whatsapp_phone || payload.email || '-',\n    statusKirim: hasAnySuccess ? 'Terkirim' : 'Gagal',\n    details: {\n      receipt_number: payload.receipt_number,\n      payment_id: payload.payment_id,\n      channelResponses: items\n    }\n  }\n}];"
       },
       "id": "node-p2-build-log",
       "name": "5b. Ringkas Status Receipt",
@@ -179,13 +180,12 @@
     "3. Playwright - Render PDF Receipt": {
       "main": [
         [
-          { "node": "4a. Kirim WhatsApp Receipt + PDF", "type": "main", "index": 0 },
-          { "node": "4b. Kirim Email Receipt + PDF", "type": "main", "index": 0 }
+          { "node": "4a. Kirim WhatsApp Receipt + PDF", "type": "main", "index": 0 }
         ]
       ]
     },
     "4a. Kirim WhatsApp Receipt + PDF": {
-      "main": [[{ "node": "5a. Tunggu WA & Email", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "5b. Ringkas Status Receipt", "type": "main", "index": 0 }]]
     },
     "4b. Kirim Email Receipt + PDF": {
       "main": [[{ "node": "5a. Tunggu WA & Email", "type": "main", "index": 1 }]]
